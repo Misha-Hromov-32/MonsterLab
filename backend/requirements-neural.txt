@@ -1,0 +1,12 @@
+# Нейросеть внимания DeepGaze IIE. torch/torchvision ставятся отдельно — с CPU-индекса:
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 torchvision==0.20.1
+# DeepGaze и CLIP не публикуются в PyPI, поэтому ставятся из git по зафиксированным коммитам.
+setuptools
+packaging
+ftfy==6.3.1
+regex==2026.9.10
+tqdm==4.70.1
+einops==0.8.2
+boltons==26.2.0
+clip @ git+https://github.com/openai/CLIP.git@d05afc436d78f1c48dc0dbf8e5980a9d471f35f6
+deepgaze_pytorch @ git+https://github.com/matthias-k/DeepGaze.git@c7db17e2d1d7ea6468ffdee2cfaddf141095dcff

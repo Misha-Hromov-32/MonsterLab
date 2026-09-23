@@ -1,0 +1,38 @@
+name: monster-lab
+
+services:
+  backend:
+    build:
+      context: ./backend
+      args:
+        NEURAL: ${NEURAL:-1}
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TRUST_PROXY: "1"  # бэкенд виден только nginx — ему можно верить в X-Real-IP
+    volumes:
+      - data:/data
+    # DeepGaze в пике занимает ~1.3 ГБ; без нейросети (NEURAL=0) хватит и 256 МБ
+    mem_limit: ${BACKEND_MEM_LIMIT:-1800m}
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    environment:
+      # за своим HTTPS-прокси на том же сервере — адрес сети Docker, см. docs/deploy.md
+      REAL_IP_FROM: ${REAL_IP_FROM:-127.0.0.1}
+    ports:
+      - "${PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  data:

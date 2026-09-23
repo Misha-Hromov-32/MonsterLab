@@ -1,0 +1,8 @@
+{
+  "name": "monster-lab-covers",
+  "private": true,
+  "description": "Иконки Lucide для шаблонов обложек",
+  "dependencies": {
+    "lucide-static": "^1.47.0"
+  }
+}

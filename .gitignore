@@ -1,0 +1,33 @@
+# ---------- окружение и секреты
+.env
+*.local
+
+# ---------- Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ---------- Node / фронтенд
+node_modules/
+frontend/dist/
+
+# ---------- генератор обложек: исходные фото и промежуточные файлы
+tools/covers/stock/
+tools/covers/cut/
+tools/covers/html/
+tools/covers/out/
+
+# ---------- ОС и редакторы
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Локальные данные бэкенда (настройки, примеры, пароль админки)
+backend/data/

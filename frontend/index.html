@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Monster Lab — лаборатория внимания</title>
+    <meta
+      name="description"
+      content="Прогноз внимания покупателя к обложкам товаров для Wildberries и Ozon: тепловая карта, метрики, тест среди конкурентов."
+    />
+    <!-- один тег: цвет под выбранную тему ставят скрипт ниже и переключатель темы -->
+    <meta name="theme-color" content="#ffffff" />
+    <meta property="og:title" content="Monster Lab — лаборатория внимания" />
+    <meta property="og:description" content="Куда посмотрит покупатель — до того, как карточка выйдет в выдачу." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://monsterlab.hromovms.ru/" />
+    <script>
+      // тема до загрузки CSS, чтобы страница не мигала: выбор пользователя или системная
+      ;(function () {
+        var t = null
+        try {
+          t = localStorage.getItem('ml.theme')
+        } catch (e) {}
+        if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        document.documentElement.dataset.theme = t
+        var m = document.querySelector('meta[name="theme-color"]')
+        if (m) m.setAttribute('content', t === 'dark' ? '#121212' : '#ffffff')
+      })()
+    </script>
+  </head>
+  <body>
+    <noscript>Для работы Monster Lab нужен JavaScript.</noscript>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

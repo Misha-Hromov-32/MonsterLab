@@ -1,0 +1,202 @@
+[
+  {
+    "slug": "thermos",
+    "title": "Термокружка 500 мл",
+    "context": {
+      "query": "термос 500 мл",
+      "category": "посуда, термосы",
+      "price": "1290",
+      "audience": ""
+    },
+    "rev": 3,
+    "description": "Один термос — четыре подхода: яркая инфографика, тёмная сцена, светлая «аптечная» подача и акция −35%. Рядом шесть конкурентов из выдачи.",
+    "variants": [
+      {
+        "file": "thermos/variant-1.jpg",
+        "title": "Инфографика"
+      },
+      {
+        "file": "thermos/variant-2.jpg",
+        "title": "Тёмная сцена"
+      },
+      {
+        "file": "thermos/variant-3.jpg",
+        "title": "Светлая подача"
+      },
+      {
+        "file": "thermos/variant-4.jpg",
+        "title": "Акция"
+      }
+    ],
+    "competitors": [
+      {
+        "file": "thermos/competitor-1.jpg"
+      },
+      {
+        "file": "thermos/competitor-2.jpg"
+      },
+      {
+        "file": "thermos/competitor-3.jpg"
+      },
+      {
+        "file": "thermos/competitor-4.jpg"
+      },
+      {
+        "file": "thermos/competitor-5.jpg"
+      },
+      {
+        "file": "thermos/competitor-6.jpg"
+      }
+    ]
+  },
+  {
+    "slug": "coffee",
+    "title": "Кофе в зёрнах 1 кг",
+    "context": {
+      "query": "кофе в зёрнах 1 кг",
+      "category": "кофе и чай",
+      "price": "1490",
+      "audience": ""
+    },
+    "rev": 3,
+    "description": "Крафт-пакет в четырёх подачах: инфографика, «свежая обжарка» на тёмной сцене, светлая specialty-подача и скидка — среди реальных пачек конкурентов.",
+    "variants": [
+      {
+        "file": "coffee/variant-1.jpg",
+        "title": "Инфографика"
+      },
+      {
+        "file": "coffee/variant-2.jpg",
+        "title": "Тёмная сцена"
+      },
+      {
+        "file": "coffee/variant-3.jpg",
+        "title": "Светлая подача"
+      },
+      {
+        "file": "coffee/variant-4.jpg",
+        "title": "Акция"
+      }
+    ],
+    "competitors": [
+      {
+        "file": "coffee/competitor-1.jpg"
+      },
+      {
+        "file": "coffee/competitor-2.jpg"
+      },
+      {
+        "file": "coffee/competitor-3.jpg"
+      },
+      {
+        "file": "coffee/competitor-4.jpg"
+      },
+      {
+        "file": "coffee/competitor-5.jpg"
+      },
+      {
+        "file": "coffee/competitor-6.jpg"
+      }
+    ]
+  },
+  {
+    "slug": "cream",
+    "title": "Крем для лица 50 мл",
+    "context": {
+      "query": "увлажняющий крем для лица",
+      "category": "косметика",
+      "price": "990",
+      "audience": "женщины 25–40"
+    },
+    "rev": 3,
+    "description": "Баночка крема: розовая инфографика, «увлажнение 72 часа», светлая бьюти-подача и акция — какую обложку заметят в бьюти-выдаче.",
+    "variants": [
+      {
+        "file": "cream/variant-1.jpg",
+        "title": "Инфографика"
+      },
+      {
+        "file": "cream/variant-2.jpg",
+        "title": "Тёмная сцена"
+      },
+      {
+        "file": "cream/variant-3.jpg",
+        "title": "Светлая подача"
+      },
+      {
+        "file": "cream/variant-4.jpg",
+        "title": "Акция"
+      }
+    ],
+    "competitors": [
+      {
+        "file": "cream/competitor-1.jpg"
+      },
+      {
+        "file": "cream/competitor-2.jpg"
+      },
+      {
+        "file": "cream/competitor-3.jpg"
+      },
+      {
+        "file": "cream/competitor-4.jpg"
+      },
+      {
+        "file": "cream/competitor-5.jpg"
+      },
+      {
+        "file": "cream/competitor-6.jpg"
+      }
+    ]
+  },
+  {
+    "slug": "headphones",
+    "title": "Беспроводные наушники",
+    "context": {
+      "query": "беспроводные наушники с шумоподавлением",
+      "category": "электроника",
+      "price": "7990",
+      "audience": ""
+    },
+    "rev": 3,
+    "description": "Полноразмерные наушники: инфографика, «тишина −40 дБ», светлая подача и скидка −45% среди наушников конкурентов.",
+    "variants": [
+      {
+        "file": "headphones/variant-1.jpg",
+        "title": "Инфографика"
+      },
+      {
+        "file": "headphones/variant-2.jpg",
+        "title": "Тёмная сцена"
+      },
+      {
+        "file": "headphones/variant-3.jpg",
+        "title": "Светлая подача"
+      },
+      {
+        "file": "headphones/variant-4.jpg",
+        "title": "Акция"
+      }
+    ],
+    "competitors": [
+      {
+        "file": "headphones/competitor-1.jpg"
+      },
+      {
+        "file": "headphones/competitor-2.jpg"
+      },
+      {
+        "file": "headphones/competitor-3.jpg"
+      },
+      {
+        "file": "headphones/competitor-4.jpg"
+      },
+      {
+        "file": "headphones/competitor-5.jpg"
+      },
+      {
+        "file": "headphones/competitor-6.jpg"
+      }
+    ]
+  }
+]

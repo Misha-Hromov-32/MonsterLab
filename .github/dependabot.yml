@@ -1,0 +1,64 @@
+# Раз в месяц — по одному pull request на каждую часть проекта (обновления сгруппированы).
+# Мажорные скачки, которые заведомо ломают сборку, не предлагаем:
+#   Python в образе — PyTorch 2.5 собран только под 3.9–3.13;
+#   Node — держимся LTS (22), нечётные версии без долгой поддержки;
+#   TypeScript 7 — новый компилятор, vue-tsc его пока не поддерживает.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: monthly
+    groups:
+      backend:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: monthly
+    groups:
+      frontend:
+        patterns: ['*']
+    ignore:
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: docker
+    directories: [/backend, /frontend]
+    schedule:
+      interval: monthly
+    groups:
+      images:
+        patterns: ['*']
+    ignore:
+      - dependency-name: python
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: pip
+    directory: /tools/covers
+    schedule:
+      interval: monthly
+    groups:
+      covers-python:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /tools/covers
+    schedule:
+      interval: monthly
+    groups:
+      covers-npm:
+        patterns: ['*']

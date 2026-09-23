@@ -1,0 +1,27 @@
+# Настройки инструментов разработки. Зависимости — в requirements*.txt (их же ставит Dockerfile).
+# Правила ruff отсюда же подхватывает tools/covers/ruff.toml.
+
+[project]
+name = "monster-lab-backend"
+version = "2.2.0"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning", "ignore::PIL.Image.DecompressionBombWarning"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "BLE", "UP", "SIM", "RUF"]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # кириллица в строках и комментариях — это нормально
+    "B008",                        # File(...)/Depends(...) в аргументах — идиома FastAPI
+    "B905",                        # zip() без strict: длины совпадают по построению
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

@@ -1,0 +1,5 @@
+# Те же правила, что у бэкенда
+extend = "../../backend/pyproject.toml"
+
+[lint.per-file-ignores]
+"make_covers.py" = ["E501"]  # HTML/CSS-шаблоны обложек читаются лучше длинными строками
