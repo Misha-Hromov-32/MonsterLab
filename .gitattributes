@@ -1,0 +1,11 @@
+# Все текстовые файлы — с LF, чтобы Docker-образы и shell-скрипты собирались одинаково на любой ОС
+* text=auto eol=lf
+
+*.jpg  binary
+*.jpeg binary
+*.png  binary
+*.ico  binary
+
+# lock-файлы не участвуют в статистике языков GitHub
+frontend/package-lock.json linguist-generated
+tools/covers/package-lock.json linguist-generated

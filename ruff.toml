@@ -1,0 +1,17 @@
+# Общие правила для всего Python-кода: backend/ и tools/
+line-length = 120
+target-version = "py311"
+
+[lint]
+select = ["E", "W", "F", "I", "B", "BLE", "UP", "SIM", "RUF"]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # кириллица в строках и комментариях — это нормально
+    "B008",                        # File(...)/Depends(...) в аргументах — идиома FastAPI
+    "B905",                        # zip() без strict: длины совпадают по построению
+]
+
+[lint.per-file-ignores]
+"tools/covers/make_covers.py" = ["E501"]     # HTML/CSS-шаблоны обложек читаются лучше длинными строками
+
+[lint.isort]
+known-first-party = ["app"]

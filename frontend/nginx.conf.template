@@ -1,0 +1,53 @@
+# Шаблон: при старте контейнера nginx подставляет переменные окружения (${REAL_IP_FROM}).
+server {
+  listen 80;
+  server_name _;
+  root /usr/share/nginx/html;
+  server_tokens off;
+
+  # тест полки присылает до 12 конкурентов по 25 МБ (MAX_UPLOAD_MB по умолчанию) за один запрос —
+  # поднимете MAX_UPLOAD_MB, поднимите и этот лимит
+  client_max_body_size 320m;
+  gzip on;
+  gzip_types text/css application/javascript application/json image/svg+xml;
+
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+  add_header X-Frame-Options "SAMEORIGIN" always;
+
+  # Адрес клиента за внешним прокси (Caddy и т. п.): X-Forwarded-For принимается только от
+  # REAL_IP_FROM. По умолчанию — никому не верим (127.0.0.1 внутри контейнера не бывает).
+  set_real_ip_from ${REAL_IP_FROM};
+  real_ip_header X-Forwarded-For;
+  real_ip_recursive on;
+
+  location /api/ {
+    proxy_pass http://backend:8000;
+    proxy_set_header Host $host;
+    # по этому адресу бэкенд ограничивает частоту запросов
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    # тест полки с нейросетью на слабом сервере может идти несколько минут — ждём до 10
+    proxy_read_timeout 600s;
+    proxy_send_timeout 600s;
+  }
+
+  # add_header внутри location отменяет заголовки уровня server, поэтому они повторены.
+  # У собранных файлов хэш в имени — кэшируем навсегда.
+  location /assets/ {
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    try_files $uri =404;
+  }
+
+  location / {
+    add_header Cache-Control "no-cache";
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    try_files $uri $uri/ /index.html;
+  }
+}

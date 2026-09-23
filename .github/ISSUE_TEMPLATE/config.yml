@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Уязвимость
+    url: https://github.com/Misha-Hromov-32/MonsterLab/security/advisories/new
+    about: Об уязвимостях сообщайте закрыто, не в открытых issue — см. SECURITY.md

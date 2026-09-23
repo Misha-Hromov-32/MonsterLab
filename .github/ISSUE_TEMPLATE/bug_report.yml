@@ -1,0 +1,34 @@
+name: Ошибка
+description: Что-то работает не так, как ожидалось
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Что случилось
+      description: Что вы делали, что ожидали увидеть и что увидели на самом деле.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить
+      placeholder: |
+        1. Загрузить обложку …
+        2. Открыть вкладку «Полка» …
+  - type: dropdown
+    id: setup
+    attributes:
+      label: Как запущен сервис
+      options:
+        - Docker Compose (с нейросетью)
+        - Docker Compose (NEURAL=0)
+        - Локально (uvicorn + vite)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Журнал
+      description: Вывод `docker compose logs backend` или консоль браузера. Ключи и пароли удалите.
+      render: text

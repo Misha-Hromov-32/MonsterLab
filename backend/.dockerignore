@@ -1,0 +1,10 @@
+# В образ попадают только requirements*, scripts/, seed/ и app/
+.venv/
+data/
+tests/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+pyproject.toml
+requirements-dev.txt

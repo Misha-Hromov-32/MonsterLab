@@ -1,0 +1,2 @@
+pillow>=11
+rembg[cpu]>=2.0.60
