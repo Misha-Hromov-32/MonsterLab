@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { baseName } from '../lib/format'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Crop, Download, Smartphone, RefreshCw } from 'lucide-vue-next'
 import HeatImage from './HeatImage.vue'
@@ -82,7 +83,7 @@ function createAoi(rect: { x: number; y: number; w: number; h: number }) {
       <div class="toolbar">
         <div class="caption num">
           <span class="fig">Вариант {{ current.key }}</span>
-          <span class="fname" :title="current.name">{{ current.name }}</span>
+          <span class="fname" :title="current.name">{{ baseName(current.name) }}</span>
         </div>
         <div class="controls">
           <Segmented v-model="state.mode" :options="OVERLAY_MODES" label="Режим наложения" />

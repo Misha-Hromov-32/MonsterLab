@@ -1,6 +1,9 @@
+import { authHeader } from './lib/session'
 import type {
   Analysis,
+  BillingPlan,
   CompareResult,
+  CompetitorSearch,
   Critique,
   ExampleResults,
   Health,
@@ -8,6 +11,8 @@ import type {
   Showcase,
   ShelfResult,
   Site,
+  Session,
+  User,
 } from './lib/types'
 
 /** Ошибка API: message — готовая фраза для пользователя, code — для логики (image_expired и т. п.). */
@@ -68,6 +73,12 @@ export const jsonBody = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 })
 
+/** Запрос покупателя: добавляет токен входа. Админские запросы сюда не ходят — у них свой токен. */
+export const withAuth = (init: RequestInit = {}): RequestInit => ({
+  ...init,
+  headers: { ...init.headers, ...authHeader() },
+})
+
 export const api = {
   health: () => request<Health>('/api/health', {}, { timeoutMs: 10_000 }),
   site: () => request<Site>('/api/public/site', {}, { timeoutMs: 10_000 }),
@@ -90,8 +101,33 @@ export const api = {
   },
 
   critique: (id: string, context: object) =>
-    request<Critique>('/api/expert/critique', jsonBody('POST', { id, context }), { timeoutMs: 300_000 }),
+    request<Critique>('/api/expert/critique', withAuth(jsonBody('POST', { id, context })), { timeoutMs: 300_000 }),
 
   compare: (variants: Record<string, string>, context: object) =>
-    request<CompareResult>('/api/expert/compare', jsonBody('POST', { variants, context }), { timeoutMs: 300_000 }),
+    request<CompareResult>('/api/expert/compare', withAuth(jsonBody('POST', { variants, context })), {
+      timeoutMs: 300_000,
+    }),
+
+  // ---------------------------------------------------------- аккаунт, подписка, платные инструменты
+
+  register: (email: string, password: string) =>
+    request<Session>('/api/auth/register', jsonBody('POST', { email, password }), { timeoutMs: 20_000 }),
+  login: (email: string, password: string) =>
+    request<Session>('/api/auth/login', jsonBody('POST', { email, password }), { timeoutMs: 20_000 }),
+  me: () => request<User>('/api/auth/me', withAuth(), { timeoutMs: 15_000 }),
+
+  billingPlan: () => request<BillingPlan>('/api/billing/plan', {}, { timeoutMs: 15_000 }),
+  checkout: () =>
+    request<{ url: string }>('/api/billing/checkout', withAuth({ method: 'POST' }), { timeoutMs: 30_000 }),
+
+  /** улучшенная обложка рисуется 30–60 секунд */
+  improve: (id: string, context: object, issues: string[]) =>
+    request<{ image: string }>('/api/improve', withAuth(jsonBody('POST', { id, context, issues })), {
+      timeoutMs: 300_000,
+    }),
+
+  competitors: (query: string, limit: number) =>
+    request<CompetitorSearch>(`/api/competitors?${new URLSearchParams({ query, limit: String(limit) })}`, withAuth(), {
+      timeoutMs: 60_000,
+    }),
 }

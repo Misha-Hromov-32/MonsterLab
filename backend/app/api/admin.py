@@ -14,7 +14,7 @@ from ..core.imaging import BadImage
 from ..errors import api_error
 from ..ratelimit import client_ip, login_limit
 from ..schemas import ProductContext
-from ..services import auth, expert, site
+from ..services import auth, billing, expert, site
 from .deps import read_upload, require_admin
 
 router = APIRouter(prefix="/api/admin")
@@ -76,6 +76,7 @@ def get_settings() -> dict:
         "examples": [site.example_out(e) for e in data["examples"]],
         "expert": _expert_out(),
         "designs": list(site.DESIGNS),
+        "billing": {**data["billing"], "enabled": billing.enabled()},
     }
 
 
@@ -123,6 +124,30 @@ def put_expert(body: ExpertSettings) -> dict:
 
     site.update(apply)
     return _expert_out()
+
+
+class FeatureLimits(BaseModel):
+    expert: int = Field(ge=0, le=10_000)
+    improve: int = Field(ge=0, le=10_000)
+    competitors: int = Field(ge=0, le=10_000)
+
+
+class Limits(BaseModel):
+    free: FeatureLimits
+    pro: FeatureLimits
+
+
+class BillingSettings(BaseModel):
+    price_rub: int = Field(ge=1, le=1_000_000)
+    period_days: int = Field(ge=1, le=366)
+    limits: Limits
+
+
+@guarded.put("/billing")
+def put_billing(body: BillingSettings) -> dict:
+    """Цена, срок подписки и дневные лимиты. Ключи ЮKassa — только в переменных окружения."""
+    site.update(lambda d: d.__setitem__("billing", body.model_dump()))
+    return {**body.model_dump(), "enabled": billing.enabled()}
 
 
 @guarded.post("/expert/check")

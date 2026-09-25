@@ -50,12 +50,17 @@ def admin_password() -> str:
 
 
 @cache
-def _signing_key() -> bytes:
-    password = admin_password().encode()  # до блокировки: admin_password() сама берёт _lock
+def secret() -> bytes:
+    """Случайный секрет сервера из DATA_DIR — основа подписей токенов (админки и покупателей)."""
     with _lock:
         if not SECRET_FILE.exists():
             _private_file(SECRET_FILE, secrets.token_bytes(32))
-        return SECRET_FILE.read_bytes() + password
+        return SECRET_FILE.read_bytes()
+
+
+@cache
+def _signing_key() -> bytes:
+    return secret() + admin_password().encode()
 
 
 def _sign(msg: str) -> str:

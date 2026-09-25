@@ -2,6 +2,9 @@ import { SCORE_GOOD, SCORE_WARN } from './constants'
 
 export type Tone = 'good' | 'warn' | 'bad'
 
+/** «Инфографика.jpg» → «Инфографика»: расширение на экране только отнимает место. */
+export const baseName = (name: string) => name.replace(/\.(jpe?g|png|webp)$/i, '')
+
 export const pct = (v: number, digits = 0) => `${(v * 100).toFixed(digits)}%`
 
 export function tone(v: number): Tone {
@@ -40,4 +43,17 @@ export function modelName(id: string) {
     .map((w) => BRANDS[w.toLowerCase()] ?? (/^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(' ')
     .replace(/^GPT (\d)/, 'GPT-$1')
+}
+
+/** unix-секунды → «25 октября 2026» */
+export function formatDate(sec: number) {
+  // «г.» в конце браузер добавляет сам — в строке «до 25 октября 2026» он лишний
+  return new Date(sec * 1000)
+    .toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    .replace(/\s*г\.$/, '')
+}
+
+/** «990 ₽ / 30 дней» */
+export function priceLabel(rub: number, days: number) {
+  return `${rub.toLocaleString('ru-RU')} ₽ / ${days} ${plural(days, ['день', 'дня', 'дней'])}`
 }

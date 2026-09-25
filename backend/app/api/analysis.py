@@ -13,7 +13,7 @@ from ..core import saliency, shelf
 from ..core.report import cover_report
 from ..errors import api_error
 from ..ratelimit import analysis_limit
-from ..services import expert
+from ..services import billing, expert, marketplace
 from ..services.uploads import store
 from .deps import read_image
 
@@ -28,6 +28,12 @@ def health() -> dict:
         "version": __version__,
         "neural": saliency.deepgaze.ready,
         "expert": {"enabled": cfg.enabled, "models": cfg.models},
+        # что из платных функций доступно на этом сервере — интерфейс прячет остальное
+        "features": {
+            "improve": cfg.enabled,
+            "competitors": marketplace.available(),
+            "billing": billing.enabled(),
+        },
     }
 
 

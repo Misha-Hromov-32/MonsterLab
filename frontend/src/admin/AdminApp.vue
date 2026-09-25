@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch, type Component } from 'vue'
-import { ExternalLink, Image as ImageIcon, LayoutTemplate, LogOut, Sparkles } from 'lucide-vue-next'
+import { CreditCard, ExternalLink, Image as ImageIcon, LayoutTemplate, LogOut, Sparkles } from 'lucide-vue-next'
 import Logo from '../components/Logo.vue'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import ToastMessage from '../components/ToastMessage.vue'
@@ -8,15 +8,17 @@ import LoginView from './LoginView.vue'
 import LandingPanel from './LandingPanel.vue'
 import ExamplesPanel from './ExamplesPanel.vue'
 import ExpertPanel from './ExpertPanel.vue'
+import BillingPanel from './BillingPanel.vue'
 import { adminApi, auth, setToken } from './adminApi'
 import { TOAST_MS } from '../lib/constants'
 import type { AdminSettings } from '../lib/types'
 
-type Tab = 'landing' | 'examples' | 'expert'
+type Tab = 'landing' | 'examples' | 'expert' | 'billing'
 const tabs: { id: Tab; title: string; icon: Component }[] = [
   { id: 'landing', title: 'Главная', icon: LayoutTemplate },
   { id: 'examples', title: 'Примеры', icon: ImageIcon },
   { id: 'expert', title: 'Экспертный разбор', icon: Sparkles },
+  { id: 'billing', title: 'Подписка', icon: CreditCard },
 ]
 
 function tabFromHash(): Tab {
@@ -102,7 +104,8 @@ onUnmounted(() => {
       <template v-if="data">
         <LandingPanel v-if="tab === 'landing'" :data="data" @saved="notify" />
         <ExamplesPanel v-else-if="tab === 'examples'" :data="data" @changed="reload" @notify="notify" />
-        <ExpertPanel v-else :data="data" @notify="notify" @changed="reload" />
+        <ExpertPanel v-else-if="tab === 'expert'" :data="data" @notify="notify" @changed="reload" />
+        <BillingPanel v-else :data="data" @notify="notify" @changed="reload" />
       </template>
     </main>
 

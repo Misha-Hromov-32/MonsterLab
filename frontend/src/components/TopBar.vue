@@ -3,7 +3,8 @@ import { computed, type Component } from 'vue'
 import { Columns3, Eye, LayoutGrid, Plus, Upload } from 'lucide-vue-next'
 import Logo from './Logo.vue'
 import ThemeToggle from './ThemeToggle.vue'
-import { addFiles, featuredExample, loadExample, ready, resetAll, state } from '../store'
+import AccountButton from './AccountButton.vue'
+import { addFiles, featuredExample, loadExample, paidAvailable, ready, resetAll, state } from '../store'
 import { useFilePicker } from '../lib/useFilePicker'
 import type { View } from '../lib/types'
 
@@ -101,6 +102,8 @@ function home() {
     <div class="actions">
       <span v-if="state.healthError" class="status" role="status"><i class="dot bad" />Сервис недоступен</span>
       <ThemeToggle />
+      <!-- аккаунт нужен только для платных функций: если на сервере их нет, кнопку не показываем -->
+      <AccountButton v-if="paidAvailable" />
       <template v-if="!working">
         <button v-if="featuredExample" type="button" class="btn pill hide-sm" @click="loadExample(featuredExample)">
           Открыть пример
@@ -295,7 +298,8 @@ function home() {
   }
 }
 
-@media (max-width: 420px) {
+/* с кнопкой входа подписи не помещаются раньше — оставляем иконки */
+@media (max-width: 520px) {
   .hide-xs {
     display: none;
   }

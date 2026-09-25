@@ -57,6 +57,16 @@ DEFAULTS: dict = {
     },
     "examples": [],
     "expert": {"api_key": "", "base_url": "", "models": []},
+    # Подписка: цена, срок и дневные лимиты платных функций для бесплатного и платного тарифа.
+    # Анализ обложек и тест полки бесплатны и без входа — это витрина сервиса.
+    "billing": {
+        "price_rub": 990,
+        "period_days": 30,
+        "limits": {
+            "free": {"expert": 3, "improve": 1, "competitors": 3},
+            "pro": {"expert": 100, "improve": 30, "competitors": 50},
+        },
+    },
     "seeded": {},  # {slug встроенного примера: ревизия}
 }
 

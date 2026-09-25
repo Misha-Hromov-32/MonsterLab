@@ -4,7 +4,7 @@ import { Plus, Replace, RotateCcw, X, AlertCircle } from 'lucide-vue-next'
 import { addFiles, analyze, expertEnabled, removeVariant, state } from '../store'
 import { MAX_VARIANTS } from '../lib/constants'
 import { KEYS, type Key } from '../lib/types'
-import { tone } from '../lib/format'
+import { baseName, tone } from '../lib/format'
 import { useFilePicker } from '../lib/useFilePicker'
 
 const extra = ref(false)
@@ -45,7 +45,7 @@ function select(key: Key) {
                 <span class="key num">{{ key }}</span>
               </span>
               <span class="meta">
-                <span class="fname" :title="v.name">{{ v.name }}</span>
+                <span class="fname" :title="v.name">{{ baseName(v.name) }}</span>
                 <span v-if="v.status === 'loading'" class="state num loading">анализ…</span>
                 <span v-else-if="v.status === 'error'" class="state num err"><AlertCircle :size="12" /> ошибка</span>
                 <span v-else-if="v.analysis" class="state num">
@@ -147,6 +147,13 @@ function select(key: Key) {
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 10px;
+}
+
+/* в узкой колонке подсказка не помещается рядом с заголовком — ставим её под ним */
+.extra .head {
+  display: grid;
+  gap: 3px;
+  justify-content: start;
 }
 
 .hint {
@@ -358,7 +365,7 @@ function select(key: Key) {
   }
   .slots {
     grid-auto-flow: column;
-    grid-auto-columns: minmax(200px, 1fr);
+    grid-auto-columns: minmax(236px, 1fr); /* имя варианта помещается рядом с миниатюрой и кнопками */
     overflow-x: auto;
     padding-bottom: 4px;
     scrollbar-width: none;

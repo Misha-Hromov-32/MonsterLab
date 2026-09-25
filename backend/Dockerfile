@@ -26,6 +26,19 @@ RUN if [ "$NEURAL" = "1" ]; then \
     fi \
  && rm requirements-neural.txt fetch_weights.py
 
+# Браузер для подбора конкурентов с Wildberries (~300 МБ в образе, ~200 МБ памяти на время поиска).
+# Chromium — из репозитория Debian: сборки Playwright лежат на серверах Google, которые из России
+# скачиваются с обрывами. Без браузера: --build-arg MARKETPLACE=0 — остальной сервис работает как прежде.
+ARG MARKETPLACE=1
+COPY requirements-marketplace.txt ./
+RUN if [ "$MARKETPLACE" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends chromium fonts-liberation \
+   && rm -rf /var/lib/apt/lists/* \
+   && pip install -r requirements-marketplace.txt; \
+    fi \
+ && rm requirements-marketplace.txt
+ENV BROWSER_PATH=/usr/bin/chromium
+
 COPY seed ./seed
 COPY app ./app
 

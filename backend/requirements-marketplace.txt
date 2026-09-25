@@ -1,0 +1,3 @@
+# Подбор конкурентов из выдачи Wildberries: страница выдачи открывается в headless Chromium.
+# Сам браузер ставится командой «playwright install --with-deps chromium» (в Docker — автоматически).
+playwright==1.63.0

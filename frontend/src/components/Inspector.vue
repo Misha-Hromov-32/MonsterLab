@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import { X } from 'lucide-vue-next'
 import MetricRow from './MetricRow.vue'
 import CritiquePanel from './CritiquePanel.vue'
+import ImprovePanel from './ImprovePanel.vue'
+import { features } from '../store'
 import { aoiStat } from '../lib/heat'
 import { pct, tone } from '../lib/format'
 import { AOI_LABELS, AOI_LIFT_OK, AOI_LIFT_STRONG, SCORE_GOOD } from '../lib/constants'
@@ -159,6 +161,9 @@ function remove(id: string) {
         </li>
       </ul>
     </section>
+
+    <!-- сразу после выводов: «вот что не так» → «перерисовать с учётом этого» -->
+    <ImprovePanel v-if="features.improve" :variant="variant" />
 
     <section>
       <div class="sec-head"><span class="label">Палитра</span></div>

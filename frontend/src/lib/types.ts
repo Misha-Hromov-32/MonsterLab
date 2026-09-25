@@ -82,7 +82,8 @@ export interface Critique {
 export interface CompareResult {
   /** id моделей, которые не ответили; в интерфейсе — только их число */
   errors: string[]
-  ranking: { key: Key; strength: number; wins: number; played: number }[]
+  /** chance — вероятность выбора в процентах (целые, в сумме 100) */
+  ranking: { key: Key; strength: number; chance: number; wins: number; played: number }[]
   records: { model: string; shown: [Key, Key]; winner: Key; confidence: number; reason: string }[]
 }
 
@@ -118,6 +119,12 @@ export interface Variant {
   critique?: Critique
   critiqueStatus: Status
   critiqueError?: string
+  /** улучшенная обложка (data URL), которую нарисовала нейросеть по выводам разбора */
+  improved?: string
+  improveStatus: Status
+  improveError?: string
+  /** когда запустили генерацию — индикатор не начинается заново при переключении вариантов */
+  improveStartedAt?: number
 }
 
 export interface Health {
@@ -126,6 +133,51 @@ export interface Health {
   /** работает ли нейросеть внимания; false — классический движок */
   neural: boolean
   expert: { enabled: boolean; models: string[] }
+  /** какие платные функции доступны на сервере: выключенные интерфейс прячет */
+  features?: { improve: boolean; competitors: boolean; billing: boolean }
+}
+
+// ------------------------------------------------------------ аккаунт и подписка
+
+export type Feature = 'expert' | 'improve' | 'competitors'
+export type FeatureLimits = Record<Feature, number>
+export type Plan = 'free' | 'pro'
+
+export interface User {
+  email: string
+  plan: Plan
+  /** до какого момента действует Pro, unix-секунды */
+  pro_until: number | null
+  /** запуски за сегодня и дневные лимиты тарифа */
+  usage: FeatureLimits
+  limits: FeatureLimits
+}
+
+export interface Session {
+  token: string
+  user: User
+}
+
+/** Условия подписки: /api/billing/plan и раздел «Подписка» в админке. */
+export interface BillingPlan {
+  /** подключена ли оплата (ключи ЮKassa заданы на сервере) */
+  enabled: boolean
+  price_rub: number
+  period_days: number
+  limits: Record<Plan, FeatureLimits>
+}
+
+export interface CompetitorItem {
+  id: string
+  brand: string
+  name: string
+  /** картинка на нашем сервере — тот же адрес, без обращения к маркетплейсу из браузера */
+  url: string
+}
+
+export interface CompetitorSearch {
+  query: string
+  items: CompetitorItem[]
 }
 
 export type OverlayMode = 'original' | 'heat' | 'fog' | 'contours' | 'gaze'
@@ -228,4 +280,5 @@ export interface AdminSettings {
   examples: Example[]
   expert: ExpertSettings
   designs: Design[]
+  billing: BillingPlan
 }

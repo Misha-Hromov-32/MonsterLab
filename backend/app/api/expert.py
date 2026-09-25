@@ -1,4 +1,4 @@
-"""Экспертный разбор: платные запросы к моделям, поэтому с лимитом частоты."""
+"""Экспертный разбор: платные запросы к моделям — только после входа, в пределах дневного лимита тарифа."""
 
 from __future__ import annotations
 
@@ -12,8 +12,9 @@ from .. import config
 from ..errors import api_error
 from ..ratelimit import expert_limit
 from ..schemas import ProductContext
-from ..services import expert
+from ..services import accounts, expert
 from ..services.uploads import store
+from .deps import paid
 
 log = logging.getLogger(__name__)
 
@@ -39,22 +40,26 @@ def _require_enabled() -> None:
 
 
 @router.post("/critique")
-async def critique(req: CritiqueRequest) -> dict:
+async def critique(req: CritiqueRequest, user: accounts.User = Depends(paid("expert"))) -> dict:
     _require_enabled()
     image = await asyncio.to_thread(store.data_url, req.id)
     try:
-        return await expert.critique(image, req.context.model_dump())
+        result = await expert.critique(image, req.context.model_dump())
     except expert.ExpertError as exc:
         log.warning("Экспертный разбор не удался: %s", exc)
         raise api_error(502, "expert_failed", FAILED) from exc
+    await asyncio.to_thread(accounts.spend, user, "expert")
+    return result
 
 
 @router.post("/compare")
-async def compare(req: CompareRequest) -> dict:
+async def compare(req: CompareRequest, user: accounts.User = Depends(paid("expert"))) -> dict:
     _require_enabled()
     images = {k: await asyncio.to_thread(store.data_url, v) for k, v in req.variants.items()}
     try:
-        return await expert.compare(images, req.context.model_dump())
+        result = await expert.compare(images, req.context.model_dump())
     except expert.ExpertError as exc:
         log.warning("Экспертный разбор не удался: %s", exc)
         raise api_error(502, "expert_failed", FAILED) from exc
+    await asyncio.to_thread(accounts.spend, user, "expert")
+    return result

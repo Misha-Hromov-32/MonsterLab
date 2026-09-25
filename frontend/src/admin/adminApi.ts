@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
 import { ApiError, jsonBody, request } from '../api'
-import type { AdminSettings, Example, ExpertSettings, Landing } from '../lib/types'
+import type { AdminSettings, BillingPlan, Example, ExpertSettings, Landing } from '../lib/types'
 
 // Токен в localStorage: сайт не встраивает чужих скриптов, а токен живёт неделю и
 // обнуляется сменой пароля. Для httpOnly-cookie понадобился бы CSRF-токен — не стоит того.
@@ -44,6 +44,8 @@ export const adminApi = {
   saveLanding: (landing: Landing) => call<{ ok: true }>('/api/admin/landing', jsonBody('PUT', landing)),
   saveExpert: (body: { api_key?: string | null; base_url: string; models: string[] }) =>
     call<ExpertSettings>('/api/admin/expert', jsonBody('PUT', body)),
+  /** цена, срок и дневные лимиты; в ответе — ещё и подключена ли оплата */
+  saveBilling: (body: Omit<BillingPlan, 'enabled'>) => call<BillingPlan>('/api/admin/billing', jsonBody('PUT', body)),
   checkExpert: () => call<{ results: CheckResult[] }>('/api/admin/expert/check', { method: 'POST' }, 90_000),
 
   createExample: (title: string) => call<Example>('/api/admin/examples', jsonBody('POST', { title })),

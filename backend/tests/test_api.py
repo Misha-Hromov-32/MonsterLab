@@ -52,8 +52,9 @@ def test_rejects_bad_input(client: TestClient) -> None:
     assert r.json()["detail"]["code"] == "image_expired"
 
 
-def test_expert_disabled_without_key(client: TestClient) -> None:
-    r = client.post("/api/expert/critique", json={"id": "whatever"})
+def test_expert_needs_login_then_key(client: TestClient, user_headers: dict) -> None:
+    assert client.post("/api/expert/critique", json={"id": "x"}).json()["detail"]["code"] == "login_required"
+    r = client.post("/api/expert/critique", json={"id": "whatever"}, headers=user_headers)
     assert r.status_code == 503
     assert r.json()["detail"]["code"] == "expert_disabled"
 
@@ -103,8 +104,9 @@ def test_unknown_routes_answer_in_api_format(client: TestClient) -> None:
         assert set(r.json()["detail"]) == {"code", "message"}
 
 
-def test_validation_error_names_field_in_russian(client: TestClient) -> None:
-    r = client.post("/api/expert/critique", json={"id": "x", "context": {"price": "1" * 50}})
+def test_validation_error_names_field_in_russian(client: TestClient, user_headers: dict) -> None:
+    body = {"id": "x", "context": {"price": "1" * 50}}
+    r = client.post("/api/expert/critique", json=body, headers=user_headers)
     detail = r.json()["detail"]
     assert r.status_code == 422 and "цена" in detail["message"]
 

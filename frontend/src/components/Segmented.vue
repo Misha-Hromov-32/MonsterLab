@@ -86,4 +86,13 @@ button.on {
   padding: 0 9px;
   font-size: 12px;
 }
+
+/* узкий телефон: все пять режимов помещаются без прокрутки */
+@media (max-width: 420px) {
+  button,
+  .sm button {
+    padding: 0 7px;
+    font-size: 11.5px;
+  }
+}
 </style>

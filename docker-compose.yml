@@ -6,6 +6,7 @@ services:
       context: ./backend
       args:
         NEURAL: ${NEURAL:-1}
+        MARKETPLACE: ${MARKETPLACE:-1}
     env_file:
       - path: .env
         required: false

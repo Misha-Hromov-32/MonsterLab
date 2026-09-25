@@ -7,7 +7,11 @@ import AnalyzeView from './components/AnalyzeView.vue'
 import CompareView from './components/CompareView.vue'
 import ShelfView from './components/ShelfView.vue'
 import ToastMessage from './components/ToastMessage.vue'
-import { addFiles, loadHealth, loadSite, state } from './store'
+import LoginDialog from './components/LoginDialog.vue'
+import AccountDialog from './components/AccountDialog.vue'
+import TariffsDialog from './components/TariffsDialog.vue'
+import { addFiles, loadHealth, loadSite, state, toast } from './store'
+import { account, checkPaymentReturn, refreshMe } from './lib/account'
 
 // ?preview=1 — главная внутри iframe админки: только витрина, без опроса сервиса
 // и без перехвата перетаскивания файлов (иначе он мешал бы самой админке).
@@ -46,6 +50,9 @@ onMounted(() => {
   loadSite()
   if (preview) return
   loadHealth()
+  // вернулись со страницы оплаты — дождёмся подтверждения; иначе просто обновим тариф и лимиты
+  if (new URLSearchParams(location.search).get('payment') === 'return') checkPaymentReturn(toast)
+  else refreshMe()
   window.addEventListener('dragenter', onEnter)
   window.addEventListener('dragleave', onLeave)
   window.addEventListener('dragover', onOver)
@@ -80,6 +87,10 @@ onUnmounted(() => {
         </div>
       </div>
     </Transition>
+
+    <LoginDialog v-if="account.dialog === 'login'" />
+    <AccountDialog v-else-if="account.dialog === 'account'" />
+    <TariffsDialog v-else-if="account.dialog === 'tariffs'" />
 
     <ToastMessage :message="state.toast" />
   </div>

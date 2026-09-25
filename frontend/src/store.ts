@@ -1,7 +1,9 @@
 import { computed, reactive, watch } from 'vue'
 import { api, ApiError } from './api'
-import { MAX_COMPETITORS, MAX_VARIANTS, TOAST_MS } from './lib/constants'
-import { IMAGE_HINT, isImage } from './lib/files'
+import { COMPETITOR_SEARCH_LIMIT, IMPROVE_MAX_ISSUES, MAX_COMPETITORS, MAX_VARIANTS, TOAST_MS } from './lib/constants'
+import { dataUrlToFile, IMAGE_HINT, isImage } from './lib/files'
+import { baseName, plural } from './lib/format'
+import { paidError, refreshMe, requireLogin } from './lib/account'
 import { KEYS } from './lib/types'
 import type {
   ExampleResults,
@@ -65,6 +67,8 @@ export const state = reactive({
   /** когда запустили тест полки — индикатор не начинается заново при возврате на вкладку */
   shelfStartedAt: 0,
   competitors: [] as { file: File; url: string }[],
+  /** подбор конкурентов из выдачи маркетплейса */
+  competitorSearch: { status: 'idle' as Status, error: '' },
   toast: '',
 })
 
@@ -81,6 +85,20 @@ export const ready = computed(() => state.variants.filter((v) => v.status === 'r
 const analyzed = computed(() => state.variants.filter((v) => v.analysis))
 export const freeKeys = computed(() => KEYS.filter((k) => !state.variants.some((v) => v.key === k)))
 export const expertEnabled = computed(() => !!state.health?.expert.enabled)
+/** Платные инструменты, доступные на этом сервере; пока статус не пришёл — всё скрыто. */
+export const features = computed(() => ({
+  improve: !!state.health?.features?.improve,
+  competitors: !!state.health?.features?.competitors,
+  billing: !!state.health?.features?.billing,
+}))
+/** Платные функции, которые есть на сервере, — только их показываем в лимитах и тарифах. */
+export const availableFeatures = computed(() =>
+  (['expert', 'improve', 'competitors'] as const).filter((f) =>
+    f === 'expert' ? expertEnabled.value : features.value[f],
+  ),
+)
+/** Есть ли вообще что-то, ради чего входить в аккаунт. */
+export const paidAvailable = computed(() => availableFeatures.value.length > 0)
 
 // Вкладка стала недоступной (удалили вариант, разбор ещё идёт) — возвращаем на «Разбор»,
 // иначе экран остался бы открыт при выключенной кнопке. Условия те же, что у вкладок в TopBar.
@@ -132,6 +150,7 @@ function newVariant(key: Key, file: File): Variant {
     status: 'idle',
     aois: [],
     critiqueStatus: 'idle',
+    improveStatus: 'idle',
   }) as Variant
 }
 
@@ -179,6 +198,9 @@ function replaceVariant(key: Key, file: File) {
     critique: undefined,
     critiqueStatus: 'idle',
     critiqueError: undefined,
+    improved: undefined,
+    improveStatus: 'idle',
+    improveError: undefined,
     aois: [],
   })
   analyze(v)
@@ -198,6 +220,8 @@ export function removeVariant(key: Key) {
 /** «Новый анализ»: сбрасывает варианты, конкурентов и результаты — возвращает на главную. */
 export function resetAll() {
   inflight.forEach((c) => c.abort())
+  searchGen++
+  state.competitorSearch = { status: 'idle', error: '' }
   state.variants.forEach((v) => URL.revokeObjectURL(v.url))
   state.competitors.forEach((c) => URL.revokeObjectURL(c.url))
   state.variants.splice(0)
@@ -220,9 +244,12 @@ function invalidateComparisons() {
   invalidateShelf()
 }
 
-/** Сообщение об ошибке разбора: понятную причину от сервера (например, слишком длинные данные) показываем как есть. */
-function expertError(e: unknown) {
-  return e instanceof ApiError && e.code === 'bad_request' ? e.message : EXPERT_FAIL
+/**
+ * Сообщение об ошибке разбора: нужен вход или кончился лимит — открываем нужный диалог,
+ * понятную причину от сервера (например, слишком длинные данные) показываем как есть.
+ */
+function expertError(e: unknown, retry: () => void) {
+  return paidError(e, retry) ?? (e instanceof ApiError && e.code === 'bad_request' ? e.message : EXPERT_FAIL)
 }
 
 export async function analyze(v: Variant) {
@@ -263,6 +290,8 @@ async function withIds<T>(vs: Variant[], fn: (ids: Record<string, string>) => Pr
 
 export async function runCritique(v: Variant) {
   if (!v.analysis) return
+  const retry = () => runCritique(v)
+  if (!requireLogin('Войдите, чтобы получить экспертный разбор', retry)) return
   const file = v.file
   v.critiqueStatus = 'loading'
   v.critiqueError = undefined
@@ -271,16 +300,18 @@ export async function runCritique(v: Variant) {
     if (v.file !== file) return
     v.critique = critique
     v.critiqueStatus = 'ready'
+    refreshMe()
   } catch (e) {
     if (v.file !== file) return
     v.critiqueStatus = 'error'
-    v.critiqueError = expertError(e)
+    v.critiqueError = expertError(e, retry)
   }
 }
 
 export async function runCompare() {
   const vs = ready.value
   if (vs.length < 2) return
+  if (!requireLogin('Войдите, чтобы узнать, какой вариант скорее выберут', runCompare)) return
   const gen = compareGen
   state.compareStatus = 'loading'
   state.compareError = ''
@@ -289,12 +320,57 @@ export async function runCompare() {
     if (gen !== compareGen) return
     state.compare = result
     state.compareStatus = 'ready'
+    refreshMe()
   } catch (e) {
     if (gen !== compareGen) return
     state.compareStatus = 'error'
-    state.compareError = expertError(e)
+    state.compareError = expertError(e, runCompare)
   }
 }
+
+// ------------------------------------------------------------ улучшенная обложка
+
+const IMPROVE_FAIL = 'Не удалось нарисовать улучшенную обложку. Попробуйте ещё раз через минуту.'
+
+/** Замечания экспертов «проблема — как исправить» без повторов: нейросеть учтёт их при перерисовке. */
+export function critiqueIssues(v: Variant) {
+  const all = (v.critique?.opinions ?? []).flatMap((o) => o.issues ?? []).map((i) => `${i.problem} — ${i.fix}`)
+  return [...new Set(all)].slice(0, IMPROVE_MAX_ISSUES)
+}
+
+export async function runImprove(v: Variant) {
+  if (!v.analysis || v.improveStatus === 'loading') return
+  const retry = () => runImprove(v)
+  if (!requireLogin('Войдите, чтобы сгенерировать улучшенную обложку', retry)) return
+  const file = v.file
+  v.improveStatus = 'loading'
+  v.improveError = undefined
+  v.improveStartedAt = Date.now()
+  try {
+    const { image } = await withIds([v], (ids) => api.improve(ids[v.key], state.context, critiqueIssues(v)))
+    if (v.file !== file) return // пока рисовали, вариант заменили — картинка уже не про него
+    v.improved = image
+    v.improveStatus = 'ready'
+    refreshMe()
+  } catch (e) {
+    if (v.file !== file) return
+    v.improveStatus = 'error'
+    v.improveError = paidError(e, retry) ?? (e instanceof ApiError && e.status < 500 ? e.message : IMPROVE_FAIL)
+  }
+}
+
+/** Файл улучшенной обложки — с понятным именем, чтобы в списке вариантов было видно, откуда она. */
+export function improvedFile(v: Variant) {
+  return v.improved ? dataUrlToFile(v.improved, `${baseName(v.name)} — улучшенная.jpg`) : null
+}
+
+/** Улучшенная обложка становится новым вариантом (или заменяет target) и проходит обычный анализ. */
+export function addImproved(v: Variant, target?: Key) {
+  const file = improvedFile(v)
+  if (file) addFiles([file], target)
+}
+
+// ------------------------------------------------------------ полка
 
 export async function runShelf() {
   const vs = ready.value
@@ -352,6 +428,49 @@ export function removeCompetitor(i: number) {
   URL.revokeObjectURL(state.competitors[i].url)
   state.competitors.splice(i, 1)
   invalidateShelf()
+}
+
+/** Поиск конкурентов идёт — «Новый анализ» делает его результат ненужным. */
+let searchGen = 0
+
+/** Подбор конкурентов: топ выдачи маркетплейса по запросу → обложки на полку. */
+export async function searchCompetitors(query: string) {
+  const q = query.trim()
+  const room = MAX_COMPETITORS - state.competitors.length
+  if (q.length < 2 || state.competitorSearch.status === 'loading') return
+  if (room <= 0) {
+    toast(`Уже добавлено ${MAX_COMPETITORS} конкурентов — удалите лишних, чтобы добавить новых`)
+    return
+  }
+  if (!requireLogin('Войдите, чтобы подобрать конкурентов из выдачи', () => searchCompetitors(q))) return
+  const gen = ++searchGen
+  state.competitorSearch = { status: 'loading', error: '' }
+  try {
+    const { items } = await api.competitors(q, Math.min(COMPETITOR_SEARCH_LIMIT, room))
+    // одна картинка не скачалась — не беда, остальные пригодятся
+    const got = await Promise.allSettled(
+      items.map((it) => exampleFile(it.url, `${it.brand || 'Конкурент'} ${it.id}.jpg`)),
+    )
+    if (gen !== searchGen) return
+    refreshMe()
+    const files = got.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
+    if (!files.length) {
+      state.competitorSearch = {
+        status: 'error',
+        error: 'По этому запросу обложек не нашлось — попробуйте сформулировать короче',
+      }
+      return
+    }
+    addCompetitors(files)
+    state.competitorSearch = { status: 'ready', error: '' }
+    toast(`Добавлено из выдачи: ${files.length} ${plural(files.length, ['обложка', 'обложки', 'обложек'])}`)
+  } catch (e) {
+    if (gen !== searchGen) return
+    state.competitorSearch = {
+      status: 'error',
+      error: paidError(e, () => searchCompetitors(q)) ?? (e as Error).message,
+    }
+  }
 }
 
 // ------------------------------------------------------------ сайт и примеры

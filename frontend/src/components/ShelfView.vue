@@ -4,7 +4,8 @@ import { ImagePlus, Loader2, Play, X } from 'lucide-vue-next'
 import HeatImage from './HeatImage.vue'
 import KeyBadge from './KeyBadge.vue'
 import Segmented from './Segmented.vue'
-import { addCompetitors, ready, removeCompetitor, runShelf, state } from '../store'
+import CompetitorSearch from './CompetitorSearch.vue'
+import { addCompetitors, features, ready, removeCompetitor, runShelf, state } from '../store'
 import { MAX_COMPETITORS } from '../lib/constants'
 import { pct, tone } from '../lib/format'
 import { SHELF_OVERLAY_MODES } from '../lib/overlay'
@@ -138,6 +139,7 @@ const maxStop = computed(() => {
             <span>{{ state.competitors.length ? 'Ещё' : 'Добавьте обложки конкурентов' }}</span>
           </button>
         </div>
+        <CompetitorSearch v-if="features.competitors" />
         <p v-if="!state.competitors.length" class="hint">
           Без конкурентов ваши варианты соревнуются друг с другом. Обложки конкурентов можно сохранить из выдачи по
           вашему запросу.

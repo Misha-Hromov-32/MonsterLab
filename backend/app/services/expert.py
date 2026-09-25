@@ -253,6 +253,19 @@ def bradley_terry(keys: list[str], games: list[tuple[str, str, float]], iters: i
     return {k: v / total for k, v in p.items()}
 
 
+def choice_percent(strength: dict[str, float]) -> dict[str, int]:
+    """Вероятность выбора в целых процентах, в сумме ровно 100 (метод наибольших остатков).
+
+    Сила Брэдли–Терри и есть вероятность: если покупателю показать все варианты сразу, он
+    выберет вариант k с вероятностью strength[k] / сумма сил — а сумма сил у нас 1.
+    """
+    raw = {k: v * 100 for k, v in strength.items()}
+    out = {k: int(v) for k, v in raw.items()}
+    for k in sorted(raw, key=lambda k: raw[k] - out[k], reverse=True)[: 100 - sum(out.values())]:
+        out[k] += 1
+    return out
+
+
 async def compare(images: dict[str, str], ctx: dict) -> dict:
     keys = list(images)
     if len(keys) < 2:
@@ -296,10 +309,12 @@ async def compare(images: dict[str, str], ctx: dict) -> dict:
         raise ExpertError("; ".join(sorted(messages)) or "Модели не вернули ни одного решения")
 
     strength = bradley_terry(keys, games)
+    chance = choice_percent(strength)
     ranking = [
         {
             "key": k,
             "strength": round(strength[k], 4),
+            "chance": chance[k],
             "wins": sum(1 for g in games if g[0] == k),
             "played": sum(1 for g in games if k in g[:2]),
         }

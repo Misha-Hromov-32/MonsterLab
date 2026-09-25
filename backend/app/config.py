@@ -64,3 +64,25 @@ _DEFAULT_MODELS = "google/gemini-2.5-flash,anthropic/claude-haiku-4-5"
 _models = os.getenv("EXPERT_MODELS") or os.getenv("JURY_MODELS") or _DEFAULT_MODELS
 EXPERT_MODELS = [m.strip() for m in _models.split(",") if m.strip()]
 EXPERT_CONCURRENCY = _int("EXPERT_CONCURRENCY", 6)
+
+# ---------------------------------------------------------------- генерация улучшенной обложки
+
+# Модель ProxyAPI для редактирования картинок (эндпоинт /images/edits)
+IMAGE_MODEL = os.getenv("IMAGE_MODEL", "").strip() or "openai/gpt-image-2"
+
+# ---------------------------------------------------------------- конкуренты с маркетплейса
+
+# Wildberries отдаёт выдачу только настоящему браузеру: нужен Chromium (Playwright).
+# Путь к своему Chrome/Chromium — для запуска без Docker; в образе браузер ставится сам.
+BROWSER_PATH = os.getenv("BROWSER_PATH", "").strip() or None
+COMPETITORS_CACHE_HOURS = _int("COMPETITORS_CACHE_HOURS", 24)
+
+# ---------------------------------------------------------------- подписка и оплата (ЮKassa)
+
+YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID", "").strip()
+YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY", "").strip()
+# Чек по 54-ФЗ через ЮKassa: включите, если магазин передаёт чеки через неё
+YOOKASSA_RECEIPT = _flag("YOOKASSA_RECEIPT")
+YOOKASSA_VAT_CODE = _int("YOOKASSA_VAT_CODE", 1)  # 1 — без НДС
+# Адрес сайта: сюда ЮKassa вернёт покупателя после оплаты
+PUBLIC_URL = os.getenv("PUBLIC_URL", "").strip().rstrip("/") or "http://localhost:8080"

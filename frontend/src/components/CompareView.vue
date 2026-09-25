@@ -6,7 +6,7 @@ import KeyBadge from './KeyBadge.vue'
 import Segmented from './Segmented.vue'
 import { expertEnabled, ready, runCompare, state } from '../store'
 import { aoiStat } from '../lib/heat'
-import { pct, plural, silentExperts } from '../lib/format'
+import { baseName, pct, plural, silentExperts } from '../lib/format'
 import { OVERLAY_MODES } from '../lib/overlay'
 import type { Analysis, Variant } from '../lib/types'
 
@@ -119,7 +119,7 @@ const pairs = computed(() => {
           <small v-else class="num">— ничья по индексу</small>
         </h2>
         <p v-if="expertLeader" class="choice">
-          Покупатель скорее выберет <b>{{ expertLeader.key }}</b>
+          Покупатель скорее выберет <b>{{ expertLeader.key }}</b> — вероятность {{ expertLeader.chance }}%
           <template v-if="leader && expertLeader.key === leader.v.key">
             — и по вниманию, и по выбору лидирует один вариант. Уверенный кандидат в запуск.</template
           >
@@ -148,7 +148,7 @@ const pairs = computed(() => {
         <figcaption>
           <KeyBadge :k="v.key" :win="leader?.v.key === v.key && leader.gap > 0" />
           <span class="idx num">{{ v.analysis.index }}</span>
-          <span class="num cap-name" :title="v.name">{{ v.name }}</span>
+          <span class="num cap-name" :title="v.name">{{ baseName(v.name) }}</span>
         </figcaption>
       </figure>
     </div>
@@ -184,8 +184,8 @@ const pairs = computed(() => {
           <span class="label">Выбор покупателя</span>
           <h3>На какой вариант скорее нажмут?</h3>
           <p>
-            Варианты сравниваются попарно глазами покупателя, который листает ленту. Итог — шанс, что выберут именно
-            этот вариант.
+            Если показать варианты рядом, покупатель выберет этот с такой вероятностью — по попарным сравнениям
+            нескольких экспертов.
           </p>
         </div>
         <div class="ask">
@@ -200,10 +200,14 @@ const pairs = computed(() => {
       <p v-if="state.compareStatus === 'error'" class="err">{{ state.compareError }}</p>
 
       <div v-if="state.compare" class="rank rise">
-        <div v-for="(r, i) in state.compare.ranking" :key="r.key" class="rrow">
+        <div v-for="(r, i) in state.compare.ranking" :key="r.key" class="rrow" :class="{ lead: i === 0 }">
           <KeyBadge :k="r.key" :win="i === 0" />
-          <div class="rbar"><i :style="{ width: `${r.strength * 100}%` }" :class="{ win: i === 0 }" /></div>
-          <span class="num rv">{{ pct(r.strength) }}</span>
+          <div class="rmain">
+            <span class="rt"
+              >Вероятность выбора <b class="num">{{ r.chance }}%</b></span
+            >
+            <div class="rbar"><i :style="{ width: `${r.chance}%` }" :class="{ win: i === 0 }" /></div>
+          </div>
           <span class="num rw">выбран {{ r.wins }} из {{ r.played }}</span>
         </div>
         <p v-if="state.compare.errors.length" class="failed">
@@ -418,9 +422,36 @@ figcaption {
 
 .rrow {
   display: grid;
-  grid-template-columns: 24px 1fr 56px 90px;
+  grid-template-columns: 24px 1fr 90px;
   align-items: center;
   gap: 12px;
+  padding: 10px 12px;
+  margin: 0 -12px;
+  border-radius: 10px;
+}
+
+/* лидер — лаймовая подложка, как лучшая ячейка в таблице */
+.rrow.lead {
+  background: var(--lime-soft);
+}
+
+.rmain {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rt {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.rt b {
+  margin-left: 4px;
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  color: var(--ink);
 }
 
 .rbar {
@@ -442,8 +473,7 @@ figcaption {
   background: var(--ink);
 }
 
-.rv {
-  font-weight: 600;
+.rw {
   text-align: right;
 }
 
@@ -479,6 +509,30 @@ figcaption {
 @media (max-width: 900px) {
   .cols {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* на телефоне все четыре колонки помещаются в экран: подсказка уходит под название метрики */
+@media (max-width: 600px) {
+  .table {
+    min-width: 0;
+    font-size: 13px;
+  }
+  .table th,
+  .table td {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  .hint {
+    display: block;
+    margin: 2px 0 0;
+  }
+  .rrow {
+    grid-template-columns: 24px 1fr;
+  }
+  .rw {
+    grid-column: 2;
+    text-align: left;
   }
 }
 </style>

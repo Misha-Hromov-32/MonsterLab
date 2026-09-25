@@ -43,6 +43,17 @@ def _fresh_limits() -> None:
         limiter._hits.clear()
 
 
+_users = iter(range(1, 100_000))
+
+
+@pytest.fixture
+def user_headers(client: TestClient) -> dict:
+    """Свежий покупатель на бесплатном тарифе — заголовок с его токеном входа."""
+    creds = {"email": f"buyer{next(_users)}@example.com", "password": "секретный-пароль"}
+    token = client.post("/api/auth/register", json=creds).json()["token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
 def make_cover(seed: int = 0, size: tuple[int, int] = (360, 480)) -> np.ndarray:
     """Обложка-заглушка: светлый фон, цветной «товар» и тёмная плашка с «текстом»."""
     rng = np.random.default_rng(seed)
