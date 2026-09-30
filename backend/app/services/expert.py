@@ -25,6 +25,7 @@ log = logging.getLogger(__name__)
 
 ATTEMPTS = 3
 RETRY_STATUSES = {429, 500, 502, 503, 504}
+THINKING_TOKENS = 3000  # запас на размышления «думающих» моделей сверх длины самого ответа
 SCORE_KEYS = ("clarity", "trust", "premium", "emotion", "readability")
 
 _sem = asyncio.Semaphore(config.EXPERT_CONCURRENCY)
@@ -120,7 +121,9 @@ async def _ask(client: httpx.AsyncClient, model: str, prompt: str, images: list[
     body = {
         "model": model,
         "messages": [{"role": "user", "content": content}],
-        "max_tokens": max_tokens,
+        # «думающие» модели (Gemini 2.5 и новее) тратят часть max_tokens на размышления — без запаса
+        # ответ обрывается посередине JSON. Оплачиваются только реально потраченные токены.
+        "max_tokens": max_tokens + THINKING_TOKENS,
         "temperature": 0.2,
     }
 

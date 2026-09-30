@@ -2,7 +2,7 @@ import { computed, reactive } from 'vue'
 import { api, ApiError } from '../api'
 import { session, setUserToken } from './session'
 import { formatDate } from './format'
-import type { BillingPlan, Session, User } from './types'
+import type { BillingPlan, Consent, Session, User } from './types'
 
 export type AccountDialog = '' | 'login' | 'account' | 'tariffs'
 /** sent — «проверьте почту», forgot — запрос ссылки для нового пароля, reset — ввод нового пароля */
@@ -109,10 +109,15 @@ function showSent(email: string, letter: LetterKind, reason = '') {
  * Вход или регистрация. Возвращает текст ошибки для формы или '' — тогда окно либо закрылось
  * (вошли), либо показывает «Проверьте почту» (зарегистрировались или почта ещё не подтверждена).
  */
-export async function signIn(mode: 'login' | 'register', email: string, password: string): Promise<string> {
+export async function signIn(
+  mode: 'login' | 'register',
+  email: string,
+  password: string,
+  consent: Consent = { terms: false, personalData: false },
+): Promise<string> {
   try {
     if (mode === 'register') {
-      showSent((await api.register(email, password)).email, 'verify')
+      showSent((await api.register(email, password, consent)).email, 'verify')
       return ''
     }
     finishLogin(await api.login(email, password))

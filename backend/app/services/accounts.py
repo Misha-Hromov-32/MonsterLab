@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 import sqlite3
@@ -24,6 +25,10 @@ from email.message import EmailMessage
 from .. import config
 from . import crypto, db, mail, site
 
+log = logging.getLogger(__name__)
+
+# Редакция правил сервиса (страница /legal). Новая редакция — новая дата здесь и в документах.
+LEGAL_VERSION = "2026-09-30"
 TOKEN_TTL = 30 * 24 * 3600
 TOKEN_PREFIX = "u2"
 MIN_PASSWORD = 8
@@ -95,11 +100,14 @@ def user_from_token(token: str) -> User | None:
         return None
     if len(parts[1]) > 12 or len(parts[2]) > 12 or int(parts[2]) < time.time():
         return None
-    user = get(int(parts[1]))
-    if user is None or not user.verified:
+    # сначала подпись, потом расшифровка: поддельный токен не доходит до данных покупателя
+    with db.connect() as con:
+        row = con.execute("SELECT stamp, verified_at FROM users WHERE id = ?", (int(parts[1]),)).fetchone()
+    if row is None or row["verified_at"] is None:
         return None
-    body = ".".join(parts[:3])
-    return user if crypto.verify(body, parts[3], "user/token", user.stamp.encode()) else None
+    if not crypto.verify(".".join(parts[:3]), parts[3], "user/token", row["stamp"].encode()):
+        return None
+    return get(int(parts[1]))
 
 
 # ---------------------------------------------------------------- пользователи
@@ -108,7 +116,12 @@ def user_from_token(token: str) -> User | None:
 def _row(row) -> User | None:
     if row is None:
         return None
-    email = crypto.decrypt(row["email_enc"], "email").decode()
+    try:
+        email = crypto.decrypt(row["email_enc"], "email").decode()
+    except crypto.CryptoError:
+        # данные зашифрованы другим ключом — скорее всего, сменили MASTER_KEY; покупатель для сервиса «не найден»
+        log.error("Не расшифровать email покупателя %s: MASTER_KEY не тот, которым он зашифрован", row["id"])
+        return None
     return User(row["id"], email, row["pro_until"], row["verified_at"] is not None, row["stamp"])
 
 
@@ -122,9 +135,13 @@ def find(email: str) -> User | None:
         return _row(con.execute("SELECT * FROM users WHERE email_index = ?", (_index(email),)).fetchone())
 
 
-def register(email: str, password: str) -> User:
-    """Новый покупатель с неподтверждённой почтой. Если он уже регистрировался, но не подтвердил
-    почту, — возвращаем его же (пароль не меняем: иначе чужой человек мог бы перехватить аккаунт)."""
+def register(email: str, password: str, accepted: bool = False) -> User:
+    """Новый покупатель с неподтверждённой почтой. accepted — приняты пользовательское соглашение
+    и дано согласие на обработку персональных данных: без этого аккаунт не создаётся.
+    Если он уже регистрировался, но не подтвердил почту, — возвращаем его же
+    (пароль не меняем: иначе чужой человек мог бы перехватить аккаунт)."""
+    if not accepted:
+        raise AccountError("Чтобы зарегистрироваться, примите соглашение и дайте согласие на обработку данных")
     email = normalize(email)
     if not _EMAIL.match(email):
         raise AccountError("Проверьте email")
@@ -135,15 +152,26 @@ def register(email: str, password: str) -> User:
             raise AccountError("Этот email уже зарегистрирован — войдите")
         return existing
     hashed = crypto.hash_password(password)  # Argon2 — до транзакции, чтобы не держать базу
+    now = time.time()
     try:
         with db.connect() as con:
             cur = con.execute(
-                "INSERT INTO users (email_index, email_enc, password, stamp, created_at) VALUES (?, ?, ?, ?, ?)",
-                (_index(email), crypto.encrypt(email.encode(), "email"), hashed, secrets.token_hex(16), time.time()),
+                "INSERT INTO users (email_index, email_enc, password, stamp, created_at,"
+                " terms_accepted_at, pd_consent_at, legal_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    _index(email),
+                    crypto.encrypt(email.encode(), "email"),
+                    hashed,
+                    secrets.token_hex(16),
+                    now,
+                    now,
+                    now,
+                    LEGAL_VERSION,
+                ),
             )
             user_id = cur.lastrowid
     except sqlite3.IntegrityError:  # тот же email только что зарегистрировали параллельно
-        return register(email, password)
+        return register(email, password, accepted)
     return get(user_id)
 
 

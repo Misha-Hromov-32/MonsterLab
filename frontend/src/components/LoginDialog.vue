@@ -24,6 +24,9 @@ const TITLES: Record<AuthMode, string> = {
 
 const email = ref('')
 const password = ref('')
+// две отдельные галочки: согласие на обработку персональных данных по закону — отдельный документ
+const acceptTerms = ref(false)
+const acceptData = ref(false)
 const error = ref('')
 const busy = ref(false)
 
@@ -37,7 +40,8 @@ const canSubmit = computed(
   () =>
     !busy.value &&
     (!needsEmail.value || email.value.trim().length > 2) &&
-    (!needsPassword.value || password.value.length >= (newPassword.value ? MIN_PASSWORD : 1)),
+    (!needsPassword.value || password.value.length >= (newPassword.value ? MIN_PASSWORD : 1)) &&
+    (mode.value !== 'register' || (acceptTerms.value && acceptData.value)),
 )
 
 const submitTitle = computed(
@@ -74,7 +78,11 @@ async function submit() {
   const who = email.value.trim()
   if (current === 'forgot') error.value = await requestReset(who)
   else if (current === 'reset') error.value = await setNewPassword(password.value)
-  else error.value = await signIn(current as 'login' | 'register', who, password.value)
+  else
+    error.value = await signIn(current as 'login' | 'register', who, password.value, {
+      terms: acceptTerms.value,
+      personalData: acceptData.value,
+    })
   busy.value = false
   if (error.value) return
   password.value = ''
@@ -165,6 +173,25 @@ async function resend() {
           <span id="pw-hint" class="hint">{{ newPassword ? `Не короче ${MIN_PASSWORD} символов` : '' }}</span>
         </label>
 
+        <div v-if="mode === 'register'" class="consents">
+          <label class="check">
+            <input v-model="acceptTerms" type="checkbox" required />
+            <span>
+              Принимаю
+              <a href="/legal#terms" target="_blank" rel="noopener">пользовательское соглашение</a>
+              и
+              <a href="/legal#privacy" target="_blank" rel="noopener">политику обработки персональных данных</a>
+            </span>
+          </label>
+          <label class="check">
+            <input v-model="acceptData" type="checkbox" required />
+            <span>
+              Даю
+              <a href="/legal#consent" target="_blank" rel="noopener">согласие на обработку персональных данных</a>
+            </span>
+          </label>
+        </div>
+
         <p v-if="error" class="err" role="alert">{{ error }}</p>
 
         <button class="btn primary wide" type="submit" :disabled="!canSubmit">
@@ -180,7 +207,7 @@ async function resend() {
 
       <p v-if="withTabs" class="foot">
         Проверка обложек, тест полки и примеры доступны после входа. Регистрация бесплатная — нужен только email, его мы
-        подтвердим письмом.
+        подтвердим письмом. <a href="/legal" target="_blank" rel="noopener">Правила сервиса</a>
       </p>
     </template>
   </ModalDialog>
@@ -285,6 +312,43 @@ async function resend() {
   margin: 0;
   font-size: 12.5px;
   color: var(--ink-3);
+}
+
+.consents {
+  display: grid;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.check {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  align-items: start;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+
+.check a,
+.foot a {
+  color: var(--ink);
+  text-underline-offset: 2px;
+  text-decoration-color: var(--line-strong);
+}
+
+.check a:hover,
+.foot a:hover {
+  text-decoration-color: currentColor;
 }
 
 .foot {

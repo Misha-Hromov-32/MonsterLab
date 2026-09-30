@@ -79,6 +79,14 @@ if SMTP_SECURITY not in ("ssl", "starttls", "none"):
 MAIL_FROM = os.getenv("MAIL_FROM", "").strip() or SMTP_USER
 MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "").strip() or "Monster Lab"
 
+# ---------------------------------------------------------------- правила сервиса (страница /legal)
+
+# Оператор персональных данных — как в документах: «ИП Иванов Иван Иванович, ИНН …, ОГРНИП …, адрес …»
+# или «Иванов Иван Иванович (самозанятый), ИНН …, адрес …»
+LEGAL_OPERATOR = os.getenv("LEGAL_OPERATOR", "").strip()
+# Адрес для обращений: отзыв согласия, удаление аккаунта, вопросы по данным
+LEGAL_EMAIL = os.getenv("LEGAL_EMAIL", "").strip() or MAIL_FROM
+
 PROXYAPI_KEY = os.getenv("PROXYAPI_KEY", "").strip()
 PROXYAPI_BASE_URL = os.getenv("PROXYAPI_BASE_URL", "").strip() or "https://api.proxyapi.ru/v1"
 if not PROXYAPI_BASE_URL.startswith("https://"):

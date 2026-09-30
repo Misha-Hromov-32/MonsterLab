@@ -468,7 +468,8 @@ describe('вход и подтверждение почты', () => {
   it('после регистрации и при неподтверждённой почте окно просит проверить почту', async () => {
     acc.openLogin('', undefined, 'register')
     api.register.mockResolvedValueOnce({ status: 'verify', email: 'new@example.ru' })
-    expect(await acc.signIn('register', 'New@example.ru', 'password1')).toBe('')
+    expect(await acc.signIn('register', 'New@example.ru', 'password1', { terms: true, personalData: true })).toBe('')
+    expect(api.register).toHaveBeenCalledWith('New@example.ru', 'password1', { terms: true, personalData: true })
     expect(acc.account.authMode).toBe('sent')
     expect(acc.account.pendingEmail).toBe('new@example.ru')
     expect(localStorage.getItem('ml.user.token')).toBeNull()

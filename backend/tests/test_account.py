@@ -12,11 +12,11 @@ from fastapi.testclient import TestClient
 from app import config
 from app.services import accounts, billing, db, expert, improve, mail, marketplace
 
-from .conftest import OUTBOX, PASSWORD, jpeg_bytes, link_token, make_cover, verified_token
+from .conftest import CONSENT, OUTBOX, PASSWORD, jpeg_bytes, link_token, make_cover, verified_token
 
 
 def test_register_verify_login_me(anon: TestClient) -> None:
-    creds = {"email": "Anna@Example.com", "password": "пароль-подлиннее"}
+    creds = {"email": "Anna@Example.com", "password": "пароль-подлиннее", **CONSENT}
     r = anon.post("/api/auth/register", json=creds)
     assert r.json() == {"status": "verify", "email": "anna@example.com"}
 
@@ -41,7 +41,7 @@ def test_register_verify_login_me(anon: TestClient) -> None:
 
 
 def test_links_are_single_use(anon: TestClient) -> None:
-    anon.post("/api/auth/register", json={"email": "once@example.com", "password": PASSWORD})
+    anon.post("/api/auth/register", json={"email": "once@example.com", "password": PASSWORD, **CONSENT})
     token = link_token("once@example.com", "verify")
     assert anon.post("/api/auth/verify", json={"token": token}).status_code == 200
     r = anon.post("/api/auth/verify", json={"token": token})
@@ -92,7 +92,7 @@ def test_letter_is_html_with_inline_logo() -> None:
 
 
 def test_resend_is_throttled(anon: TestClient) -> None:
-    anon.post("/api/auth/register", json={"email": "slow@example.com", "password": PASSWORD})
+    anon.post("/api/auth/register", json={"email": "slow@example.com", "password": PASSWORD, **CONSENT})
     sent = len(OUTBOX)
     assert anon.post("/api/auth/resend", json={"email": "slow@example.com"}).json() == {"ok": True}
     assert len(OUTBOX) == sent  # минута ещё не прошла
@@ -103,7 +103,7 @@ def test_mail_failure_is_reported_and_retryable(anon: TestClient, monkeypatch) -
         raise mail.MailError("Не удалось отправить письмо. Попробуйте через пару минут.")
 
     monkeypatch.setattr(mail, "deliver", broken)
-    r = anon.post("/api/auth/register", json={"email": "later@example.com", "password": PASSWORD})
+    r = anon.post("/api/auth/register", json={"email": "later@example.com", "password": PASSWORD, **CONSENT})
     assert r.status_code == 503 and r.json()["detail"]["code"] == "mail_failed"
     monkeypatch.setattr(mail, "deliver", OUTBOX.append)
     # ссылка из неотправленного письма отозвана — повторить можно сразу, без минуты ожидания
@@ -118,9 +118,27 @@ def test_bad_user_tokens(client: TestClient, token: str) -> None:
 
 def test_short_password_and_bad_email() -> None:
     with pytest.raises(accounts.AccountError):
-        accounts.register("не-почта", "достаточно-длинный")
+        accounts.register("не-почта", "достаточно-длинный", True)
     with pytest.raises(accounts.AccountError):
-        accounts.register("ok@example.com", "123")
+        accounts.register("ok@example.com", "123", True)
+
+
+@pytest.mark.parametrize("consent", [{}, {"accept_terms": True}, {"accept_personal_data": True}])
+def test_registration_needs_both_consents(anon: TestClient, consent: dict) -> None:
+    sent = len(OUTBOX)
+    r = anon.post("/api/auth/register", json={"email": "noconsent@example.com", "password": PASSWORD, **consent})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "consent_required"
+    assert len(OUTBOX) == sent and accounts.find("noconsent@example.com") is None
+
+
+def test_consent_is_recorded_with_legal_version(anon: TestClient) -> None:
+    verified_token(anon, "consent@example.com")
+    user = accounts.find("consent@example.com")
+    with db.connect() as con:
+        row = con.execute("SELECT * FROM users WHERE id = ?", (user.id,)).fetchone()
+    assert row["terms_accepted_at"] and row["pd_consent_at"] and row["legal_version"] == accounts.LEGAL_VERSION
+    legal = anon.get("/api/public/legal").json()
+    assert legal["version"] == accounts.LEGAL_VERSION and "operator" in legal
 
 
 def _upload(client: TestClient) -> str:
@@ -230,3 +248,11 @@ def test_admin_sets_price_and_limits(client: TestClient) -> None:
     assert plan["price_rub"] == 1490 and plan["limits"]["pro"]["improve"] == 50 and plan["enabled"] is False
     bad = {**body, "price_rub": 0}
     assert client.put("/api/admin/billing", json=bad, headers=headers).status_code == 422
+
+
+def test_unreadable_email_means_signed_out_not_500(anon: TestClient) -> None:
+    token = verified_token(anon, "broken@example.com")
+    user = accounts.find("broken@example.com")
+    with db.connect() as con:  # как будто сменили MASTER_KEY: шифртекст больше не сходится
+        con.execute("UPDATE users SET email_enc = ? WHERE id = ?", (b"\x00" * 40, user.id))
+    assert anon.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401

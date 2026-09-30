@@ -158,6 +158,20 @@ export interface Session {
   user: User
 }
 
+/** Галочки при регистрации: соглашение с политикой и отдельное согласие на обработку данных. */
+export interface Consent {
+  terms: boolean
+  personalData: boolean
+}
+
+/** Реквизиты оператора и редакция правил для страницы /legal. */
+export interface Legal {
+  operator: string
+  email: string
+  /** дата редакции, YYYY-MM-DD */
+  version: string
+}
+
 /** Регистрация: аккаунт создан, письмо со ссылкой отправлено — войти можно после подтверждения. */
 export interface Registered {
   status: 'verify'

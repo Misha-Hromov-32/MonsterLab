@@ -18,6 +18,8 @@ DB_FILE = config.DATA_DIR / "app.sqlite"
 SCHEMA = """
 -- email хранится зашифрованным (AES-256-GCM), ищется по email_index — HMAC-SHA256 от адреса;
 -- password — Argon2id; stamp меняется при смене пароля и отзывает все входы.
+-- terms_accepted_at / pd_consent_at / legal_version — когда и с какой редакцией правил покупатель согласился
+-- (оператор персональных данных обязан уметь доказать согласие).
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email_index TEXT NOT NULL UNIQUE,
@@ -26,7 +28,10 @@ CREATE TABLE IF NOT EXISTS users (
     stamp TEXT NOT NULL,
     verified_at REAL,
     created_at REAL NOT NULL,
-    pro_until REAL NOT NULL DEFAULT 0
+    pro_until REAL NOT NULL DEFAULT 0,
+    terms_accepted_at REAL,
+    pd_consent_at REAL,
+    legal_version TEXT
 );
 -- ссылки из писем: подтверждение email и сброс пароля. Храним только SHA-256 от токена.
 CREATE TABLE IF NOT EXISTS email_tokens (
@@ -58,7 +63,18 @@ CREATE TABLE IF NOT EXISTS competitor_cache (
 );
 """
 
+# Колонки, добавленные после создания таблицы: в уже существующую базу их докладывает _migrate().
+ADDED_COLUMNS = {"users": {"terms_accepted_at": "REAL", "pd_consent_at": "REAL", "legal_version": "TEXT"}}
+
 _lock = threading.Lock()
+
+
+def _migrate(con: sqlite3.Connection) -> None:
+    for table, columns in ADDED_COLUMNS.items():
+        have = {row[1] for row in con.execute(f"PRAGMA table_info({table})")}
+        for name, kind in columns.items():
+            if name not in have:
+                con.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
 
 
 @contextmanager
@@ -71,6 +87,7 @@ def connect() -> Iterator[sqlite3.Connection]:
         try:
             with con:
                 con.executescript(SCHEMA)
+                _migrate(con)
                 yield con
         finally:
             con.close()

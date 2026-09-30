@@ -4,9 +4,11 @@ import type {
   BillingPlan,
   CompareResult,
   CompetitorSearch,
+  Consent,
   Critique,
   ExampleResults,
   Health,
+  Legal,
   Layout,
   Showcase,
   ShelfResult,
@@ -83,6 +85,7 @@ export const withAuth = (init: RequestInit = {}): RequestInit => ({
 export const api = {
   health: () => request<Health>('/api/health', {}, { timeoutMs: 10_000 }),
   site: () => request<Site>('/api/public/site', {}, { timeoutMs: 10_000 }),
+  legal: () => request<Legal>('/api/public/legal', {}, { timeoutMs: 10_000 }),
   showcase: () => request<Showcase | null>('/api/public/showcase'),
   exampleResults: (id: string) =>
     request<ExampleResults>(`/api/public/examples/${id}/results`, {}, { timeoutMs: 30_000 }),
@@ -112,8 +115,18 @@ export const api = {
   // ---------------------------------------------------------- аккаунт, подписка, платные инструменты
 
   // письмо уходит прямо во время запроса — даём почтовому серверу время ответить
-  register: (email: string, password: string) =>
-    request<Registered>('/api/auth/register', jsonBody('POST', { email, password }), { timeoutMs: 40_000 }),
+  /** галочки согласий обязательны: без них сервер аккаунт не создаёт */
+  register: (email: string, password: string, consent: Consent) =>
+    request<Registered>(
+      '/api/auth/register',
+      jsonBody('POST', {
+        email,
+        password,
+        accept_terms: consent.terms,
+        accept_personal_data: consent.personalData,
+      }),
+      { timeoutMs: 40_000 },
+    ),
   login: (email: string, password: string) =>
     request<Session>('/api/auth/login', jsonBody('POST', { email, password }), { timeoutMs: 20_000 }),
   resend: (email: string) =>

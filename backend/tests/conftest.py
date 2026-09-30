@@ -37,6 +37,7 @@ OUTBOX: list[EmailMessage] = []
 mail.deliver = OUTBOX.append
 
 PASSWORD = "секретный-пароль"
+CONSENT = {"accept_terms": True, "accept_personal_data": True}
 _users = iter(range(1, 100_000))
 
 
@@ -53,7 +54,7 @@ def link_token(email: str, purpose: str) -> str:
 def verified_token(client: TestClient, email: str | None = None) -> str:
     """Регистрирует покупателя, подтверждает почту по ссылке из письма и возвращает токен входа."""
     email = email or f"buyer{next(_users)}@example.com"
-    r = client.post("/api/auth/register", json={"email": email, "password": PASSWORD})
+    r = client.post("/api/auth/register", json={"email": email, "password": PASSWORD, **CONSENT})
     assert r.status_code == 200, r.text
     r = client.post("/api/auth/verify", json={"token": link_token(email, "verify")})
     assert r.status_code == 200, r.text

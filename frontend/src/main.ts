@@ -6,9 +6,12 @@ import { watchSystemTheme } from './lib/theme'
 
 watchSystemTheme()
 
-// /admin — отдельное приложение, грузится лениво и не утяжеляет основной сайт
-if (location.pathname.replace(/\/+$/, '') === '/admin') {
+// /admin и /legal — отдельные страницы, грузятся лениво и не утяжеляют основной сайт
+const path = location.pathname.replace(/\/+$/, '')
+if (path === '/admin') {
   import('./admin/AdminApp.vue').then(({ default: AdminApp }) => createApp(AdminApp).mount('#app'))
+} else if (path === '/legal') {
+  import('./legal/LegalPage.vue').then(({ default: LegalPage }) => createApp(LegalPage).mount('#app'))
 } else {
   createApp(App).mount('#app')
 }

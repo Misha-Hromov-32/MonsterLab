@@ -22,6 +22,13 @@ class Credentials(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
 
+class Registration(Credentials):
+    # две отдельные галочки: согласие на обработку персональных данных по закону оформляется
+    # отдельно от пользовательского соглашения и политики
+    accept_terms: bool = False
+    accept_personal_data: bool = False
+
+
 class EmailOnly(BaseModel):
     email: str = Field(min_length=3, max_length=254)
 
@@ -53,13 +60,19 @@ def _mail_failed(exc: mail.MailError):
 
 
 @router.post("/auth/register")
-async def register(body: Credentials, request: Request) -> dict:
+async def register(body: Registration, request: Request) -> dict:
     """Создаёт аккаунт и отправляет письмо со ссылкой. Войти можно только после подтверждения почты."""
+    if not (body.accept_terms and body.accept_personal_data):
+        raise api_error(
+            422,
+            "consent_required",
+            "Чтобы зарегистрироваться, примите соглашение и дайте согласие на обработку персональных данных",
+        )
     ip = client_ip(request)
     login_limit.check(ip)
     mail_limit.hit(ip)  # регистрация — это письмо и 64 МБ памяти на хэш пароля
     try:
-        user = await asyncio.to_thread(accounts.register, body.email, body.password)
+        user = await asyncio.to_thread(accounts.register, body.email, body.password, True)
         await asyncio.to_thread(accounts.send_verification, user)
     except accounts.AccountError as exc:
         login_limit.hit(ip)  # перебор чужих email тоже притормаживаем

@@ -8,9 +8,10 @@ import re
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
+from .. import config
 from ..core.imaging import decode
 from ..ratelimit import analysis_limit
-from ..services import precompute, site
+from ..services import accounts, precompute, site
 from ..services.uploads import store
 
 router = APIRouter(prefix="/api/public")
@@ -32,6 +33,12 @@ def get_site() -> dict:
         "landing": site.read()["landing"],
         "examples": [_example_out(e) for e in site.published_examples()],
     }
+
+
+@router.get("/legal")
+def get_legal() -> dict:
+    """Реквизиты оператора и редакция правил для страницы /legal."""
+    return {"operator": config.LEGAL_OPERATOR, "email": config.LEGAL_EMAIL, "version": accounts.LEGAL_VERSION}
 
 
 @router.get("/files/{example_id}/{name}")
