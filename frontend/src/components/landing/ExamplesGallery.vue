@@ -8,7 +8,7 @@ import { plural } from '../../lib/format'
   <section v-if="site.data?.examples.length" id="examples" class="gallery">
     <div class="head">
       <h2 class="display">Примеры</h2>
-      <span class="sub">Откройте готовый набор обложек, чтобы посмотреть, как всё работает</span>
+      <span class="sub">Готовые наборы для проверки и сравнения</span>
     </div>
     <div class="cards">
       <!-- кликабельна вся карточка: кнопка «Открыть» растянута псевдоэлементом на всю площадь -->

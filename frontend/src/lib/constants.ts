@@ -12,7 +12,7 @@ export const AOI_LIFT_OK = 1
 export const AOI_LIFT_STRONG = 1.5
 
 /** Подписи зон по умолчанию — в порядке, в котором их предлагаем. */
-export const AOI_LABELS = ['Товар', 'Оффер', 'Цена', 'Бенефит', 'Логотип']
+export const AOI_LABELS = ['Товар', 'Оффер', 'Цена', 'Преимущество', 'Логотип']
 
 export const TOAST_MS = 4200
 

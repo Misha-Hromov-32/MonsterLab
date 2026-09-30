@@ -42,24 +42,21 @@ const details = computed(() =>
   <section v-if="expertEnabled" class="visual">
     <div class="sec-head">
       <span class="label">Визуальный разбор</span>
-      <span class="label tag">как арт-директор</span>
+      <span class="label tag">Композиция и текст</span>
     </div>
 
     <div v-if="variant.critiqueStatus !== 'ready' || !c" class="ask">
-      <p class="pitch">
-        Оценка визуала целиком: общее впечатление, стиль, какой сегмент и аудиторию считывает обложка, работает ли
-        каждая надпись и как она смотрится рядом с конкурентами.
-      </p>
+      <p class="pitch">Разбор композиции, стиля и надписей на обложке.</p>
       <p class="rivals">
         <template v-if="rivals"
           >Сравним с {{ rivals }} {{ rivals === 1 ? 'конкурентом' : 'конкурентами' }} с полки.</template
         >
-        <template v-else>Добавьте конкурентов на вкладке «Полка» — разбор сравнит обложку с ними.</template>
+        <template v-else>Для сравнения добавьте конкурентов на вкладке «Полка».</template>
       </p>
       <button class="btn primary" :disabled="loading" @click="runCritique(variant)">
         <Loader2 v-if="loading" :size="15" class="spin" />
         <Sparkles v-else :size="15" />
-        {{ loading ? 'Арт-директор смотрит обложку… ~30 с' : 'Разобрать визуал' }}
+        {{ loading ? 'Разбираем…' : 'Разобрать обложку' }}
       </button>
       <p v-if="variant.critiqueStatus === 'error'" class="err">{{ variant.critiqueError }}</p>
     </div>
@@ -77,7 +74,7 @@ const details = computed(() =>
         <span v-if="c.reads_as.segment" class="chip lime">{{ c.reads_as.segment }}</span>
         <span v-if="c.reads_as.mood" class="chip lilac">{{ c.reads_as.mood }}</span>
       </div>
-      <p v-if="c.reads_as.audience" class="audience"><b>Цепляет:</b> {{ c.reads_as.audience }}</p>
+      <p v-if="c.reads_as.audience" class="audience"><b>Аудитория:</b> {{ c.reads_as.audience }}</p>
 
       <p v-if="c.verdict && c.impression" class="impression">{{ c.impression }}</p>
 
@@ -90,7 +87,7 @@ const details = computed(() =>
       </div>
 
       <div v-if="c.strengths.length" class="block">
-        <span class="label">Что сильного — не трогать</span>
+        <span class="label">Что получилось</span>
         <ul class="strengths">
           <li v-for="(s, i) in c.strengths" :key="i"><Check :size="14" aria-hidden="true" />{{ s }}</li>
         </ul>
@@ -106,7 +103,7 @@ const details = computed(() =>
           </li>
         </ol>
       </div>
-      <p v-else class="nothing">Менять нечего — обложка сильная.</p>
+      <p v-else class="nothing">Замечаний нет.</p>
 
       <details v-for="d in details" :key="d.title" class="more">
         <summary>{{ d.title }}</summary>

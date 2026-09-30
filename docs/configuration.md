@@ -18,7 +18,7 @@
 | `TORCH_THREADS` | `0` (авто) | потоков для нейросети |
 | `BACKEND_MEM_LIMIT` | `1800m` | потолок памяти контейнера бэкенда |
 | `MAX_UPLOAD_MB` | `25` | максимальный размер одного файла |
-| `DATA_DIR` | `/data` в Docker, `backend/data` локально | где хранить настройки и примеры |
+| `DATA_DIR` | `/data` в Docker, `backend/data` локально | где хранить настройки, примеры и личные обложки пользователей (`app.sqlite`) |
 | `STATIC_DIR` | — | путь к собранному фронтенду: бэкенд отдаст его сам, без nginx |
 | `TRUST_PROXY` | `1` в `docker-compose.yml` | верить `X-Real-IP` от nginx при подсчёте лимитов |
 | `REAL_IP_FROM` | `127.0.0.1` (никому) | адреса внешнего HTTPS-прокси, которому nginx верит в `X-Forwarded-For` |

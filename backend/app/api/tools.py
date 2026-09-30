@@ -14,7 +14,7 @@ from ..core.imaging import data_url, decode
 from ..core.report import cover_report
 from ..errors import api_error
 from ..schemas import ProductContext
-from ..services import accounts, improve, marketplace
+from ..services import accounts, improve, library, marketplace
 from ..services.uploads import store
 from .deps import paid
 
@@ -44,8 +44,12 @@ async def improve_cover(req: ImproveRequest, user: accounts.User = Depends(paid(
         result = await asyncio.to_thread(improve.generate, jpeg, prompt)
     except improve.ImproveError as exc:
         raise api_error(502, "improve_failed", str(exc)) from exc
+    baseline = (await asyncio.to_thread(cover_report, decode(jpeg)))["index"]
+    saved = await asyncio.to_thread(
+        library.save, user.id, decode(result), "Сгенерированная обложка", None, "generated", baseline
+    )
     await asyncio.to_thread(accounts.spend, user, "improve")
-    return {"image": data_url(result)}
+    return {"image": data_url(result), **saved}
 
 
 @router.get("/competitors")

@@ -13,7 +13,7 @@ from ..core import saliency, shelf
 from ..core.report import cover_report
 from ..errors import api_error
 from ..ratelimit import analysis_limit
-from ..services import accounts, billing, expert, marketplace
+from ..services import accounts, billing, expert, library, marketplace
 from ..services.uploads import store
 from .deps import paid, read_image
 
@@ -42,8 +42,9 @@ async def analyze(file: UploadFile = File(...), user: accounts.User = Depends(pa
     rgb = await read_image(file)
     image_id = await asyncio.to_thread(store.put, rgb)
     report = await asyncio.to_thread(cover_report, rgb)
+    saved = await asyncio.to_thread(library.save, user.id, rgb, file.filename or "Обложка", report)
     await asyncio.to_thread(accounts.spend, user, "analyze")
-    return {"id": image_id, **report}
+    return {"id": image_id, **report, **saved}
 
 
 def _parse_variants(raw: str) -> dict[str, str]:

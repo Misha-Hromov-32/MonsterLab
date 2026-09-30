@@ -72,6 +72,28 @@ def _cached(query: str) -> list[dict] | None:
     return items if all(image_path(key, i["id"]).exists() for i in items) else None
 
 
+BROWSER_ARGS = [
+    "--disable-blink-features=AutomationControlled",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--disable-extensions",
+    "--mute-audio",
+    # один процесс отрисовки и небольшая куча JS — Chromium укладывается в ~200 МБ
+    "--renderer-process-limit=1",
+    "--disable-features=site-per-process,Translate,MediaRouter",
+    "--js-flags=--max-old-space-size=256",
+]
+HEAVY_RESOURCES = {"image", "media", "font"}
+
+
+async def _skip_heavy(route) -> None:
+    if route.request.resource_type in HEAVY_RESOURCES:
+        await route.abort()
+    else:
+        await route.continue_()
+
+
 async def _open_search(query: str, want: int) -> list[dict]:
     """Открывает выдачу в браузере; возвращает [{id, brand, name, image}] в порядке выдачи."""
     try:
@@ -91,10 +113,13 @@ async def _open_search(query: str, want: int) -> list[dict]:
         browser = await pw.chromium.launch(
             headless=True,
             executable_path=config.BROWSER_PATH,
-            args=["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage"],
+            args=BROWSER_ARGS,
         )
         try:
-            page = await browser.new_page(user_agent=USER_AGENT, locale="ru-RU")
+            page = await browser.new_page(user_agent=USER_AGENT, locale="ru-RU", viewport={"width": 1000, "height": 900})
+            # картинки, видео и шрифты не грузим: адреса обложек берём из разметки (img.src),
+            # а без них браузер занимает в разы меньше памяти — рядом в контейнере живёт нейросеть
+            await page.route("**/*", _skip_heavy)
             await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => false})")
             page.on("response", on_response)
             url = SEARCH_URL.format(query=quote(query))

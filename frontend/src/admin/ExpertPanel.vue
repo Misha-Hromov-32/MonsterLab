@@ -81,10 +81,7 @@ async function check() {
     <header class="ph">
       <div>
         <h1>Экспертный разбор</h1>
-        <p>
-          Оценка обложки языковыми моделями через ProxyAPI: что поймёт покупатель, доверие, читаемость надписей и какой
-          вариант скорее выберут. Пока ключ не задан, эти блоки на сайте скрыты.
-        </p>
+        <p>Настройки визуального разбора и выбора покупателя. Для работы нужен ключ ProxyAPI.</p>
       </div>
       <span class="status" :class="exp.has_key ? 'on' : ''">
         <i class="dot" :class="exp.has_key ? 'good' : ''" />
@@ -121,7 +118,7 @@ async function check() {
 
     <section class="card block">
       <h2 class="label">Модели · {{ models.length }}/{{ MAX_EXPERT_MODELS }}</h2>
-      <p class="note">Каждая модель даёт отдельное мнение, оценки усредняются. Больше моделей — точнее, но дороже.</p>
+      <p class="note">Модели для сравнения вариантов и резервная модель для визуального разбора.</p>
       <ul class="models">
         <li v-for="(m, i) in models" :key="m">
           <span>{{ modelName(m) }}</span>

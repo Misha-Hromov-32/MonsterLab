@@ -26,6 +26,7 @@ import type {
   Site,
   Status,
   Variant,
+  SavedCoverDetail,
   View,
 } from './lib/types'
 
@@ -51,9 +52,11 @@ function savePrefs(key: string, value: unknown) {
 const prefs = loadPrefs('ml.prefs', {
   mode: 'heat' as OverlayMode,
   opacity: 0.8,
-  context: { category: '', query: '', price: '', audience: '', positioning: '' },
   layout: 'mobile' as Layout,
 })
+
+// Удаляем старые сведения о товаре из сохранённых настроек, включая данные демопримеров.
+savePrefs('ml.prefs', { mode: prefs.mode, opacity: prefs.opacity, layout: prefs.layout })
 
 export const state = reactive({
   health: null as Health | null,
@@ -63,7 +66,7 @@ export const state = reactive({
   view: 'analyze' as View,
   mode: prefs.mode,
   opacity: prefs.opacity,
-  context: prefs.context,
+  context: { category: '', query: '', price: '', audience: '', positioning: '' },
   layout: prefs.layout,
   compare: null as CompareResult | null,
   compareStatus: 'idle' as Status,
@@ -80,7 +83,7 @@ export const state = reactive({
 })
 
 watch(
-  () => ({ mode: state.mode, opacity: state.opacity, context: state.context, layout: state.layout }),
+  () => ({ mode: state.mode, opacity: state.opacity, layout: state.layout }),
   (v) => savePrefs('ml.prefs', v),
   { deep: true },
 )
@@ -149,15 +152,17 @@ export async function loadHealth(attempt = 0): Promise<void> {
 
 // ------------------------------------------------------------ варианты
 
-const LOGIN_TO_CHECK = 'Войдите или зарегистрируйтесь — проверка обложек доступна после входа'
+const LOGIN_TO_CHECK = 'Войдите, чтобы проверить обложки'
 
 /** Отмена текущего анализа по варианту: при замене и удалении старый ответ уже не нужен. */
 const inflight = new Map<Key, AbortController>()
+const generatedFiles = new WeakMap<File, number>()
 
 function newVariant(key: Key, file: File): Variant {
   return reactive({
     key,
     file,
+    generatedBaseline: generatedFiles.get(file),
     url: URL.createObjectURL(file),
     name: file.name,
     status: 'idle',
@@ -185,7 +190,7 @@ export function addFiles(files: FileList | File[], target?: Key, analyses?: (Ana
   }
   const keys = freeKeys.value
   if (!keys.length) {
-    toast('Все четыре слота заняты — удалите вариант или замените его')
+    toast('Уже добавлены четыре варианта. Удалите или замените один из них.')
     return
   }
   if (list.length > keys.length) toast(`Добавлено ${keys.length} из ${list.length}: максимум ${MAX_VARIANTS} варианта`)
@@ -194,7 +199,7 @@ export function addFiles(files: FileList | File[], target?: Key, analyses?: (Ana
     state.variants.push(v)
     if (!state.selected || i === 0) state.selected = v.key
     const ready = analyses?.[i]
-    if (ready) Object.assign(v, { analysis: ready, status: 'ready' })
+    if (ready) Object.assign(v, { analysis: applyGeneratedBonus(v, { ...ready }), status: 'ready' })
     else analyze(v)
   })
   state.variants.sort((a, b) => a.key.localeCompare(b.key))
@@ -207,6 +212,8 @@ function replaceVariant(key: Key, file: File) {
   URL.revokeObjectURL(v.url)
   Object.assign(v, {
     file,
+    generatedBaseline: generatedFiles.get(file),
+    measuredIndex: undefined,
     url: URL.createObjectURL(file),
     name: file.name,
     analysis: undefined,
@@ -234,6 +241,7 @@ export function removeVariant(key: Key) {
 
 /** «Новый анализ»: сбрасывает варианты, конкурентов и результаты — возвращает на главную. */
 export function resetAll() {
+  Object.assign(state.context, { category: '', query: '', price: '', audience: '', positioning: '' })
   inflight.forEach((c) => c.abort())
   searchGen++
   state.competitorSearch = { status: 'idle', error: '' }
@@ -277,7 +285,7 @@ export async function analyze(v: Variant) {
   try {
     const analysis = await api.analyze(file, ctrl.signal)
     if (v.file !== file) return // пока считали, картинку заменили
-    v.analysis = analysis
+    v.analysis = applyGeneratedBonus(v, analysis)
     v.status = 'ready'
   } catch (e) {
     if (ctrl.signal.aborted || v.file !== file) return
@@ -346,7 +354,7 @@ export async function runCompare() {
 
 // ------------------------------------------------------------ улучшенная обложка
 
-const IMPROVE_FAIL = 'Не удалось нарисовать улучшенную обложку. Попробуйте ещё раз через минуту.'
+const IMPROVE_FAIL = 'Не удалось сгенерировать обложку. Попробуйте ещё раз через минуту.'
 
 /** Замечания экспертов «проблема — как исправить» без повторов: нейросеть учтёт их при перерисовке. */
 export function critiqueIssues(v: Variant) {
@@ -383,7 +391,38 @@ export function improvedFile(v: Variant) {
 /** Улучшенная обложка становится новым вариантом (или заменяет target) и проходит обычный анализ. */
 export function addImproved(v: Variant, target?: Key) {
   const file = improvedFile(v)
-  if (file) addFiles([file], target)
+  if (file && v.analysis) {
+    generatedFiles.set(file, v.analysis.index)
+    addFiles([file], target)
+  }
+}
+
+/** Отображаемый бонус по запросу владельца; оценка нейросети остаётся в measuredIndex. */
+export function generatedIndex(measured: number, baseline: number) {
+  return Math.min(100, Math.max(measured + 10, baseline + 5))
+}
+
+function applyGeneratedBonus(v: Variant, analysis: Analysis) {
+  const baseline = v.generatedBaseline ?? analysis.generated_baseline
+  if (baseline !== undefined && baseline !== null) {
+    v.generatedBaseline = baseline
+    v.measuredIndex = analysis.index
+    analysis.index = generatedIndex(analysis.index, baseline)
+  }
+  return analysis
+}
+
+/** Возвращает сохранённую работу в свободный слот без повторного списания анализа. */
+export function openSavedCover(saved: SavedCoverDetail) {
+  if (!freeKeys.value.length) {
+    toast('Уже добавлены четыре варианта. Удалите один или начните новый анализ.')
+    return false
+  }
+  const file = dataUrlToFile(saved.image, saved.name.endsWith('.jpg') ? saved.name : `${saved.name}.jpg`)
+  if (saved.generated_baseline !== null) generatedFiles.set(file, saved.generated_baseline)
+  addFiles([file], undefined, saved.analysis ? [saved.analysis] : undefined)
+  state.view = 'analyze'
+  return true
 }
 
 // ------------------------------------------------------------ полка
@@ -473,7 +512,7 @@ export async function searchCompetitors(query: string) {
     if (!files.length) {
       state.competitorSearch = {
         status: 'error',
-        error: 'По этому запросу обложек не нашлось — попробуйте сформулировать короче',
+        error: 'Обложки не найдены. Попробуйте другой запрос.',
       }
       return
     }
@@ -541,7 +580,7 @@ export async function loadExample(ex: Example) {
   if (!requireLogin(LOGIN_TO_CHECK, () => loadExample(ex))) return
   const slots = freeKeys.value.length
   if (!slots) {
-    toast('Все четыре слота заняты — начните новый анализ, чтобы открыть пример')
+    toast('Для открытия примера начните новый анализ.')
     return
   }
   exampleBusy = true
@@ -560,8 +599,6 @@ export async function loadExample(ex: Example) {
         .then(() => api.exampleResults(ex.id))
         .catch((): ExampleResults => ({ ready: false })),
     ])
-    // данные о товаре подставляем, только если пользователь ничего не заполнил сам
-    if (!Object.values(state.context).some(Boolean)) Object.assign(state.context, ex.context)
     const analyses = results.ready ? ex.variants.slice(0, slots).map((v) => results.variants[v.id]) : undefined
     addFiles(variants, undefined, analyses)
     if (comps.length) addCompetitors(comps)

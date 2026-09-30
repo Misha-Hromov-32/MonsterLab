@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import UploadButton from './UploadButton.vue'
 import ExamplesGallery from './ExamplesGallery.vue'
 import Steps from './Steps.vue'
+import Features from './Features.vue'
 import { bgRgb, drawOverlay } from '../../lib/heat'
 import { pct } from '../../lib/format'
 import { site } from '../../store'
@@ -102,6 +103,7 @@ const targetTile = computed(() => {
 
     <div class="below">
       <Steps :steps="l.steps" />
+      <Features />
       <ExamplesGallery />
     </div>
   </div>
@@ -110,8 +112,6 @@ const targetTile = computed(() => {
 <style scoped>
 /* тёмная палитра приходит из base.css через класс feed-dark на <html> */
 .feedland {
-  flex: 1;
-  overflow-y: auto;
   background: var(--bg);
   color: var(--ink);
 }

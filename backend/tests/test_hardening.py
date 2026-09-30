@@ -151,6 +151,19 @@ def test_critique_falls_back_and_normalizes(fake_models: dict, monkeypatch: pyte
     assert [m["role"] for m in result["messages"]] == ["факт", "факт"]  # неизвестная роль → «факт», пустая — мимо
     assert [i["what"] for i in result["improvements"]] == ["главное", "мелочь", "без приоритета"]
     assert set(result["reads_as"]) == {"segment", "audience", "mood"}
+    assert result["reads_as"]["segment"] == ""
+    assert result["reads_as"]["audience"] == ""
+    assert "не указаны" in result["positioning"]
+
+
+def test_critique_does_not_invent_market_without_inputs(fake_models: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(expert.config, "VISUAL_MODEL", "a/one")
+    fake_models["a/one"] = json.dumps({**VISUAL_ANSWER, "scores": {"positioning": 8}}, ensure_ascii=False)
+    result = asyncio.run(expert.critique("data:image/jpeg;base64,", [], {}))
+    assert result["reads_as"]["segment"] == ""
+    assert result["reads_as"]["audience"] == ""
+    assert "positioning" not in result["scores"]
+    assert "не предоставлены" in result["shelf"]
 
 
 def test_critique_fails_when_no_model_answers(fake_models: dict, monkeypatch: pytest.MonkeyPatch) -> None:

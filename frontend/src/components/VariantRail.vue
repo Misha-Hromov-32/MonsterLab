@@ -50,7 +50,8 @@ function select(key: Key) {
                 <span v-else-if="v.status === 'error'" class="state num err"><AlertCircle :size="12" /> ошибка</span>
                 <span v-else-if="v.analysis" class="state num">
                   <i class="dot" :class="tone(v.analysis.index)" />
-                  индекс <b class="num">{{ v.analysis.index }}</b>
+                  индекс <b class="num">{{ v.analysis.index }}</b
+                  ><span v-if="v.measuredIndex !== undefined"> · с бонусом</span>
                 </span>
               </span>
             </button>
@@ -99,7 +100,7 @@ function select(key: Key) {
       <section class="extra" :class="{ open: extra }">
         <div class="head">
           <span class="label">О товаре</span>
-          <span class="label hint">чтобы визуальный разбор был точнее</span>
+          <span class="label hint">необязательно</span>
         </div>
         <div class="form">
           <label class="field">
@@ -123,16 +124,21 @@ function select(key: Key) {
             </label>
             <label class="field">
               <span class="flabel">Аудитория</span>
-              <input v-model.trim="state.context.audience" class="input" maxlength="80" placeholder="офис, 25–40" />
+              <input
+                v-model.trim="state.context.audience"
+                class="input"
+                maxlength="80"
+                placeholder="Кому предназначен товар"
+              />
             </label>
           </div>
           <label class="field">
-            <span class="flabel">Бренд и позиционирование</span>
+            <span class="flabel">Бренд и описание товара</span>
             <input
               v-model.trim="state.context.positioning"
               class="input"
               maxlength="160"
-              placeholder="средний+, для города, минимализм"
+              placeholder="Что важно учесть в разборе"
             />
           </label>
         </div>

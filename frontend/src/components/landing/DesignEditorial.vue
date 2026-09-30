@@ -2,6 +2,7 @@
 import UploadButton from './UploadButton.vue'
 import ExamplesGallery from './ExamplesGallery.vue'
 import Steps from './Steps.vue'
+import Features from './Features.vue'
 import type { Landing } from '../../lib/types'
 
 defineProps<{ l: Landing }>()
@@ -21,14 +22,13 @@ defineProps<{ l: Landing }>()
       </div>
     </section>
     <Steps :steps="l.steps" />
+    <Features />
     <ExamplesGallery />
   </div>
 </template>
 
 <style scoped>
 .editorial {
-  flex: 1;
-  overflow-y: auto;
   display: grid;
   align-content: start;
   gap: 56px;

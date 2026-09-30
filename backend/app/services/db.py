@@ -16,6 +16,20 @@ from .. import config
 DB_FILE = config.DATA_DIR / "app.sqlite"
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS personal_covers (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    digest TEXT NOT NULL,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    jpeg BLOB NOT NULL,
+    preview BLOB NOT NULL,
+    report TEXT,
+    baseline REAL,
+    created_at REAL NOT NULL,
+    UNIQUE(user_id, digest)
+);
+CREATE INDEX IF NOT EXISTS personal_covers_owner ON personal_covers(user_id, created_at);
 -- email хранится зашифрованным (AES-256-GCM), ищется по email_index — HMAC-SHA256 от адреса;
 -- password — Argon2id; stamp меняется при смене пароля и отзывает все входы.
 -- terms_accepted_at / pd_consent_at / legal_version — когда и с какой редакцией правил покупатель согласился

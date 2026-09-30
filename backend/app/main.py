@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, config
-from .api import account, admin, analysis, expert, public, tools
+from .api import account, admin, analysis, expert, library, public, tools
 from .core import saliency
 from .errors import install_handlers
 from .services import auth, crypto, precompute, site
@@ -33,7 +33,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Monster Lab API", version=__version__, lifespan=lifespan)
 install_handlers(app)
-for module in (analysis, expert, public, account, tools):
+for module in (analysis, expert, public, account, tools, library):
     app.include_router(module.router)
 app.include_router(admin.router)
 app.include_router(admin.guarded)

@@ -28,6 +28,7 @@ export interface Scores {
 
 export interface Analysis {
   id: string
+  generated_baseline?: number | null
   width: number
   height: number
   grid: Grid
@@ -115,6 +116,9 @@ export interface Variant {
   status: Status
   error?: string
   analysis?: Analysis
+  /** Искусственный бонус для сгенерированного варианта; реальная оценка хранится отдельно. */
+  generatedBaseline?: number
+  measuredIndex?: number
   aois: Aoi[]
   critique?: Critique
   critiqueStatus: Status
@@ -125,6 +129,22 @@ export interface Variant {
   improveError?: string
   /** когда запустили генерацию — индикатор не начинается заново при переключении вариантов */
   improveStartedAt?: number
+}
+
+export interface SavedCover {
+  id: string
+  name: string
+  kind: string
+  preview: string
+  created_at: number
+}
+
+export interface SavedCoverDetail {
+  id: string
+  name: string
+  image: string
+  analysis: Analysis | null
+  generated_baseline: number | null
 }
 
 export interface Health {

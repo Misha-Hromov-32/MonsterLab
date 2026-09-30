@@ -30,7 +30,7 @@ onUnmounted(() => clearInterval(timer))
 // полоса не доходит до конца, пока ответа нет: генерация иногда дольше обычного
 const progress = computed(() => Math.min(95, (elapsed.value / IMPROVE_ETA_SEC) * 100))
 const waitText = computed(() =>
-  elapsed.value < IMPROVE_ETA_SEC ? `ещё около ${IMPROVE_ETA_SEC - elapsed.value} с` : 'почти готово…',
+  elapsed.value < IMPROVE_ETA_SEC ? `ещё около ${IMPROVE_ETA_SEC - elapsed.value} с` : 'ожидаем результат…',
 )
 
 // нет свободного слота — предлагаем заменить один из вариантов
@@ -67,13 +67,13 @@ function download() {
           <figcaption class="label now">Стало</figcaption>
         </figure>
       </div>
-      <p class="hint">Добавьте её как вариант — посчитаем заметность и сравним с исходной.</p>
+      <p class="hint">Добавьте вариант для сравнения с исходной обложкой.</p>
       <div class="acts">
         <button v-if="!replaceKeys.length" class="btn primary" @click="addImproved(v)">
           <ImagePlus :size="15" /> Добавить как вариант
         </button>
         <div v-else class="replace" role="group" aria-label="Заменить вариант">
-          <span class="hint"><Replace :size="13" /> Слоты заняты, заменить:</span>
+          <span class="hint"><Replace :size="13" /> Заменить вариант:</span>
           <button
             v-for="k in replaceKeys"
             :key="k"
@@ -87,14 +87,14 @@ function download() {
         </div>
         <button class="btn" @click="download"><Download :size="14" /> Скачать</button>
       </div>
-      <button class="btn sm ghost again" @click="runImprove(v)"><RefreshCw :size="13" /> Нарисовать ещё раз</button>
+      <button class="btn sm ghost again" @click="runImprove(v)"><RefreshCw :size="13" /> Сгенерировать ещё раз</button>
     </div>
 
     <div v-else class="ask">
       <button class="btn primary big" @click="runImprove(v)"><Sparkles :size="16" /> Улучшить обложку</button>
       <span class="hint">
-        Нейросеть перерисует обложку по выводам разбора — сохранит товар и бренд.
-        <template v-if="withCritique">Учтём советы визуального разбора.</template>
+        Генерация нового варианта с сохранением товара и бренда.
+        <template v-if="withCritique">По рекомендациям разбора.</template>
       </span>
       <p v-if="v.improveStatus === 'error'" class="err" role="alert">{{ v.improveError }}</p>
     </div>

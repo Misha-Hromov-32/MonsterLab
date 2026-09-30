@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { CreditCard, Loader2, LogOut } from 'lucide-vue-next'
+import { CreditCard, FolderOpen, Loader2, LogOut } from 'lucide-vue-next'
 import ModalDialog from './ModalDialog.vue'
 import UsageList from './UsageList.vue'
-import { account, closeDialog, isPaid, logout, openTariffs } from '../lib/account'
+import { account, closeDialog, isPaid, logout, openLibrary, openTariffs } from '../lib/account'
 import { formatDate } from '../lib/format'
 import { toast } from '../store'
 
@@ -32,14 +32,13 @@ function signOut() {
         <UsageList :usage="user.usage" :limits="user.limits" />
         <p class="note">
           {{
-            isPaid
-              ? 'Квоты обновятся при продлении тарифа.'
-              : 'Демо-квоты даются один раз. Чтобы продолжить, выберите тариф.'
+            isPaid ? 'Квоты обновятся при продлении тарифа.' : 'Демо-доступ разовый. Для продолжения выберите тариф.'
           }}
         </p>
       </section>
 
       <div class="actions">
+        <button class="btn cabinet" @click="openLibrary"><FolderOpen :size="15" /> Личный кабинет</button>
         <button class="btn primary" @click="openTariffs()">
           <CreditCard :size="15" /> {{ isPaid ? 'Продлить или сменить тариф' : 'Выбрать тариф' }}
         </button>
@@ -123,7 +122,8 @@ section {
   gap: 8px;
 }
 
-.actions .btn.primary {
+.actions .btn.primary,
+.actions .cabinet {
   flex: 1 1 100%;
   justify-content: center;
   height: 40px;

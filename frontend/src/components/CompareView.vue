@@ -121,12 +121,9 @@ const pairs = computed(() => {
         <p v-if="expertLeader" class="choice">
           Покупатель скорее выберет <b>{{ expertLeader.key }}</b> — вероятность {{ expertLeader.chance }}%
           <template v-if="leader && expertLeader.key === leader.v.key">
-            — и по вниманию, и по выбору лидирует один вариант. Уверенный кандидат в запуск.</template
+            · этот же вариант лидирует по заметности.</template
           >
-          <template v-else>
-            — заметнее не значит кликабельнее. Проверьте, сколько внимания получает товар и почему покупатель выбирает
-            другой вариант.</template
-          >
+          <template v-else> · лидер по заметности отличается.</template>
         </p>
       </div>
       <Segmented v-model="state.mode" :options="OVERLAY_MODES" size="sm" label="Режим наложения" />
@@ -175,7 +172,7 @@ const pairs = computed(() => {
       </table>
     </div>
     <p v-if="!aoiLabels.length" class="note num">
-      Совет: обведите на каждом варианте зону «Товар» — появится строка с долей внимания на товаре.
+      Выделите зону «Товар» на каждом варианте, чтобы сравнить долю внимания.
     </p>
 
     <section v-if="expertEnabled" class="expert card">
@@ -183,10 +180,7 @@ const pairs = computed(() => {
         <div>
           <span class="label">Выбор покупателя</span>
           <h3>На какой вариант скорее нажмут?</h3>
-          <p>
-            Если показать варианты рядом, покупатель выберет этот с такой вероятностью — по попарным сравнениям
-            нескольких экспертов.
-          </p>
+          <p>Прогноз по попарному сравнению обложек. Оценку дают нейросети.</p>
         </div>
         <div class="ask">
           <button class="btn primary" :disabled="state.compareStatus === 'loading'" @click="runCompare">

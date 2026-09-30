@@ -16,9 +16,9 @@ const error = ref('')
 
 // список вариантов присылает сервер, здесь — только подписи к ним
 const DESIGN_INFO: Record<Design, { title: string; text: string }> = {
-  split: { title: 'До / после', text: 'Справа обложка со шторкой: потяните — проявится карта внимания.' },
-  feed: { title: 'Лента', text: 'Тёмная выдача на весь экран, туман и «фонарик» за курсором.' },
-  editorial: { title: 'Редакция', text: 'Крупная типографика, ничего лишнего. Спокойно и строго.' },
+  split: { title: 'До / после', text: 'Обложка с картой внимания и шторкой.' },
+  feed: { title: 'Лента', text: 'Тёмная лента с картой внимания.' },
+  editorial: { title: 'Редакция', text: 'Крупный заголовок и примеры.' },
 }
 const designs = computed(() =>
   props.data.designs.map((id) => ({ id, ...(DESIGN_INFO[id] ?? { title: id, text: '' }) })),
@@ -138,7 +138,7 @@ async function save() {
           </a>
         </div>
       </div>
-      <p class="note num">Миниатюры показывают сохранённые тексты и обновляются после сохранения.</p>
+      <p class="note num">Предпросмотр обновляется после сохранения.</p>
     </section>
 
     <section class="texts">

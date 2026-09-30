@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import TopBar from './components/TopBar.vue'
 import VariantRail from './components/VariantRail.vue'
 import Landing from './components/landing/Landing.vue'
@@ -9,13 +9,22 @@ import ShelfView from './components/ShelfView.vue'
 import ToastMessage from './components/ToastMessage.vue'
 import LoginDialog from './components/LoginDialog.vue'
 import AccountDialog from './components/AccountDialog.vue'
+import LibraryDialog from './components/LibraryDialog.vue'
 import TariffsDialog from './components/TariffsDialog.vue'
-import { addFiles, loadHealth, loadSite, state, toast } from './store'
+import { addFiles, loadHealth, loadSite, resetAll, state, toast } from './store'
+import { session } from './lib/session'
 import { account, checkPaymentReturn, handleEmailLink, refreshMe } from './lib/account'
 
 // ?preview=1 — главная внутри iframe админки: только витрина, без опроса сервиса
 // и без перехвата перетаскивания файлов (иначе он мешал бы самой админке).
 const preview = new URLSearchParams(location.search).get('preview') === '1'
+
+// Рабочий экран тоже принадлежит аккаунту: смена пользователя очищает чужие работы.
+watch(
+  () => session.token,
+  () => resetAll(),
+  { flush: 'sync' },
+)
 
 const dragging = ref(false)
 // dragenter/dragleave срабатывают на каждом вложенном элементе — считаем глубину
@@ -94,6 +103,7 @@ onUnmounted(() => {
 
     <LoginDialog v-if="account.dialog === 'login'" />
     <AccountDialog v-else-if="account.dialog === 'account'" />
+    <LibraryDialog v-else-if="account.dialog === 'library'" />
     <TariffsDialog v-else-if="account.dialog === 'tariffs'" />
 
     <ToastMessage :message="state.toast" />

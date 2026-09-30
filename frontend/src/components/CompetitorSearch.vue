@@ -18,7 +18,7 @@ const full = computed(() => state.competitors.length >= MAX_COMPETITORS)
         class="input"
         type="search"
         maxlength="120"
-        placeholder="Поисковый запрос, например «термокружка 500 мл»"
+        placeholder="Название товара"
         aria-label="Поисковый запрос покупателя на Wildberries"
         :disabled="loading"
       />
@@ -29,7 +29,7 @@ const full = computed(() => state.competitors.length >= MAX_COMPETITORS)
     </div>
     <p v-if="state.competitorSearch.status === 'error'" class="err" role="alert">{{ state.competitorSearch.error }}</p>
     <p v-else class="hint">
-      {{ loading ? 'Собираем обложки из выдачи — обычно 5–15 секунд' : 'Возьмём топ выдачи по запросу' }}
+      {{ loading ? 'Ищем обложки…' : 'Поиск в выдаче Wildberries' }}
     </p>
   </form>
 </template>

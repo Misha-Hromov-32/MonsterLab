@@ -181,10 +181,8 @@ function createAoi(rect: { x: number; y: number; w: number; h: number }) {
           <span><i class="sw" /> 50%</span>
           <span><i class="sw dash" /> 75%</span>
         </span>
-        <span v-else-if="state.mode === 'gaze'" class="num">Порядок просмотра · 1 — куда взгляд упадёт первым</span>
-        <span v-else-if="state.mode === 'fog'" class="num"
-          >Проявлено то, что покупатель успеет заметить за 2–3 секунды</span
-        >
+        <span v-else-if="state.mode === 'gaze'" class="num">Порядок просмотра · 1 — первая точка внимания</span>
+        <span v-else-if="state.mode === 'fog'" class="num">Прогноз внимания в первые 2–3 секунды</span>
         <span v-else class="num">Клавиши 1–5 переключают режимы, Z — нарисовать зону</span>
       </div>
     </section>

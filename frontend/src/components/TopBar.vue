@@ -4,7 +4,8 @@ import { Columns3, Eye, LayoutGrid, Plus, Upload } from 'lucide-vue-next'
 import Logo from './Logo.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import AccountButton from './AccountButton.vue'
-import { addFiles, featuredExample, loadExample, paidAvailable, ready, resetAll, state } from '../store'
+import { openLibrary, signedIn } from '../lib/account'
+import { addFiles, paidAvailable, ready, resetAll, state } from '../store'
 import { useFilePicker } from '../lib/useFilePicker'
 import type { View } from '../lib/types'
 
@@ -77,6 +78,7 @@ function home() {
     <nav v-if="!working" class="links" aria-label="Разделы">
       <button type="button" @click="go('how')">Как это работает</button>
       <button type="button" @click="go('examples')">Примеры</button>
+      <button v-if="signedIn" type="button" @click="openLibrary">Личный кабинет</button>
     </nav>
 
     <nav v-else class="tabs" aria-label="Режим">
@@ -97,6 +99,7 @@ function home() {
         <span v-if="t.count" class="count">{{ t.count }}</span>
       </button>
       <span v-for="t in tabs" :id="`tab-hint-${t.id}`" :key="`hint-${t.id}`" hidden>{{ t.hint }}</span>
+      <button v-if="signedIn" type="button" class="tab" @click="openLibrary">Личный кабинет</button>
     </nav>
 
     <div class="actions">
@@ -105,9 +108,6 @@ function home() {
       <!-- аккаунт нужен только для платных функций: если на сервере их нет, кнопку не показываем -->
       <AccountButton v-if="paidAvailable" />
       <template v-if="!working">
-        <button v-if="featuredExample" type="button" class="btn pill hide-sm" @click="loadExample(featuredExample)">
-          Открыть пример
-        </button>
         <button type="button" class="btn primary" @click="pick()">
           <Upload :size="15" aria-hidden="true" /> <span class="hide-xs">Загрузить обложки</span>
         </button>
@@ -278,7 +278,13 @@ function home() {
     row-gap: 10px;
   }
   .links {
-    display: none;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 0;
+  }
+  .links button {
+    padding: 0 8px;
+    font-size: 13px;
   }
   .tabs {
     grid-column: 1 / -1;
@@ -287,6 +293,7 @@ function home() {
   }
   .tab {
     flex: 1;
+    min-width: 0;
     justify-content: center;
     padding: 0 8px;
   }
@@ -300,6 +307,14 @@ function home() {
 
 /* с кнопкой входа подписи не помещаются раньше — оставляем иконки */
 @media (max-width: 520px) {
+  .tab {
+    padding: 0 4px;
+    gap: 4px;
+    font-size: 12px;
+  }
+  .tab :deep(svg) {
+    display: none;
+  }
   .hide-xs {
     display: none;
   }

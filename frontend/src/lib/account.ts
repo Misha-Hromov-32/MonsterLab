@@ -4,7 +4,7 @@ import { session, setUserToken } from './session'
 import { formatDate } from './format'
 import type { Billing, Consent, Session, User } from './types'
 
-export type AccountDialog = '' | 'login' | 'account' | 'tariffs'
+export type AccountDialog = '' | 'login' | 'account' | 'tariffs' | 'library'
 /** sent — «проверьте почту», forgot — запрос ссылки для нового пароля, reset — ввод нового пароля */
 export type AuthMode = 'login' | 'register' | 'sent' | 'forgot' | 'reset'
 export type LetterKind = 'verify' | 'reset'
@@ -46,6 +46,11 @@ export function openAccount() {
   account.dialog = 'account'
   refreshMe()
   loadPlans()
+}
+
+export function openLibrary() {
+  if (!signedIn.value) return openLogin('Войдите, чтобы открыть свои обложки', openLibrary)
+  account.dialog = 'library'
 }
 
 export function openTariffs(reason = '') {
@@ -186,7 +191,7 @@ export async function handleEmailLink(notify: (msg: string) => void): Promise<bo
     const s = await api.verify(verify!)
     setUserToken(s.token)
     account.user = s.user
-    notify(`Почта подтверждена — добро пожаловать, ${s.user.email}`)
+    notify(`Почта подтверждена: ${s.user.email}`)
   } catch (e) {
     openLogin((e as Error).message)
   }

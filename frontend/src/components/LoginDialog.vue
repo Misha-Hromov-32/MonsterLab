@@ -113,7 +113,7 @@ async function resend() {
       <p class="sent-text">
         <template v-if="account.letter === 'verify'">
           Мы отправили ссылку на <strong>{{ account.pendingEmail }}</strong
-          >. Откройте письмо и нажмите «Подтвердить почту» — вход произойдёт сам.
+          >. Нажмите «Подтвердить почту» в письме.
         </template>
         <template v-else>
           Если аккаунт с адресом <strong>{{ account.pendingEmail }}</strong> есть, ссылка для нового пароля уже в почте.
@@ -140,8 +140,8 @@ async function resend() {
           @update:model-value="error = ''"
         />
       </div>
-      <p v-else-if="mode === 'forgot'" class="lead">Пришлём ссылку, по которой можно задать новый пароль.</p>
-      <p v-else class="lead">Придумайте новый пароль — после сохранения вы сразу войдёте.</p>
+      <p v-else-if="mode === 'forgot'" class="lead">Отправим ссылку для смены пароля.</p>
+      <p v-else class="lead">Введите новый пароль.</p>
 
       <form class="form" novalidate @submit.prevent="submit">
         <label v-if="needsEmail" class="field">
@@ -206,8 +206,8 @@ async function resend() {
       </button>
 
       <p v-if="withTabs" class="foot">
-        Проверка обложек, тест полки и примеры доступны после входа. Регистрация бесплатная — нужен только email, его мы
-        подтвердим письмом. <a href="/legal" target="_blank" rel="noopener">Правила сервиса</a>
+        Для работы нужен аккаунт. Регистрация бесплатная.
+        <a href="/legal" target="_blank" rel="noopener">Правила сервиса</a>
       </p>
     </template>
   </ModalDialog>

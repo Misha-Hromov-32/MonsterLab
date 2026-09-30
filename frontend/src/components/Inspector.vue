@@ -16,11 +16,11 @@ const a = computed(() => props.analysis)
 
 // Вердикт по индексу строже общих порогов: «сильная» — только заметно выше «хорошо».
 const VERDICTS: [number, string][] = [
-  [70, 'Сильная обложка'],
-  [50, 'Рабочая, есть что усилить'],
-  [35, 'Слабая'],
+  [70, 'Высокая заметность'],
+  [50, 'Средняя заметность'],
+  [35, 'Низкая заметность'],
 ]
-const verdict = computed(() => VERDICTS.find(([min]) => a.value.index >= min)?.[1] ?? 'Требует переделки')
+const verdict = computed(() => VERDICTS.find(([min]) => a.value.index >= min)?.[1] ?? 'Очень низкая заметность')
 
 // Пороги подсказок — как в backend/app/core/metrics.py: notes(), чтобы строка не спорила с выводами.
 const THUMB_GOOD = 75
@@ -37,7 +37,7 @@ const contrastText = computed(() => {
   const c = a.value.scores.contrast
   if (c >= SCORE_GOOD) return 'товар хорошо отделён от фона'
   if (c >= CONTRAST_BAD) return 'контраст средний'
-  return 'картинка «плоская», товар сливается с фоном'
+  return 'товар сливается с фоном'
 })
 
 // Хвалим зону в заметках, только если перевес внимания очевиден — выше порога «сильной» зоны в списке.
@@ -55,13 +55,13 @@ const aoiNotes = computed(() => {
       out.push({
         level: 'bad',
         title: `«${x.label}» теряется`,
-        text: `Зона занимает ${pct(s.area)} кадра, а получает лишь ${share}% внимания — меньше, чем положено по площади. Сделайте её контрастнее или крупнее.`,
+        text: `Зона занимает ${pct(s.area)} кадра, а получает лишь ${share}% внимания — меньше её доли площади. Увеличьте зону или контраст.`,
       })
     else if (s.lift >= AOI_LIFT_PRAISE)
       out.push({
         level: 'good',
-        title: `«${x.label}» притягивает взгляд`,
-        text: `${share}% внимания при ${pct(s.area)} площади — в ${s.lift.toFixed(1)} раза больше, чем «положено».`,
+        title: `«${x.label}» получает больше внимания`,
+        text: `${share}% внимания при ${pct(s.area)} площади — в ${s.lift.toFixed(1)} раза больше её доли площади.`,
       })
   }
   return out
@@ -84,10 +84,10 @@ function remove(id: string) {
         <span class="of num">/100</span>
       </div>
       <p class="verdict">{{ verdict }}</p>
-      <p class="lead">
-        Техническая часть: куда упадёт взгляд и что прочитается в ленте. Стиль, смысл надписей и позиционирование — в
-        визуальном разборе.
+      <p v-if="variant.measuredIndex !== undefined" class="lead">
+        С бонусом за генерацию · оценка модели без бонуса: {{ variant.measuredIndex }}/100.
       </p>
+      <p class="lead">Оценка внимания и читаемости.</p>
     </section>
 
     <!-- визуальный разбор — сразу под индексом: стиль и смысл важнее технических метрик -->
@@ -99,20 +99,20 @@ function remove(id: string) {
         <MetricRow
           title="Фокус внимания"
           :value="a.scores.focus"
-          :detail="`половина взгляда — на ${pct(a.raw.area50)} площади · центров внимания: ${a.raw.hotspots}`"
-          hint="Насколько компактно собрано внимание. Меньше площадь — сильнее фокус."
+          :detail="`50% внимания на ${pct(a.raw.area50)} площади · центров внимания: ${a.raw.hotspots}`"
+          hint="Чем меньше площадь, тем сильнее фокус внимания."
         />
         <MetricRow
           title="Лёгкость восприятия"
           :value="a.scores.ease"
           :detail="`элементов на обложке: ${a.raw.elements} · заметных цветов: ${a.raw.colors}`"
-          hint="Сколько отдельных блоков и цветов на обложке. Товар, заголовок и 3–5 плашек — норма для маркетплейса."
+          hint="Количество отдельных блоков и цветов на обложке."
         />
         <MetricRow
           title="Читаемость на превью"
           :value="a.scores.thumb"
           :detail="thumbText"
-          hint="Останутся ли надписи и детали различимы в маленькой карточке в ленте телефона."
+          hint="Читаемость надписей и деталей в маленькой карточке."
         />
         <MetricRow
           title="Контраст"
@@ -129,7 +129,7 @@ function remove(id: string) {
         <span v-if="aois.length" class="label num">внимание</span>
       </div>
       <p v-if="!aois.length" class="empty-hint">
-        Нажмите <b>Зона</b> над картинкой и обведите товар, оффер или цену — покажем, какую долю внимания они получают.
+        Нажмите <b>Зона</b> и выделите область, чтобы узнать её долю внимания.
       </p>
       <ul v-else class="aois">
         <li v-for="({ x, s }, i) in aois" :key="x.id">

@@ -204,6 +204,25 @@ describe('конкуренты', () => {
   })
 })
 
+describe('данные о товаре', () => {
+  it('не восстанавливает старый товар из браузера', async () => {
+    localStorage.setItem('ml.prefs', JSON.stringify({ context: { query: 'крем', price: '990' } }))
+    vi.resetModules()
+    const fresh = await import('./store')
+    expect(Object.values(fresh.state.context).every((value) => value === '')).toBe(true)
+    expect(JSON.parse(localStorage.getItem('ml.prefs')!).context).toBeUndefined()
+  })
+
+  it('новый анализ очищает введённые данные и не сохраняет их в браузере', async () => {
+    Object.assign(store.state.context, { query: 'товар', price: '123', audience: 'моя аудитория' })
+    store.state.opacity = 0.5
+    await flush()
+    expect(JSON.parse(localStorage.getItem('ml.prefs')!).context).toBeUndefined()
+    store.resetAll()
+    expect(Object.values(store.state.context).every((value) => value === '')).toBe(true)
+  })
+})
+
 describe('примеры', () => {
   it('двойное нажатие не дублирует варианты и конкурентов', async () => {
     vi.stubGlobal(
@@ -226,7 +245,7 @@ describe('примеры', () => {
 
     expect(store.state.variants.map((v) => v.key)).toEqual(['A', 'B'])
     expect(store.state.competitors).toHaveLength(1)
-    expect(store.state.context.query).toBe('сок')
+    expect(store.state.context.query).toBe('')
   })
 
   it('готовые результаты: обложки не уходят на анализ, полка открывается без расчёта', async () => {
@@ -336,6 +355,25 @@ describe('платные функции', () => {
 describe('улучшенная обложка', () => {
   const IMAGE = 'data:image/jpeg;base64,' + btoa('jpeg-bytes')
 
+  it('даёт сгенерированному варианту бонус и сохраняет реальную оценку', async () => {
+    await twoReady()
+    const original = store.state.variants[0]
+    original.analysis!.index = 65
+    original.improved = IMAGE
+    api.analyze.mockResolvedValueOnce({ id: 'generated', index: 40 } as Analysis)
+    store.addImproved(original)
+    await flush()
+    const generated = store.state.variants.find((v) => v.analysis?.id === 'generated')!
+    expect(generated.analysis!.index).toBe(70)
+    expect(generated.measuredIndex).toBe(40)
+    expect(store.generatedIndex(98, 99)).toBe(100)
+    api.analyze.mockResolvedValueOnce({ id: 'normal', index: 35 } as Analysis)
+    store.addFiles([img('normal.png')], generated.key)
+    await flush()
+    expect(generated.analysis!.index).toBe(35)
+    expect(generated.measuredIndex).toBeUndefined()
+  })
+
   it('передаёт замечания экспертов без повторов и сохраняет картинку', async () => {
     await twoReady()
     const v = store.state.variants[0]
@@ -381,6 +419,24 @@ describe('улучшенная обложка', () => {
     expect(added?.name).toBe('a — улучшенная.jpg')
     expect(added?.file.type).toBe('image/jpeg')
     expect(added?.status).toBe('loading')
+  })
+})
+
+describe('личный кабинет', () => {
+  it('открывает сохранённый анализ без повторного запроса и сохраняет бонус генерации', () => {
+    const raw = { id: 'saved', index: 40 } as Analysis
+    const opened = store.openSavedCover({
+      id: 'personal',
+      name: 'Моя обложка',
+      image: 'data:image/jpeg;base64,' + btoa('saved-bytes'),
+      analysis: raw,
+      generated_baseline: 65,
+    })
+    expect(opened).toBe(true)
+    expect(api.analyze).not.toHaveBeenCalled()
+    expect(store.state.variants[0].analysis!.index).toBe(70)
+    expect(store.state.variants[0].measuredIndex).toBe(40)
+    expect(raw.index).toBe(40)
   })
 })
 

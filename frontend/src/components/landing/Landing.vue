@@ -22,17 +22,23 @@ const design = computed(() => DESIGNS[override ?? landing.value.design] ?? Desig
 
 <template>
   <div v-if="!site.loaded" class="wait" aria-busy="true" />
-  <template v-else>
+  <div v-else class="landing-page">
     <component :is="design" :l="landing" />
     <footer class="legal-foot">
       <span>© Monster Lab</span>
       <a href="/legal#terms">Пользовательское соглашение</a>
       <a href="/legal#privacy">Политика конфиденциальности</a>
     </footer>
-  </template>
+  </div>
 </template>
 
 <style scoped>
+.landing-page {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .wait {
   flex: 1 0 auto;
   min-height: calc(100dvh - 64px);

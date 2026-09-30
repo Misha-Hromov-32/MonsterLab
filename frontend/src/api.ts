@@ -1,6 +1,8 @@
 import { authHeader } from './lib/session'
 import type {
   Analysis,
+  SavedCover,
+  SavedCoverDetail,
   Billing,
   CompareResult,
   CompetitorSearch,
@@ -54,7 +56,7 @@ export async function request<T>(url: string, init: RequestInit = {}, opts: Requ
     signal?.removeEventListener('abort', onAbort)
   }
   if (!res.ok) {
-    let message = 'Что-то пошло не так. Попробуйте ещё раз.'
+    let message = 'Не удалось выполнить запрос. Попробуйте ещё раз.'
     let code = 'error'
     try {
       const detail = (await res.json()).detail
@@ -83,6 +85,10 @@ export const withAuth = (init: RequestInit = {}): RequestInit => ({
 })
 
 export const api = {
+  library: (offset = 0) => request<{ items: SavedCover[]; total: number }>(`/api/library?offset=${offset}`, withAuth()),
+  savedCover: (id: string) => request<SavedCoverDetail>(`/api/library/${encodeURIComponent(id)}`, withAuth()),
+  deleteCover: (id: string) =>
+    request<{ ok: boolean }>(`/api/library/${encodeURIComponent(id)}`, withAuth({ method: 'DELETE' })),
   health: () => request<Health>('/api/health', {}, { timeoutMs: 10_000 }),
   /** preview — главная в iframe админки: такой показ не считается визитом */
   site: (preview = false) =>

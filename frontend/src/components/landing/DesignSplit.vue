@@ -4,13 +4,14 @@ import { Upload } from 'lucide-vue-next'
 import BeforeAfter from './BeforeAfter.vue'
 import ExamplesGallery from './ExamplesGallery.vue'
 import Steps from './Steps.vue'
-import { addFiles, featuredExample, loadExample, site } from '../../store'
+import Features from './Features.vue'
+import { addFiles, site } from '../../store'
 import { useFilePicker } from '../../lib/useFilePicker'
 import type { Landing } from '../../lib/types'
 
 defineProps<{ l: Landing }>()
 
-// своя кнопка, а не UploadButton: здесь она в паре с «Открыть пример» и в другом размере
+// Кнопка загрузки в размере главного призыва к действию.
 const pick = useFilePicker((files) => addFiles(files))
 
 const card = computed(() => site.showcase?.card)
@@ -50,9 +51,6 @@ const SPARK = [55, 22, 59, 26, 63, 30, 67, 34, 71, 38, 75, 42]
         </h1>
         <p class="lead">{{ l.lead }}</p>
         <div class="ctas">
-          <button v-if="featuredExample" type="button" class="btn pill cta" @click="loadExample(featuredExample)">
-            Открыть пример
-          </button>
           <button type="button" class="btn primary cta" @click="pick()">
             <Upload :size="16" aria-hidden="true" /> {{ l.cta }}
           </button>
@@ -114,6 +112,7 @@ const SPARK = [55, 22, 59, 26, 63, 30, 67, 34, 71, 38, 75, 42]
 
     <div class="below">
       <Steps :steps="l.steps" />
+      <Features />
       <ExamplesGallery />
     </div>
   </div>
@@ -121,8 +120,6 @@ const SPARK = [55, 22, 59, 26, 63, 30, 67, 34, 71, 38, 75, 42]
 
 <style scoped>
 .split {
-  flex: 1;
-  overflow-y: auto;
   background: var(--bg);
 }
 
