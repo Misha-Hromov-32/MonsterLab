@@ -82,7 +82,7 @@ async function pay(p: PlanInfo) {
           Сейчас действует «{{ account.user.plan_title }}» до {{ formatDate(account.user.pro_until) }}.
         </template>
         Квоты — на период оплаты, неиспользованные не переносятся. Продление прибавляет срок к текущему.
-        <template v-if="canPay">Оплата картой или через СБП в ЮKassa.</template>
+        <template v-if="canPay">Оплата через ЮKassa: картой, SberPay или ЮMoney.</template>
         <template v-else>Оплата скоро появится.</template>
         {{ ' ' }}<a href="/legal#terms" target="_blank" rel="noopener">Условия и возврат</a>
       </p>
