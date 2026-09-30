@@ -2,7 +2,7 @@ import { computed, reactive } from 'vue'
 import { api, ApiError } from '../api'
 import { session, setUserToken } from './session'
 import { formatDate } from './format'
-import type { BillingPlan, Consent, Session, User } from './types'
+import type { Billing, Consent, Session, User } from './types'
 
 export type AccountDialog = '' | 'login' | 'account' | 'tariffs'
 /** sent — «проверьте почту», forgot — запрос ссылки для нового пароля, reset — ввод нового пароля */
@@ -15,7 +15,7 @@ export type LetterKind = 'verify' | 'reset'
  */
 export const account = reactive({
   user: null as User | null,
-  plan: null as BillingPlan | null,
+  billing: null as Billing | null,
   dialog: '' as AccountDialog,
   authMode: 'login' as AuthMode,
   /** почему открыли диалог: «войдите, чтобы…», «исчерпан лимит…» */
@@ -28,7 +28,8 @@ export const account = reactive({
 })
 
 export const signedIn = computed(() => !!session.token)
-export const isPro = computed(() => account.user?.plan === 'pro')
+/** оплачен ли тариф: у демо-доступа plan === 'demo' */
+export const isPaid = computed(() => !!account.user && account.user.plan !== 'demo')
 
 /** Что сделать после входа — например, повторить разбор, ради которого покупатель входил. */
 let afterLogin: (() => void) | null = null
@@ -44,13 +45,13 @@ export function openAccount() {
   account.reason = ''
   account.dialog = 'account'
   refreshMe()
-  loadPlan()
+  loadPlans()
 }
 
 export function openTariffs(reason = '') {
   account.reason = reason
   account.dialog = 'tariffs'
-  loadPlan()
+  loadPlans()
 }
 
 export function closeDialog() {
@@ -80,9 +81,9 @@ export async function refreshMe() {
   }
 }
 
-export async function loadPlan() {
+export async function loadPlans() {
   try {
-    account.plan = await api.billingPlan()
+    account.billing = await api.billingPlans()
   } catch {
     /* без условий кнопка оплаты просто не покажется */
   }
@@ -222,10 +223,10 @@ export function paidError(e: unknown, retry?: () => void): string | null {
 }
 
 /** Переход на страницу оплаты ЮKassa. Возвращает текст ошибки, если оплата сейчас невозможна. */
-export async function checkout(): Promise<string> {
+export async function checkout(planId: string): Promise<string> {
   if (!requireLogin('Войдите, чтобы оформить подписку', () => openTariffs())) return ''
   try {
-    const { url } = await api.checkout()
+    const { url } = await api.checkout(planId)
     location.href = url
     return ''
   } catch (e) {
@@ -238,7 +239,7 @@ const PAYMENT_POLL_MS = 3000
 
 /**
  * Возврат со страницы оплаты (/?payment=return): ЮKassa присылает подтверждение серверу
- * не мгновенно — несколько раз перечитываем тариф, пока он не станет Pro (до ~30 секунд).
+ * не мгновенно — несколько раз перечитываем тариф, пока он не станет платным (до ~30 секунд).
  */
 export async function checkPaymentReturn(
   notify: (msg: string) => void,
@@ -251,8 +252,12 @@ export async function checkPaymentReturn(
     for (let i = 0; i < PAYMENT_POLLS; i++) {
       await refreshMe()
       const u = account.user
-      if (u?.plan === 'pro') {
-        notify(u.pro_until ? `Подписка активна до ${formatDate(u.pro_until)}` : 'Подписка активна')
+      if (u && u.plan !== 'demo') {
+        notify(
+          u.pro_until
+            ? `Тариф «${u.plan_title}» активен до ${formatDate(u.pro_until)}`
+            : `Тариф «${u.plan_title}» активен`,
+        )
         return
       }
       if (i < PAYMENT_POLLS - 1) await wait(PAYMENT_POLL_MS)

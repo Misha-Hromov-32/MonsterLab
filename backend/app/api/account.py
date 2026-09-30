@@ -29,6 +29,10 @@ class Registration(Credentials):
     accept_personal_data: bool = False
 
 
+class CheckoutRequest(BaseModel):
+    plan: str = Field(min_length=1, max_length=40)
+
+
 class EmailOnly(BaseModel):
     email: str = Field(min_length=3, max_length=254)
 
@@ -42,12 +46,14 @@ class NewPassword(LinkToken):
 
 
 def _me(user: accounts.User) -> dict:
+    plan = accounts.find_plan(user.plan)
     return {
         "email": user.email,
         "plan": user.plan,
-        "pro_until": user.pro_until or None,
+        "plan_title": plan["title"] if plan else ("Демо" if user.plan == accounts.DEMO else "Платный"),
+        "pro_until": user.pro_until if user.plan != accounts.DEMO else None,
         "usage": accounts.usage(user),
-        "limits": accounts.limits(user.plan),
+        "limits": accounts.limits(user),
     }
 
 
@@ -153,18 +159,20 @@ def me(user: accounts.User | None = Depends(current_user)) -> dict:
     return _me(user)
 
 
-@router.get("/billing/plan")
-def plan() -> dict:
-    """Условия подписки для страницы тарифов — видны и без входа."""
-    return {"enabled": billing.enabled(), **billing.plan()}
+@router.get("/billing/plans")
+def plans() -> dict:
+    """Тарифы и демо-квоты для страницы тарифов — видны и без входа."""
+    return {"enabled": billing.enabled(), **billing.plans()}
 
 
 @router.post("/billing/checkout")
-async def checkout(user: accounts.User | None = Depends(current_user)) -> dict:
+async def checkout(body: CheckoutRequest, user: accounts.User | None = Depends(current_user)) -> dict:
     if user is None:
         raise api_error(401, "login_required", "Войдите, чтобы оформить подписку")
+    if accounts.find_plan(body.plan) is None:
+        raise api_error(422, "bad_plan", "Такого тарифа нет — обновите страницу")
     try:
-        return {"url": await asyncio.to_thread(billing.checkout, user)}
+        return {"url": await asyncio.to_thread(billing.checkout, user, body.plan)}
     except billing.BillingError as exc:
         raise api_error(503, "billing_unavailable", str(exc)) from exc
 

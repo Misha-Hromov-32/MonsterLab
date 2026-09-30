@@ -98,10 +98,14 @@ export const features = computed(() => ({
   competitors: !!state.health?.features?.competitors,
   billing: !!state.health?.features?.billing,
 }))
-/** Платные функции, которые есть на сервере, — только их показываем в лимитах и тарифах. */
+/** Функции, которые есть на этом сервере, — только их показываем в квотах и тарифах. */
 export const availableFeatures = computed(() =>
-  (['expert', 'improve', 'competitors'] as const).filter((f) =>
-    f === 'expert' ? expertEnabled.value : features.value[f],
+  (['analyze', 'shelf', 'expert', 'choice', 'improve', 'competitors'] as const).filter((f) =>
+    f === 'analyze' || f === 'shelf'
+      ? true
+      : f === 'expert' || f === 'choice'
+        ? expertEnabled.value
+        : features.value[f],
   ),
 )
 /** Есть ли вообще что-то, ради чего входить в аккаунт. */
@@ -116,7 +120,7 @@ watch(
   },
 )
 
-const EXPERT_FAIL = 'Не удалось получить экспертный разбор. Попробуйте ещё раз через минуту.'
+const EXPERT_FAIL = 'Не удалось получить визуальный разбор. Попробуйте ещё раз через минуту.'
 
 let toastTimer = 0
 export function toast(msg: string) {
@@ -297,12 +301,12 @@ async function withIds<T>(vs: Variant[], fn: (ids: Record<string, string>) => Pr
   }
 }
 
-// ------------------------------------------------------------ экспертный разбор и полка
+// ------------------------------------------------------------ визуальный разбор и выбор покупателя
 
 export async function runCritique(v: Variant) {
   if (!v.analysis) return
   const retry = () => runCritique(v)
-  if (!requireLogin('Войдите, чтобы получить экспертный разбор', retry)) return
+  if (!requireLogin('Войдите, чтобы получить визуальный разбор', retry)) return
   const file = v.file
   v.critiqueStatus = 'loading'
   v.critiqueError = undefined

@@ -32,9 +32,10 @@ def enabled() -> bool:
     return bool(config.YOOKASSA_SHOP_ID and config.YOOKASSA_SECRET_KEY)
 
 
-def plan() -> dict:
+def plans() -> dict:
+    """Условия для страницы тарифов: демо-квоты и платные тарифы."""
     billing = site.read()["billing"]
-    return {"price_rub": billing["price_rub"], "period_days": billing["period_days"], "limits": billing["limits"]}
+    return {"demo": billing["demo"], "plans": billing["plans"]}
 
 
 def _client() -> httpx.Client:
@@ -44,17 +45,19 @@ def _client() -> httpx.Client:
     return httpx.Client(base_url=API, auth=auth, timeout=httpx.Timeout(20, connect=10))
 
 
-def checkout(user: accounts.User) -> str:
-    """Создаёт платёж на месяц подписки и возвращает адрес страницы оплаты."""
-    info = plan()
+def checkout(user: accounts.User, plan_id: str) -> str:
+    """Создаёт платёж за тариф plan_id и возвращает адрес страницы оплаты."""
+    info = accounts.find_plan(plan_id)
+    if info is None:
+        raise BillingError("Такого тарифа нет — обновите страницу")
     amount = {"value": f"{info['price_rub']:.2f}", "currency": "RUB"}
-    description = f"Monster Lab: подписка на {info['period_days']} дней"
+    description = f"Monster Lab, тариф «{info['title']}» на {info['period_days']} дней"
     body: dict = {
         "amount": amount,
         "capture": True,
         "confirmation": {"type": "redirect", "return_url": f"{config.PUBLIC_URL}/?payment=return"},
         "description": description,
-        "metadata": {"user_id": str(user.id), "days": str(info["period_days"])},
+        "metadata": {"user_id": str(user.id), "plan": info["id"], "days": str(info["period_days"])},
     }
     if config.YOOKASSA_RECEIPT:  # чек по 54-ФЗ: покупатель и одна позиция «услуга»
         body["receipt"] = {
@@ -98,8 +101,10 @@ def confirm(payment_id: str) -> bool:
         return False
     r.raise_for_status()
     payment = r.json()
-    user_id = int(payment.get("metadata", {}).get("user_id", 0) or 0)
-    days = int(payment.get("metadata", {}).get("days", 0) or plan()["period_days"])
+    meta = payment.get("metadata", {})
+    user_id = int(meta.get("user_id", 0) or 0)
+    plan_id = str(meta.get("plan") or "")
+    days = int(meta.get("days", 0) or 30)
     with db.connect() as con:
         row = con.execute("SELECT applied FROM payments WHERE id = ?", (payment_id,)).fetchone()
         if row is None:  # платёж создан не через нас — не наш
@@ -109,6 +114,6 @@ def confirm(payment_id: str) -> bool:
         if payment["status"] != "succeeded" or not payment.get("paid") or row["applied"] or not user_id:
             return False
         con.execute("UPDATE payments SET applied = 1 WHERE id = ?", (payment_id,))
-    accounts.extend_pro(user_id, days)
-    log.info("Подписка продлена: пользователь %s, платёж %s", user_id, payment_id)
+    accounts.activate(user_id, plan_id, days)
+    log.info("Тариф %s оплачен: пользователь %s, платёж %s", plan_id, user_id, payment_id)
     return True

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { LogIn, UserRound } from 'lucide-vue-next'
-import { account, isPro, openAccount, openLogin, signedIn } from '../lib/account'
+import { account, isPaid, openAccount, openLogin, signedIn } from '../lib/account'
 </script>
 
 <template>
@@ -9,15 +9,13 @@ import { account, isPro, openAccount, openLogin, signedIn } from '../lib/account
     type="button"
     class="acc"
     :title="account.user?.email ?? 'Аккаунт'"
-    :aria-label="account.user ? `Аккаунт ${account.user.email}, тариф ${isPro ? 'Pro' : 'бесплатный'}` : 'Аккаунт'"
+    :aria-label="account.user ? `Аккаунт ${account.user.email}, тариф ${account.user.plan_title}` : 'Аккаунт'"
     aria-haspopup="dialog"
     @click="openAccount"
   >
     <UserRound :size="15" aria-hidden="true" />
     <span class="email">{{ account.user?.email ?? 'Аккаунт' }}</span>
-    <span v-if="account.user" class="badge" :class="{ pro: isPro, free: !isPro }">{{
-      isPro ? 'Pro' : 'Бесплатный'
-    }}</span>
+    <span v-if="account.user" class="badge" :class="{ pro: isPaid, free: !isPaid }">{{ account.user.plan_title }}</span>
   </button>
   <button v-else type="button" class="btn pill login" aria-label="Войти" aria-haspopup="dialog" @click="openLogin()">
     <LogIn :size="15" aria-hidden="true" /> <span class="txt">Войти</span>
@@ -77,7 +75,7 @@ import { account, isPro, openAccount, openLogin, signedIn } from '../lib/account
   letter-spacing: -0.02em;
 }
 
-/* на телефоне email и «Бесплатный» не помещаются — остаются иконка и плашка Pro */
+/* на телефоне email и «Демо» не помещаются — остаются иконка и плашка Pro */
 @media (max-width: 640px) {
   .email,
   .txt,

@@ -1,24 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { CreditCard, Loader2, LogOut } from 'lucide-vue-next'
 import ModalDialog from './ModalDialog.vue'
 import UsageList from './UsageList.vue'
-import { account, checkout, closeDialog, isPro, logout, openTariffs } from '../lib/account'
-import { formatDate, priceLabel } from '../lib/format'
-import { features, toast } from '../store'
-
-const busy = ref(false)
-const error = ref('')
+import { account, closeDialog, isPaid, logout, openTariffs } from '../lib/account'
+import { formatDate } from '../lib/format'
+import { toast } from '../store'
 
 const user = computed(() => account.user)
-const plan = computed(() => account.plan)
-const canPay = computed(() => features.value.billing && !!plan.value?.enabled)
-
-async function pay() {
-  busy.value = true
-  error.value = await checkout()
-  busy.value = false
-}
 
 function signOut() {
   logout()
@@ -33,25 +22,27 @@ function signOut() {
       <div class="who">
         <span class="email" :title="user.email">{{ user.email }}</span>
         <div class="plan">
-          <span class="badge" :class="{ pro: isPro }">{{ isPro ? 'Pro' : 'Бесплатный' }}</span>
-          <span v-if="isPro && user.pro_until" class="until num">до {{ formatDate(user.pro_until) }}</span>
+          <span class="badge" :class="{ pro: isPaid }">{{ user.plan_title }}</span>
+          <span v-if="isPaid && user.pro_until" class="until num">до {{ formatDate(user.pro_until) }}</span>
         </div>
       </div>
 
       <section>
-        <span class="label">Сегодня использовано</span>
+        <span class="label">{{ isPaid ? 'Использовано за период' : 'Демо-доступ' }}</span>
         <UsageList :usage="user.usage" :limits="user.limits" />
-        <p class="note">Лимиты обновляются каждый день. Разбор обложек и тест полки — без ограничений.</p>
+        <p class="note">
+          {{
+            isPaid
+              ? 'Квоты обновятся при продлении тарифа.'
+              : 'Демо-квоты даются один раз. Чтобы продолжить, выберите тариф.'
+          }}
+        </p>
       </section>
 
-      <p v-if="error" class="err" role="alert">{{ error }}</p>
-
       <div class="actions">
-        <button v-if="canPay && plan" class="btn primary" :disabled="busy" @click="pay">
-          <Loader2 v-if="busy" :size="15" class="spin" /><CreditCard v-else :size="15" />
-          {{ isPro ? 'Продлить' : 'Оформить подписку' }} — {{ priceLabel(plan.price_rub, plan.period_days) }}
+        <button class="btn primary" @click="openTariffs()">
+          <CreditCard :size="15" /> {{ isPaid ? 'Продлить или сменить тариф' : 'Выбрать тариф' }}
         </button>
-        <button class="btn ghost" @click="openTariffs()">Сравнить тарифы</button>
         <button class="btn ghost logout" @click="signOut"><LogOut :size="15" /> Выйти</button>
       </div>
     </template>

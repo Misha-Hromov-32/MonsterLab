@@ -13,9 +13,9 @@ from ..core import saliency, shelf
 from ..core.report import cover_report
 from ..errors import api_error
 from ..ratelimit import analysis_limit
-from ..services import billing, expert, marketplace
+from ..services import accounts, billing, expert, marketplace
 from ..services.uploads import store
-from .deps import read_image, require_user
+from .deps import paid, read_image
 
 router = APIRouter(prefix="/api")
 
@@ -37,11 +37,13 @@ def health() -> dict:
     }
 
 
-@router.post("/analyze", dependencies=[Depends(analysis_limit.dependency), Depends(require_user)])
-async def analyze(file: UploadFile = File(...)) -> dict:
+@router.post("/analyze", dependencies=[Depends(analysis_limit.dependency)])
+async def analyze(file: UploadFile = File(...), user: accounts.User = Depends(paid("analyze"))) -> dict:
     rgb = await read_image(file)
     image_id = await asyncio.to_thread(store.put, rgb)
-    return {"id": image_id, **await asyncio.to_thread(cover_report, rgb)}
+    report = await asyncio.to_thread(cover_report, rgb)
+    await asyncio.to_thread(accounts.spend, user, "analyze")
+    return {"id": image_id, **report}
 
 
 def _parse_variants(raw: str) -> dict[str, str]:
@@ -56,11 +58,12 @@ def _parse_variants(raw: str) -> dict[str, str]:
     return ids
 
 
-@router.post("/shelf", dependencies=[Depends(analysis_limit.dependency), Depends(require_user)])
+@router.post("/shelf", dependencies=[Depends(analysis_limit.dependency)])
 async def run_shelf(
     variants: str = Form(..., description='JSON: {"A": "<id загруженной обложки>", …}'),
     layout: str = Form("mobile"),
     competitors: list[UploadFile] = File(default=[]),
+    user: accounts.User = Depends(paid("shelf")),
 ) -> dict:
     ids = _parse_variants(variants)
     if len(competitors) > config.MAX_COMPETITORS:
@@ -71,4 +74,5 @@ async def run_shelf(
         raise api_error(422, "need_more", "Нужно два варианта или хотя бы один конкурент")
     started = time.perf_counter()
     result = await asyncio.to_thread(shelf.run, images, rivals, layout)
+    await asyncio.to_thread(accounts.spend, user, "shelf")
     return {**result, "timing": round(time.perf_counter() - started, 1)}

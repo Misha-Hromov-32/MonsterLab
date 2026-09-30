@@ -76,7 +76,7 @@ async def critique(
 
 
 @router.post("/compare")
-async def compare(req: CompareRequest, user: accounts.User = Depends(paid("expert"))) -> dict:
+async def compare(req: CompareRequest, user: accounts.User = Depends(paid("choice"))) -> dict:
     _require_enabled()
     images = {k: await asyncio.to_thread(store.data_url, v) for k, v in req.variants.items()}
     try:
@@ -84,5 +84,5 @@ async def compare(req: CompareRequest, user: accounts.User = Depends(paid("exper
     except expert.ExpertError as exc:
         log.warning("Экспертный разбор не удался: %s", exc)
         raise api_error(502, "expert_failed", FAILED) from exc
-    await asyncio.to_thread(accounts.spend, user, "expert")
+    await asyncio.to_thread(accounts.spend, user, "choice")
     return result

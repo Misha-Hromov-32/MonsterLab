@@ -57,15 +57,55 @@ DEFAULTS: dict = {
     },
     "examples": [],
     "expert": {"api_key": "", "base_url": "", "models": []},
-    # Подписка: цена, срок и дневные лимиты платных функций для бесплатного и платного тарифа.
-    # Анализ обложек и тест полки бесплатны и без входа — это витрина сервиса.
+    # Тарифы. demo — разовый набор после подтверждения почты: хватает на полный цикл «разбор → улучшенная
+    # обложка → разбор новой → сравнение». У платных тарифов квоты — на период оплаты (period_days).
+    # Себестоимость запусков (ProxyAPI, 30.09.2026): визуальный разбор ≈8 ₽, выбор покупателя ≈1,3 ₽ за пару
+    # вариантов (2 варианта — 2 пары, 4 — 12), улучшенная обложка ≈14 ₽; анализ, полка и конкуренты — ≈0.
     "billing": {
-        "price_rub": 990,
-        "period_days": 30,
-        "limits": {
-            "free": {"expert": 3, "improve": 1, "competitors": 3},
-            "pro": {"expert": 100, "improve": 30, "competitors": 50},
-        },
+        "demo": {"analyze": 10, "shelf": 3, "expert": 2, "choice": 1, "improve": 1, "competitors": 2},
+        "plans": [
+            {
+                "id": "start",
+                "title": "Старт",
+                "price_rub": 990,
+                "period_days": 30,
+                "note": "Для своих карточек",
+                "featured": False,
+                "limits": {"analyze": 300, "shelf": 60, "expert": 30, "choice": 20, "improve": 10, "competitors": 30},
+            },
+            {
+                "id": "pro",
+                "title": "Про",
+                "price_rub": 2490,
+                "period_days": 30,
+                "note": "Для селлера с ассортиментом",
+                "featured": True,
+                "limits": {
+                    "analyze": 1000,
+                    "shelf": 200,
+                    "expert": 80,
+                    "choice": 60,
+                    "improve": 30,
+                    "competitors": 100,
+                },
+            },
+            {
+                "id": "agency",
+                "title": "Агентство",
+                "price_rub": 5990,
+                "period_days": 30,
+                "note": "Для дизайнеров и студий",
+                "featured": False,
+                "limits": {
+                    "analyze": 3000,
+                    "shelf": 600,
+                    "expert": 200,
+                    "choice": 150,
+                    "improve": 80,
+                    "competitors": 300,
+                },
+            },
+        ],
     },
     "seeded": {},  # {slug встроенного примера: ревизия}
 }

@@ -31,7 +31,9 @@ CREATE TABLE IF NOT EXISTS users (
     pro_until REAL NOT NULL DEFAULT 0,
     terms_accepted_at REAL,
     pd_consent_at REAL,
-    legal_version TEXT
+    legal_version TEXT,
+    plan_id TEXT,
+    period_start REAL
 );
 -- ссылки из писем: подтверждение email и сброс пароля. Храним только SHA-256 от токена.
 CREATE TABLE IF NOT EXISTS email_tokens (
@@ -64,7 +66,15 @@ CREATE TABLE IF NOT EXISTS competitor_cache (
 """
 
 # Колонки, добавленные после создания таблицы: в уже существующую базу их докладывает _migrate().
-ADDED_COLUMNS = {"users": {"terms_accepted_at": "REAL", "pd_consent_at": "REAL", "legal_version": "TEXT"}}
+ADDED_COLUMNS = {
+    "users": {
+        "terms_accepted_at": "REAL",
+        "pd_consent_at": "REAL",
+        "legal_version": "TEXT",
+        "plan_id": "TEXT",  # оплаченный тариф; действует, пока pro_until в будущем
+        "period_start": "REAL",  # начало оплаченного периода — от него считаются квоты
+    }
+}
 
 _lock = threading.Lock()
 

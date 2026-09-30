@@ -139,16 +139,29 @@ export interface Health {
 
 // ------------------------------------------------------------ аккаунт и подписка
 
-export type Feature = 'expert' | 'improve' | 'competitors'
+export type Feature = 'analyze' | 'shelf' | 'expert' | 'choice' | 'improve' | 'competitors'
 export type FeatureLimits = Record<Feature, number>
-export type Plan = 'free' | 'pro'
+
+/** Платный тариф: /api/billing/plans и раздел «Тарифы» в админке. */
+export interface PlanInfo {
+  id: string
+  title: string
+  price_rub: number
+  period_days: number
+  note: string
+  featured: boolean
+  /** квоты на период оплаты */
+  limits: FeatureLimits
+}
 
 export interface User {
   email: string
-  plan: Plan
-  /** до какого момента действует Pro, unix-секунды */
+  /** 'demo' или id оплаченного тарифа */
+  plan: string
+  plan_title: string
+  /** до какого момента действует оплаченный тариф, unix-секунды; у демо — null */
   pro_until: number | null
-  /** запуски за сегодня и дневные лимиты тарифа */
+  /** расход и квоты: у демо — на всё время, у тарифа — на период оплаты */
   usage: FeatureLimits
   limits: FeatureLimits
 }
@@ -178,13 +191,12 @@ export interface Registered {
   email: string
 }
 
-/** Условия подписки: /api/billing/plan и раздел «Подписка» в админке. */
-export interface BillingPlan {
+/** Тарифы: /api/billing/plans. demo — разовые квоты после подтверждения почты. */
+export interface Billing {
   /** подключена ли оплата (ключи ЮKassa заданы на сервере) */
   enabled: boolean
-  price_rub: number
-  period_days: number
-  limits: Record<Plan, FeatureLimits>
+  demo: FeatureLimits
+  plans: PlanInfo[]
 }
 
 export interface CompetitorItem {
@@ -302,5 +314,5 @@ export interface AdminSettings {
   examples: Example[]
   expert: ExpertSettings
   designs: Design[]
-  billing: BillingPlan
+  billing: Billing
 }

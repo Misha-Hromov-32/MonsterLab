@@ -36,7 +36,7 @@ def test_register_verify_login_me(anon: TestClient) -> None:
     assert anon.post("/api/auth/login", json={**creds, "password": "чужой-пароль"}).status_code == 401
     token = anon.post("/api/auth/login", json={**creds, "email": " anna@example.com"}).json()["token"]
     me = anon.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).json()
-    assert me["email"] == "anna@example.com" and me["plan"] == "free"
+    assert me["email"] == "anna@example.com" and me["plan"] == "demo" and me["plan_title"] == "Демо"
     assert set(me["usage"]) == set(accounts.FEATURES)
 
 
@@ -215,39 +215,71 @@ def yookassa(monkeypatch) -> dict:
     return payments
 
 
-def test_payment_extends_subscription_once(client: TestClient, user_headers: dict, yookassa: dict) -> None:
-    url = client.post("/api/billing/checkout", headers=user_headers).json()["url"]
-    pid = url.rsplit("/", 1)[-1]
+def test_payment_activates_plan_once(client: TestClient, user_headers: dict, yookassa: dict) -> None:
+    body = client.post("/api/billing/checkout", json={"plan": "start"}, headers=user_headers).json()
+    pid = body["url"].rsplit("/", 1)[-1]
+    assert yookassa[pid]["metadata"]["plan"] == "start"
 
     # уведомление до оплаты и уведомление о чужом платеже ничего не меняют
     client.post("/api/billing/webhook", json={"object": {"id": pid}})
     client.post("/api/billing/webhook", json={"object": {"id": "чужой"}})
-    assert client.get("/api/auth/me", headers=user_headers).json()["plan"] == "free"
+    assert client.get("/api/auth/me", headers=user_headers).json()["plan"] == "demo"
 
     yookassa[pid].update(status="succeeded", paid=True)
     for _ in range(2):  # ЮKassa может прислать уведомление повторно
         assert client.post("/api/billing/webhook", json={"object": {"id": pid}}).status_code == 200
     me = client.get("/api/auth/me", headers=user_headers).json()
-    assert me["plan"] == "pro"
+    assert me["plan"] == "start" and me["plan_title"] == "Старт"
     assert 29 * 86400 < me["pro_until"] - time.time() <= 30 * 86400  # продлено ровно один раз
-    assert me["limits"]["improve"] > 1
+    assert me["limits"]["improve"] == 10
+    assert set(me["usage"].values()) == {0}  # квоты тарифа начинаются заново, демо-расход не переносится
+
+
+def test_unknown_plan_is_rejected(client: TestClient, user_headers: dict, yookassa: dict) -> None:
+    r = client.post("/api/billing/checkout", json={"plan": "gold"}, headers=user_headers)
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "bad_plan"
 
 
 def test_checkout_without_shop_is_503(client: TestClient, user_headers: dict) -> None:
-    r = client.post("/api/billing/checkout", headers=user_headers)
+    r = client.post("/api/billing/checkout", json={"plan": "start"}, headers=user_headers)
     assert r.status_code == 503 and r.json()["detail"]["code"] == "billing_unavailable"
 
 
-def test_admin_sets_price_and_limits(client: TestClient) -> None:
+def test_demo_quota_is_lifetime_and_counts_analysis(anon: TestClient) -> None:
+    auth = {"Authorization": f"Bearer {verified_token(anon)}"}
+    files = {"file": ("c.jpg", jpeg_bytes(make_cover(4)), "image/jpeg")}
+    demo = anon.get("/api/billing/plans").json()["demo"]["analyze"]
+    for _ in range(demo):
+        assert anon.post("/api/analyze", files=files, headers=auth).status_code == 200
+    r = anon.post("/api/analyze", files=files, headers=auth)
+    assert r.status_code == 403 and r.json()["detail"]["code"] == "limit_reached"
+    assert "Демо-доступ" in r.json()["detail"]["message"]
+    assert anon.get("/api/auth/me", headers=auth).json()["usage"]["analyze"] == demo
+
+
+def test_disposable_email_is_refused(anon: TestClient) -> None:
+    r = anon.post("/api/auth/register", json={"email": "x@mailinator.com", "password": PASSWORD, **CONSENT})
+    assert r.status_code == 422 and "Временные" in r.json()["detail"]["message"]
+
+
+def test_admin_sets_plans(client: TestClient) -> None:
     token = client.post("/api/admin/login", json={"password": "test-password"}).json()["token"]
     headers = {"Authorization": f"Bearer {token}"}
-    limits = {"expert": 5, "improve": 2, "competitors": 4}
-    body = {"price_rub": 1490, "period_days": 30, "limits": {"free": limits, "pro": {**limits, "improve": 50}}}
-    assert client.put("/api/admin/billing", json=body, headers=headers).status_code == 200
-    plan = client.get("/api/billing/plan").json()
-    assert plan["price_rub"] == 1490 and plan["limits"]["pro"]["improve"] == 50 and plan["enabled"] is False
-    bad = {**body, "price_rub": 0}
-    assert client.put("/api/admin/billing", json=bad, headers=headers).status_code == 422
+    before = client.get("/api/billing/plans").json()
+    quota = {"analyze": 50, "shelf": 5, "expert": 5, "choice": 3, "improve": 2, "competitors": 4}
+    plan = {"id": "solo", "title": "Соло", "price_rub": 1490, "period_days": 30, "limits": quota}
+    body = {"demo": {**quota, "improve": 0}, "plans": [plan]}
+    try:
+        assert client.put("/api/admin/billing", json=body, headers=headers).status_code == 200
+        got = client.get("/api/billing/plans").json()
+        assert got["plans"][0]["price_rub"] == 1490 and got["demo"]["improve"] == 0 and got["enabled"] is False
+        bad = {**body, "plans": [{**plan, "price_rub": 0}]}
+        assert client.put("/api/admin/billing", json=bad, headers=headers).status_code == 422
+        twins = {**body, "plans": [plan, plan]}
+        assert client.put("/api/admin/billing", json=twins, headers=headers).status_code == 422
+    finally:  # остальные тесты рассчитывают на тарифы по умолчанию
+        restore = {"demo": before["demo"], "plans": before["plans"]}
+        assert client.put("/api/admin/billing", json=restore, headers=headers).status_code == 200
 
 
 def test_unreadable_email_means_signed_out_not_500(anon: TestClient) -> None:

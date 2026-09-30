@@ -127,25 +127,34 @@ def put_expert(body: ExpertSettings) -> dict:
 
 
 class FeatureLimits(BaseModel):
+    analyze: int = Field(ge=0, le=100_000)
+    shelf: int = Field(ge=0, le=100_000)
     expert: int = Field(ge=0, le=10_000)
+    choice: int = Field(ge=0, le=10_000)
     improve: int = Field(ge=0, le=10_000)
     competitors: int = Field(ge=0, le=10_000)
 
 
-class Limits(BaseModel):
-    free: FeatureLimits
-    pro: FeatureLimits
+class PlanSettings(BaseModel):
+    id: str = Field(pattern=r"^[a-z0-9_-]{1,40}$")
+    title: str = Field(min_length=1, max_length=40)
+    price_rub: int = Field(ge=1, le=1_000_000)
+    period_days: int = Field(ge=1, le=366)
+    note: str = Field("", max_length=80)
+    featured: bool = False
+    limits: FeatureLimits
 
 
 class BillingSettings(BaseModel):
-    price_rub: int = Field(ge=1, le=1_000_000)
-    period_days: int = Field(ge=1, le=366)
-    limits: Limits
+    demo: FeatureLimits
+    plans: list[PlanSettings] = Field(min_length=1, max_length=4)
 
 
 @guarded.put("/billing")
 def put_billing(body: BillingSettings) -> dict:
-    """Цена, срок подписки и дневные лимиты. Ключи ЮKassa — только в переменных окружения."""
+    """Демо-квоты и тарифы: цена, срок и квоты на период. Ключи ЮKassa — только в переменных окружения."""
+    if len({p.id for p in body.plans}) != len(body.plans):
+        raise api_error(422, "bad_request", "У тарифов должны быть разные id")
     site.update(lambda d: d.__setitem__("billing", body.model_dump()))
     return {**body.model_dump(), "enabled": billing.enabled()}
 

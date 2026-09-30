@@ -58,7 +58,7 @@ def test_service_needs_login(anon: TestClient) -> None:
     assert anon.post("/api/shelf", data={"variants": "{}"}).status_code == 401
     # главная, витрина и тарифы открыты и без входа
     assert anon.get("/api/public/site").status_code == 200
-    assert anon.get("/api/billing/plan").status_code == 200
+    assert anon.get("/api/billing/plans").status_code == 200
 
 
 def test_expert_needs_login_then_key(client: TestClient, anon: TestClient, user_headers: dict) -> None:

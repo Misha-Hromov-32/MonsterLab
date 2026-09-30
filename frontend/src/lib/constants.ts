@@ -18,8 +18,11 @@ export const TOAST_MS = 4200
 
 /** Платные функции — названия для покупателя (ключи — как на сервере: backend/app/services/accounts.py). */
 export const FEATURE_TITLES = {
-  expert: 'Экспертный разбор',
-  improve: 'Улучшение обложки',
+  analyze: 'Проверка обложки',
+  shelf: 'Тест полки',
+  expert: 'Визуальный разбор',
+  choice: 'Выбор покупателя',
+  improve: 'Улучшенная обложка',
   competitors: 'Подбор конкурентов',
 } as const
 

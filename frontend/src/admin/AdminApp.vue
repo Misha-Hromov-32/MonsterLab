@@ -17,8 +17,8 @@ type Tab = 'landing' | 'examples' | 'expert' | 'billing'
 const tabs: { id: Tab; title: string; icon: Component }[] = [
   { id: 'landing', title: 'Главная', icon: LayoutTemplate },
   { id: 'examples', title: 'Примеры', icon: ImageIcon },
-  { id: 'expert', title: 'Экспертный разбор', icon: Sparkles },
-  { id: 'billing', title: 'Подписка', icon: CreditCard },
+  { id: 'expert', title: 'Нейросети', icon: Sparkles },
+  { id: 'billing', title: 'Тарифы', icon: CreditCard },
 ]
 
 function tabFromHash(): Tab {

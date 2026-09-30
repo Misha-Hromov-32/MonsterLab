@@ -1,4 +1,4 @@
-import { SCORE_GOOD, SCORE_WARN } from './constants'
+import { SCORE_GOOD, SCORE_WARN, type FEATURE_TITLES } from './constants'
 
 export type Tone = 'good' | 'warn' | 'bad'
 
@@ -56,4 +56,18 @@ export function formatDate(sec: number) {
 /** «990 ₽ / 30 дней» */
 export function priceLabel(rub: number, days: number) {
   return `${rub.toLocaleString('ru-RU')} ₽ / ${days} ${plural(days, ['день', 'дня', 'дней'])}`
+}
+
+/** «30 визуальных разборов» — формы для 1, 2–4 и 5+ */
+const FEATURE_FORMS: Record<keyof typeof FEATURE_TITLES, [string, string, string]> = {
+  analyze: ['проверка обложки', 'проверки обложек', 'проверок обложек'],
+  shelf: ['тест полки', 'теста полки', 'тестов полки'],
+  expert: ['визуальный разбор', 'визуальных разбора', 'визуальных разборов'],
+  choice: ['выбор покупателя', 'выбора покупателя', 'выборов покупателя'],
+  improve: ['улучшенная обложка', 'улучшенные обложки', 'улучшенных обложек'],
+  competitors: ['подбор конкурентов', 'подбора конкурентов', 'подборов конкурентов'],
+}
+
+export function quotaLabel(f: keyof typeof FEATURE_TITLES, n: number) {
+  return `${n.toLocaleString('ru-RU')} ${plural(n, FEATURE_FORMS[f])}`
 }

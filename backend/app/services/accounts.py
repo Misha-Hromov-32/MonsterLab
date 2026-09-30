@@ -1,4 +1,4 @@
-"""Покупатели: регистрация с подтверждением email, вход, сброс пароля, тариф и дневные лимиты.
+"""Покупатели: регистрация с подтверждением email, вход, сброс пароля, тариф и квоты функций.
 
 Всё секретное — в services/crypto.py:
 - email в базе зашифрован AES-256-GCM, ищется по «слепому» индексу HMAC-SHA256;
@@ -8,7 +8,9 @@
 - ссылки из писем одноразовые, в базе лежит только SHA-256 от них.
 
 Пока email не подтверждён, войти нельзя — ни токена, ни функций сервиса.
-Тариф «pro» действует, пока pro_until в будущем (продлевает оплата).
+
+Тарифы (services/site.py → billing): без оплаты — «демо», разовый набор запусков на всё время;
+оплаченный тариф plan_id действует, пока pro_until в будущем, а его квоты считаются с period_start.
 """
 
 from __future__ import annotations
@@ -34,13 +36,57 @@ TOKEN_PREFIX = "u2"
 MIN_PASSWORD = 8
 RESEND_COOLDOWN = 60  # не чаще письма в минуту одному покупателю
 LINK_TTL = {"verify": mail.VERIFY_TTL_HOURS * 3600, "reset": mail.RESET_TTL_HOURS * 3600}
-FEATURES = ("expert", "improve", "competitors")
+DEMO = "demo"
+FEATURES = ("analyze", "shelf", "expert", "choice", "improve", "competitors")
 FEATURE_TITLES = {
-    "expert": "экспертных разборов",
-    "improve": "улучшений обложки",
+    "analyze": "проверок обложек",
+    "shelf": "тестов полки",
+    "expert": "визуальных разборов",
+    "choice": "выборов покупателя",
+    "improve": "улучшенных обложек",
     "competitors": "подборов конкурентов",
 }
 _EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$")
+# Одноразовые ящики: на них регистрируются ради нового демо-доступа
+DISPOSABLE_DOMAINS = frozenset(
+    {
+        "mailinator.com",
+        "10minutemail.com",
+        "10minutemail.net",
+        "guerrillamail.com",
+        "guerrillamail.net",
+        "sharklasers.com",
+        "temp-mail.org",
+        "temp-mail.io",
+        "tempmail.com",
+        "tempmail.net",
+        "tempmail.plus",
+        "yopmail.com",
+        "yopmail.net",
+        "trashmail.com",
+        "getnada.com",
+        "dropmail.me",
+        "emailondeck.com",
+        "maildrop.cc",
+        "mohmal.com",
+        "fakeinbox.com",
+        "throwawaymail.com",
+        "minuteinbox.com",
+        "tempr.email",
+        "mail.tm",
+        "mailnesia.com",
+        "spambox.us",
+        "tempinbox.com",
+        "burnermail.io",
+        "inboxkitten.com",
+        "1secmail.com",
+        "1secmail.net",
+        "1secmail.org",
+        "emltmp.com",
+        "cryptogmail.com",
+        "mailpoof.com",
+    }
+)
 
 
 class AccountError(ValueError):
@@ -55,8 +101,11 @@ class LimitReached(Exception):
     def __init__(self, feature: str, limit: int, plan: str) -> None:
         self.feature, self.limit, self.plan = feature, limit, plan
         what = FEATURE_TITLES.get(feature, "запусков")
-        hint = " Подписка увеличит лимит." if plan == "free" else " Лимит обновится завтра."
-        super().__init__(f"На сегодня исчерпан лимит {what}: {limit}.{hint}")
+        if plan == DEMO:
+            text = f"Демо-доступ: {what} больше нет (было {limit}). Выберите тариф, чтобы продолжить."
+        else:
+            text = f"В этом периоде закончились {what}: {limit}. Перейдите на тариф выше или дождитесь продления."
+        super().__init__(text)
 
 
 @dataclass(frozen=True)
@@ -66,10 +115,13 @@ class User:
     pro_until: float
     verified: bool
     stamp: str
+    plan_id: str = ""
+    period_start: float = 0
 
     @property
     def plan(self) -> str:
-        return "pro" if self.pro_until > time.time() else "free"
+        """Действующий тариф: id оплаченного, пока он не истёк, иначе «demo»."""
+        return (self.plan_id or "pro") if self.pro_until > time.time() else DEMO
 
 
 def normalize(email: str) -> str:
@@ -122,7 +174,15 @@ def _row(row) -> User | None:
         # данные зашифрованы другим ключом — скорее всего, сменили MASTER_KEY; покупатель для сервиса «не найден»
         log.error("Не расшифровать email покупателя %s: MASTER_KEY не тот, которым он зашифрован", row["id"])
         return None
-    return User(row["id"], email, row["pro_until"], row["verified_at"] is not None, row["stamp"])
+    return User(
+        row["id"],
+        email,
+        row["pro_until"],
+        row["verified_at"] is not None,
+        row["stamp"],
+        row["plan_id"] or "",
+        row["period_start"] or 0,
+    )
 
 
 def get(user_id: int) -> User | None:
@@ -145,6 +205,8 @@ def register(email: str, password: str, accepted: bool = False) -> User:
     email = normalize(email)
     if not _EMAIL.match(email):
         raise AccountError("Проверьте email")
+    if email.rpartition("@")[2] in DISPOSABLE_DOMAINS:
+        raise AccountError("Временные почтовые ящики не подходят — укажите свой постоянный email")
     _check_password_rules(password)
     existing = find(email)
     if existing is not None:
@@ -273,37 +335,58 @@ def reset_password(token: str, password: str) -> User:
     return get(user_id)
 
 
-def extend_pro(user_id: int, days: int) -> None:
-    """Продлевает подписку: от текущего окончания, если она ещё действует, иначе от сегодня."""
+def activate(user_id: int, plan_id: str, days: int) -> None:
+    """Оплата прошла: тариф plan_id на days дней. Если тариф ещё действует, срок прибавляется
+    к оставшемуся; квоты начинаются заново с момента оплаты."""
+    now = time.time()
     with db.connect() as con:
         row = con.execute("SELECT pro_until FROM users WHERE id = ?", (user_id,)).fetchone()
         if row is None:
             return
-        start = max(time.time(), row["pro_until"])
-        con.execute("UPDATE users SET pro_until = ? WHERE id = ?", (start + days * 86400, user_id))
+        until = max(now, row["pro_until"]) + days * 86400
+        con.execute(
+            "UPDATE users SET pro_until = ?, plan_id = ?, period_start = ? WHERE id = ?",
+            (until, plan_id, now, user_id),
+        )
 
 
-# ---------------------------------------------------------------- лимиты
+# ---------------------------------------------------------------- тарифы и квоты
 
 
-def _today() -> str:
-    return time.strftime("%Y-%m-%d", time.localtime())
+def plans() -> list[dict]:
+    return list(site.read()["billing"]["plans"])
 
 
-def limits(plan: str) -> dict[str, int]:
-    return dict(site.read()["billing"]["limits"][plan])
+def find_plan(plan_id: str) -> dict | None:
+    return next((p for p in plans() if p["id"] == plan_id), None)
+
+
+def limits(user: User) -> dict[str, int]:
+    """Квоты действующего тарифа. Тариф, убранный из настроек, продолжает работать по квотам старшего."""
+    billing = site.read()["billing"]
+    if user.plan == DEMO:
+        quota = billing["demo"]
+    else:
+        plan = find_plan(user.plan) or max(billing["plans"], key=lambda p: p["price_rub"])
+        quota = plan["limits"]
+    return {f: int(quota.get(f, 0)) for f in FEATURES}
+
+
+def _period(user: User) -> str:
+    """Ключ периода в таблице usage: «demo» — на всё время, иначе — начало оплаченного периода."""
+    return DEMO if user.plan == DEMO else f"p{int(user.period_start)}"
 
 
 def usage(user: User) -> dict[str, int]:
     with db.connect() as con:
-        rows = con.execute("SELECT feature, count FROM usage WHERE user_id = ? AND day = ?", (user.id, _today()))
+        rows = con.execute("SELECT feature, count FROM usage WHERE user_id = ? AND day = ?", (user.id, _period(user)))
         used = {r["feature"]: r["count"] for r in rows}
     return {f: used.get(f, 0) for f in FEATURES}
 
 
 def check(user: User, feature: str) -> None:
-    """До запуска платной функции: есть ли ещё запуски на сегодня."""
-    limit = limits(user.plan).get(feature, 0)
+    """До запуска функции: остались ли запуски в квоте."""
+    limit = limits(user).get(feature, 0)
     if usage(user)[feature] >= limit:
         raise LimitReached(feature, limit, user.plan)
 
@@ -314,5 +397,5 @@ def spend(user: User, feature: str) -> None:
         con.execute(
             "INSERT INTO usage (user_id, feature, day, count) VALUES (?, ?, ?, 1) "
             "ON CONFLICT (user_id, feature, day) DO UPDATE SET count = count + 1",
-            (user.id, feature, _today()),
+            (user.id, feature, _period(user)),
         )

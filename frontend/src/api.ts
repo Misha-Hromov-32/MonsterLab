@@ -1,7 +1,7 @@
 import { authHeader } from './lib/session'
 import type {
   Analysis,
-  BillingPlan,
+  Billing,
   CompareResult,
   CompetitorSearch,
   Consent,
@@ -144,9 +144,9 @@ export const api = {
     request<Session>('/api/auth/reset', jsonBody('POST', { token, password }), { timeoutMs: 20_000 }),
   me: () => request<User>('/api/auth/me', withAuth(), { timeoutMs: 15_000 }),
 
-  billingPlan: () => request<BillingPlan>('/api/billing/plan', {}, { timeoutMs: 15_000 }),
-  checkout: () =>
-    request<{ url: string }>('/api/billing/checkout', withAuth({ method: 'POST' }), { timeoutMs: 30_000 }),
+  billingPlans: () => request<Billing>('/api/billing/plans', {}, { timeoutMs: 15_000 }),
+  checkout: (plan: string) =>
+    request<{ url: string }>('/api/billing/checkout', withAuth(jsonBody('POST', { plan })), { timeoutMs: 30_000 }),
 
   /** улучшенная обложка рисуется 30–60 секунд */
   improve: (id: string, context: object, issues: string[]) =>

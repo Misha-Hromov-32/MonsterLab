@@ -26,7 +26,7 @@ from fastapi.testclient import TestClient
 
 from app import ratelimit
 from app.main import app
-from app.services import mail, precompute
+from app.services import accounts, mail, precompute
 
 # Фоновый поток расчёта примеров в тестах не нужен: тесты вызывают precompute.run_pending() сами
 # и проверяют результат детерминированно.
@@ -63,9 +63,11 @@ def verified_token(client: TestClient, email: str | None = None) -> str:
 
 @pytest.fixture(scope="session")
 def client() -> TestClient:
-    """Клиент вошедшего покупателя: все функции сервиса доступны только после входа."""
+    """Клиент вошедшего покупателя на старшем тарифе: функции сервиса — только после входа,
+    а квот хватает на весь прогон тестов."""
     with TestClient(app) as c:
-        c.headers["Authorization"] = f"Bearer {verified_token(c)}"
+        c.headers["Authorization"] = f"Bearer {verified_token(c, 'session@example.com')}"
+        accounts.activate(accounts.find("session@example.com").id, "agency", 30)
         yield c
     shutil.rmtree(os.environ["DATA_DIR"], ignore_errors=True)
 
@@ -85,7 +87,7 @@ def _fresh_limits() -> None:
 
 @pytest.fixture
 def user_headers(client: TestClient) -> dict:
-    """Свежий покупатель на бесплатном тарифе — заголовок с его токеном входа."""
+    """Свежий покупатель с демо-доступом — заголовок с его токеном входа."""
     return {"Authorization": f"Bearer {verified_token(client)}"}
 
 

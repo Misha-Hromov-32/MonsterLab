@@ -2,34 +2,32 @@
 import { computed, ref } from 'vue'
 import { Check, CreditCard, Loader2 } from 'lucide-vue-next'
 import ModalDialog from './ModalDialog.vue'
-import { account, checkout, closeDialog, isPro } from '../lib/account'
-import { FEATURE_TITLES } from '../lib/constants'
-import { formatDate, priceLabel } from '../lib/format'
+import { account, checkout, closeDialog, isPaid } from '../lib/account'
+import { formatDate, plural, quotaLabel } from '../lib/format'
 import { availableFeatures, features } from '../store'
-import type { Plan } from '../lib/types'
+import type { Feature, FeatureLimits, PlanInfo } from '../lib/types'
 
-const busy = ref(false)
+const busy = ref('')
 const error = ref('')
 
-const plan = computed(() => account.plan)
-const canPay = computed(() => features.value.billing && !!plan.value?.enabled)
+const billing = computed(() => account.billing)
+const canPay = computed(() => features.value.billing && !!billing.value?.enabled)
+const current = computed(() => (isPaid.value ? account.user?.plan : ''))
 
-const columns = computed(() => {
-  const p = plan.value
-  if (!p) return []
-  return (['free', 'pro'] as Plan[]).map((id) => ({
-    id,
-    title: id === 'pro' ? 'Pro' : 'Бесплатный',
-    price: id === 'pro' ? priceLabel(p.price_rub, p.period_days) : '0 ₽',
-    rows: availableFeatures.value.map((f) => ({ f, title: FEATURE_TITLES[f], n: p.limits[id][f] })),
-    current: (id === 'pro') === isPro.value && !!account.user,
-  }))
-})
+// сначала то, за что платят (нейросети), потом «технические» функции
+const ORDER: Feature[] = ['expert', 'improve', 'choice', 'analyze', 'shelf', 'competitors']
 
-async function pay() {
-  busy.value = true
-  error.value = await checkout()
-  busy.value = false
+/** Только функции, которые есть на сервере, и только ненулевые квоты. */
+const rows = (limits: FeatureLimits) =>
+  ORDER.filter((f) => availableFeatures.value.includes(f) && (limits[f] ?? 0) > 0).map((f) => quotaLabel(f, limits[f]))
+
+const demoRows = computed(() => (billing.value ? rows(billing.value.demo) : []))
+const days = (p: PlanInfo) => `${p.period_days} ${plural(p.period_days, ['день', 'дня', 'дней'])}`
+
+async function pay(p: PlanInfo) {
+  busy.value = p.id
+  error.value = await checkout(p.id)
+  busy.value = ''
 }
 </script>
 
@@ -37,43 +35,57 @@ async function pay() {
   <ModalDialog title="Тарифы" wide @close="closeDialog">
     <p v-if="account.reason" class="reason">{{ account.reason }}</p>
 
-    <div v-if="!plan" class="loading"><Loader2 :size="18" class="spin" /> Загружаем условия…</div>
+    <div v-if="!billing" class="loading"><Loader2 :size="18" class="spin" /> Загружаем условия…</div>
     <template v-else>
+      <section class="demo">
+        <span class="label">Демо-доступ · после подтверждения почты</span>
+        <p>{{ demoRows.join(' · ') }}</p>
+      </section>
+
       <div class="cols">
-        <section v-for="c in columns" :key="c.id" class="col" :class="c.id">
+        <section
+          v-for="p in billing.plans"
+          :key="p.id"
+          class="col"
+          :class="{ featured: p.featured, current: current === p.id }"
+        >
           <header>
-            <span class="name">{{ c.title }}</span>
-            <span v-if="c.current" class="cur">ваш тариф</span>
+            <span class="name">{{ p.title }}</span>
+            <span v-if="current === p.id" class="tag cur">ваш тариф</span>
+            <span v-else-if="p.featured" class="tag hot">популярный</span>
           </header>
-          <strong class="price num">{{ c.price }}</strong>
+          <p v-if="p.note" class="pnote">{{ p.note }}</p>
+          <div class="price">
+            <strong class="num">{{ p.price_rub.toLocaleString('ru-RU') }} ₽</strong>
+            <span>/ {{ days(p) }}</span>
+          </div>
           <ul>
-            <li v-for="r in c.rows" :key="r.f">
-              <Check :size="14" aria-hidden="true" />
-              <span>{{ r.title }}</span>
-              <b class="num">{{ r.n }} в день</b>
-            </li>
+            <li v-for="r in rows(p.limits)" :key="r"><Check :size="14" aria-hidden="true" />{{ r }}</li>
           </ul>
+          <button
+            v-if="canPay"
+            class="btn wide"
+            :class="p.featured ? 'primary' : 'pill'"
+            :disabled="!!busy"
+            @click="pay(p)"
+          >
+            <Loader2 v-if="busy === p.id" :size="15" class="spin" /><CreditCard v-else :size="15" />
+            {{ current === p.id ? 'Продлить' : 'Выбрать' }}
+          </button>
         </section>
       </div>
 
-      <p class="note">
-        Разбор обложки, карта внимания, тест полки и примеры — бесплатно, нужен только аккаунт. Лимиты обновляются
-        каждый день.
-      </p>
-
       <p v-if="error" class="err" role="alert">{{ error }}</p>
 
-      <div v-if="canPay" class="pay">
-        <button class="btn primary" :disabled="busy" @click="pay">
-          <Loader2 v-if="busy" :size="15" class="spin" /><CreditCard v-else :size="15" />
-          {{ isPro ? 'Продлить' : 'Оформить' }} Pro — {{ priceLabel(plan.price_rub, plan.period_days) }}
-        </button>
-        <span v-if="isPro && account.user?.pro_until" class="until num">
-          сейчас действует до {{ formatDate(account.user.pro_until) }}
-        </span>
-        <span v-else class="until">Безопасная оплата через ЮKassa</span>
-      </div>
-      <p v-else class="note">Оплата подписки скоро появится.</p>
+      <p class="note">
+        <template v-if="isPaid && account.user?.pro_until">
+          Сейчас действует «{{ account.user.plan_title }}» до {{ formatDate(account.user.pro_until) }}.
+        </template>
+        Квоты — на период оплаты, неиспользованные не переносятся. Продление прибавляет срок к текущему.
+        <template v-if="canPay">Оплата картой или через СБП в ЮKassa.</template>
+        <template v-else>Оплата скоро появится.</template>
+        {{ ' ' }}<a href="/legal#terms" target="_blank" rel="noopener">Условия и возврат</a>
+      </p>
     </template>
   </ModalDialog>
 </template>
@@ -95,55 +107,99 @@ async function pay() {
   color: var(--ink-3);
 }
 
+.demo {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+
+.demo p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
 .cols {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
 }
 
 .col {
   display: grid;
-  align-content: start;
+  grid-template-rows: auto auto auto 1fr auto;
   gap: 10px;
-  padding: 16px;
+  padding: 16px 14px 14px;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 14px;
   background: var(--bg);
 }
 
-.col.pro {
-  border-color: color-mix(in srgb, var(--lime) 70%, var(--line));
+.col.featured {
+  border-color: color-mix(in srgb, var(--lime) 60%, var(--line-strong));
   background: var(--lime-soft);
+}
+
+.col.current {
+  border-color: var(--ink);
 }
 
 .col header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 
 .name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
-.col.pro .name {
-  padding: 1px 9px;
+.tag {
+  padding: 2px 8px;
   border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tag.hot {
   background: var(--lime);
   color: var(--on-tile);
 }
 
-.cur {
-  font-size: 11px;
+.tag.cur {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.pnote {
+  margin: -4px 0 0;
+  font-size: 12px;
   color: var(--ink-3);
 }
 
 .price {
-  font-size: 22px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.price strong {
+  font-size: 26px;
   font-weight: 300;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
+}
+
+.price span {
+  font-size: 12px;
+  color: var(--ink-3);
 }
 
 ul {
@@ -151,26 +207,27 @@ ul {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  align-content: start;
+  gap: 7px;
 }
 
 li {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 8px;
-  align-items: center;
-  font-size: 13px;
+  grid-template-columns: 14px 1fr;
+  gap: 7px;
+  font-size: 12.5px;
+  line-height: 1.35;
   color: var(--ink-2);
 }
 
 li svg {
+  margin-top: 1px;
   color: var(--good);
 }
 
-li b {
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--ink);
+.wide {
+  justify-content: center;
+  height: 38px;
 }
 
 .note {
@@ -180,36 +237,14 @@ li b {
   color: var(--ink-3);
 }
 
+.note a {
+  color: var(--ink-2);
+  text-underline-offset: 2px;
+}
+
 .err {
   margin: 0;
   color: var(--bad);
   font-size: 13px;
-}
-
-.pay {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-}
-
-.pay .btn {
-  height: 40px;
-  white-space: normal;
-}
-
-.until {
-  font-size: 11.5px;
-  color: var(--ink-3);
-}
-
-@media (max-width: 480px) {
-  .cols {
-    grid-template-columns: 1fr;
-  }
-  .pay .btn {
-    width: 100%;
-    justify-content: center;
-  }
 }
 </style>

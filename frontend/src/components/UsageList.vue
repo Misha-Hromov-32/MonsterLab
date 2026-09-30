@@ -4,7 +4,7 @@ import { FEATURE_TITLES } from '../lib/constants'
 import { availableFeatures } from '../store'
 import type { FeatureLimits } from '../lib/types'
 
-// Расход дневных лимитов по платным функциям: «2 из 3» и полоска.
+// Расход квот по функциям: «2 из 3» и полоска. У демо — на всё время, у тарифа — на период оплаты.
 const props = defineProps<{ usage: FeatureLimits; limits: FeatureLimits }>()
 
 const rows = computed(() =>

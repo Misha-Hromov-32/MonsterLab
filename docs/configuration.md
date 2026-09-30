@@ -11,6 +11,7 @@
 | `PROXYAPI_BASE_URL` | `https://api.proxyapi.ru/v1` | OpenAI-совместимый адрес |
 | `EXPERT_MODELS` | `google/gemini-2.5-flash,anthropic/claude-haiku-4-5` | модели через запятую, до 6 |
 | `EXPERT_CONCURRENCY` | `6` | одновременных запросов к моделям |
+| `VISUAL_MODEL` | `anthropic/claude-sonnet-5-5` | модель визуального разбора; если не ответит — первая из `EXPERT_MODELS` |
 | `NEURAL` | `1` | `0` — образ без нейросети |
 | `ENGINE` | `auto` | `classic` — не загружать нейросеть, даже если она есть |
 | `DEEPGAZE_SIDE` | `768` | размер картинки для нейросети: больше — точнее и медленнее |
@@ -22,6 +23,7 @@
 | `TRUST_PROXY` | `1` в `docker-compose.yml` | верить `X-Real-IP` от nginx при подсчёте лимитов |
 | `REAL_IP_FROM` | `127.0.0.1` (никому) | адреса внешнего HTTPS-прокси, которому nginx верит в `X-Forwarded-For` |
 | `IMAGE_MODEL` | `openai/gpt-image-2` | модель ProxyAPI для улучшенной обложки (эндпоинт `/images/edits`) |
+| `IMAGE_QUALITY` | `medium` | качество генерации: `medium` или `high` (в 3–4 раза дороже и дольше) |
 | `MARKETPLACE` | `1` | `0` — образ без браузера: подбор конкурентов с Wildberries выключен |
 | `BROWSER_PATH` | — | путь к своему Chrome/Chromium для подбора конкурентов при запуске без Docker |
 | `COMPETITORS_CACHE_HOURS` | `24` | сколько часов хранить найденную выдачу по одному запросу |
@@ -52,6 +54,6 @@
 Почта: подойдёт любой SMTP — Яндекс 360 (`smtp.yandex.ru`, 465), Mail.ru (`smtp.mail.ru`, 465),
 Unisender Go, SendPulse и т. п. Чтобы письма не попадали в спам, настройте у домена отправителя SPF и DKIM.
 
-Цена подписки, её срок и дневные лимиты платных функций настраиваются в админ-панели («Подписка»).
+Тарифы (название, цена, срок), демо-квоты и квоты тарифов настраиваются в админ-панели («Тарифы»).
 В ЮKassa в разделе «HTTP-уведомления» укажите адрес `https://ваш-домен/api/billing/webhook`
 и событие `payment.succeeded`.

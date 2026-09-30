@@ -18,7 +18,7 @@ const api = vi.hoisted(() => ({
   forgot: vi.fn(),
   resetPassword: vi.fn(),
   me: vi.fn(),
-  billingPlan: vi.fn(),
+  billingPlans: vi.fn(),
   checkout: vi.fn(),
   improve: vi.fn(),
   competitors: vi.fn(),
@@ -35,10 +35,11 @@ let acc: AccountModule
 
 const user: User = {
   email: 'seller@example.ru',
-  plan: 'free',
+  plan: 'demo',
+  plan_title: 'Демо',
   pro_until: null,
-  usage: { expert: 0, improve: 0, competitors: 0 },
-  limits: { expert: 3, improve: 1, competitors: 3 },
+  usage: { analyze: 0, shelf: 0, expert: 0, choice: 0, improve: 0, competitors: 0 },
+  limits: { analyze: 10, shelf: 3, expert: 2, choice: 1, improve: 1, competitors: 2 },
 }
 
 /** Промис, который тест разрешает сам — чтобы управлять порядком ответов. */
@@ -305,7 +306,7 @@ describe('платные функции', () => {
 
   it('limit_reached показывает причину и предлагает тарифы', async () => {
     await twoReady()
-    api.billingPlan.mockResolvedValue({ enabled: true, price_rub: 990, period_days: 30, limits: {} })
+    api.billingPlans.mockResolvedValue({ enabled: true, demo: user.limits, plans: [] })
     const msg = 'На сегодня исчерпан лимит экспертных разборов: 3. Подписка увеличит лимит.'
     api.critique.mockRejectedValueOnce(new ApiError(msg, 'limit_reached', 403))
     const v = store.state.variants[0]
@@ -425,17 +426,17 @@ describe('подбор конкурентов', () => {
 })
 
 describe('возврат с оплаты', () => {
-  it('ждёт, пока тариф станет Pro, и убирает метку из адреса', async () => {
+  it('ждёт, пока тариф оплатится, и убирает метку из адреса', async () => {
     history.replaceState(null, '', '/?payment=return')
     api.me
       .mockResolvedValueOnce(user)
-      .mockResolvedValueOnce({ ...user, plan: 'pro', pro_until: Date.UTC(2026, 9, 25, 12) / 1000 })
+      .mockResolvedValueOnce({ ...user, plan: 'pro', plan_title: 'Про', pro_until: Date.UTC(2026, 9, 25, 12) / 1000 })
     const notify = vi.fn()
 
     await acc.checkPaymentReturn(notify, async () => {})
 
     expect(api.me).toHaveBeenCalledTimes(2)
-    expect(notify).toHaveBeenCalledWith('Подписка активна до 25 октября 2026')
+    expect(notify).toHaveBeenCalledWith('Тариф «Про» активен до 25 октября 2026')
     expect(location.search).toBe('')
   })
 })
