@@ -1,4 +1,4 @@
-"""Аккаунт покупателя и оплата подписки."""
+"""Аккаунт покупателя: регистрация с подтверждением почты, вход, сброс пароля и оплата подписки."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from ..errors import api_error
-from ..ratelimit import client_ip, login_limit
-from ..services import accounts, billing
+from ..ratelimit import client_ip, login_limit, mail_limit
+from ..services import accounts, billing, mail
 from .deps import current_user
 
 log = logging.getLogger(__name__)
@@ -19,6 +19,18 @@ router = APIRouter(prefix="/api")
 
 class Credentials(BaseModel):
     email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class EmailOnly(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+
+
+class LinkToken(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+
+
+class NewPassword(LinkToken):
     password: str = Field(min_length=1, max_length=200)
 
 
@@ -36,15 +48,25 @@ def _session(user: accounts.User) -> dict:
     return {"token": accounts.make_token(user), "user": _me(user)}
 
 
+def _mail_failed(exc: mail.MailError):
+    return api_error(503, "mail_failed", str(exc))
+
+
 @router.post("/auth/register")
 async def register(body: Credentials, request: Request) -> dict:
-    login_limit.check(client_ip(request))
+    """Создаёт аккаунт и отправляет письмо со ссылкой. Войти можно только после подтверждения почты."""
+    ip = client_ip(request)
+    login_limit.check(ip)
+    mail_limit.hit(ip)  # регистрация — это письмо и 64 МБ памяти на хэш пароля
     try:
         user = await asyncio.to_thread(accounts.register, body.email, body.password)
+        await asyncio.to_thread(accounts.send_verification, user)
     except accounts.AccountError as exc:
-        login_limit.hit(client_ip(request))  # перебор чужих email тоже притормаживаем
+        login_limit.hit(ip)  # перебор чужих email тоже притормаживаем
         raise api_error(422, "bad_account", str(exc)) from exc
-    return await asyncio.to_thread(_session, user)
+    except mail.MailError as exc:
+        raise _mail_failed(exc) from exc
+    return {"status": "verify", "email": user.email}
 
 
 @router.post("/auth/login")
@@ -53,10 +75,61 @@ async def login(body: Credentials, request: Request) -> dict:
     login_limit.check(ip)  # засчитываем только неудачные попытки
     try:
         user = await asyncio.to_thread(accounts.login, body.email, body.password)
+    except accounts.EmailUnverified as exc:
+        raise api_error(403, "email_unverified", str(exc)) from exc
     except accounts.AccountError as exc:
         login_limit.hit(ip)
         await asyncio.sleep(0.8)
         raise api_error(401, "bad_password", str(exc)) from exc
+    return await asyncio.to_thread(_session, user)
+
+
+@router.post("/auth/resend")
+async def resend(body: EmailOnly, request: Request) -> dict:
+    """Ещё одно письмо для подтверждения. Ответ одинаковый, есть такой аккаунт или нет."""
+    mail_limit.hit(client_ip(request))
+    try:
+        user = await asyncio.to_thread(accounts.find, body.email)
+        if user is not None:
+            await asyncio.to_thread(accounts.send_verification, user)
+    except mail.MailError as exc:
+        raise _mail_failed(exc) from exc
+    return {"ok": True}
+
+
+@router.post("/auth/verify")
+async def verify(body: LinkToken, request: Request) -> dict:
+    """Переход по ссылке из письма: почта подтверждена — сразу выдаём вход."""
+    ip = client_ip(request)
+    login_limit.check(ip)
+    try:
+        user = await asyncio.to_thread(accounts.verify_email, body.token)
+    except accounts.AccountError as exc:
+        login_limit.hit(ip)
+        raise api_error(422, "bad_link", str(exc)) from exc
+    return await asyncio.to_thread(_session, user)
+
+
+@router.post("/auth/forgot")
+async def forgot(body: EmailOnly, request: Request) -> dict:
+    """Письмо со ссылкой для нового пароля. Ответ одинаковый, есть такой аккаунт или нет."""
+    mail_limit.hit(client_ip(request))
+    try:
+        await asyncio.to_thread(accounts.send_reset, body.email)
+    except mail.MailError as exc:
+        raise _mail_failed(exc) from exc
+    return {"ok": True}
+
+
+@router.post("/auth/reset")
+async def reset(body: NewPassword, request: Request) -> dict:
+    ip = client_ip(request)
+    login_limit.check(ip)
+    try:
+        user = await asyncio.to_thread(accounts.reset_password, body.token, body.password)
+    except accounts.AccountError as exc:
+        login_limit.hit(ip)
+        raise api_error(422, "bad_link", str(exc)) from exc
     return await asyncio.to_thread(_session, user)
 
 

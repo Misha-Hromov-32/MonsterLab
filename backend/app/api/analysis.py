@@ -1,4 +1,4 @@
-"""Анализ обложки и тест полки."""
+"""Анализ обложки и тест полки — только для вошедших покупателей."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from ..errors import api_error
 from ..ratelimit import analysis_limit
 from ..services import billing, expert, marketplace
 from ..services.uploads import store
-from .deps import read_image
+from .deps import read_image, require_user
 
 router = APIRouter(prefix="/api")
 
@@ -37,7 +37,7 @@ def health() -> dict:
     }
 
 
-@router.post("/analyze", dependencies=[Depends(analysis_limit.dependency)])
+@router.post("/analyze", dependencies=[Depends(analysis_limit.dependency), Depends(require_user)])
 async def analyze(file: UploadFile = File(...)) -> dict:
     rgb = await read_image(file)
     image_id = await asyncio.to_thread(store.put, rgb)
@@ -56,7 +56,7 @@ def _parse_variants(raw: str) -> dict[str, str]:
     return ids
 
 
-@router.post("/shelf", dependencies=[Depends(analysis_limit.dependency)])
+@router.post("/shelf", dependencies=[Depends(analysis_limit.dependency), Depends(require_user)])
 async def run_shelf(
     variants: str = Form(..., description='JSON: {"A": "<id загруженной обложки>", …}'),
     layout: str = Form("mobile"),

@@ -52,8 +52,17 @@ def test_rejects_bad_input(client: TestClient) -> None:
     assert r.json()["detail"]["code"] == "image_expired"
 
 
-def test_expert_needs_login_then_key(client: TestClient, user_headers: dict) -> None:
-    assert client.post("/api/expert/critique", json={"id": "x"}).json()["detail"]["code"] == "login_required"
+def test_service_needs_login(anon: TestClient) -> None:
+    files = {"file": ("c.jpg", jpeg_bytes(make_cover(1)), "image/jpeg")}
+    assert anon.post("/api/analyze", files=files).json()["detail"]["code"] == "login_required"
+    assert anon.post("/api/shelf", data={"variants": "{}"}).status_code == 401
+    # главная, витрина и тарифы открыты и без входа
+    assert anon.get("/api/public/site").status_code == 200
+    assert anon.get("/api/billing/plan").status_code == 200
+
+
+def test_expert_needs_login_then_key(client: TestClient, anon: TestClient, user_headers: dict) -> None:
+    assert anon.post("/api/expert/critique", json={"id": "x"}).json()["detail"]["code"] == "login_required"
     r = client.post("/api/expert/critique", json={"id": "whatever"}, headers=user_headers)
     assert r.status_code == 503
     assert r.json()["detail"]["code"] == "expert_disabled"

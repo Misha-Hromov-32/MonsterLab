@@ -1,12 +1,11 @@
 """Вход в админ-панель: один пароль и подписанный токен без хранения сессий.
 
-Токен = "<срок действия>.<HMAC-SHA256>". Ключ подписи — случайный секрет из DATA_DIR плюс
-пароль: смена пароля (после перезапуска) обнуляет все выданные токены.
+Токен = "<срок действия>.<HMAC-SHA256>". Ключ подписи выводится из мастер-ключа (services/crypto.py)
+и пароля: смена пароля (после перезапуска) обнуляет все выданные токены.
 """
 
 from __future__ import annotations
 
-import hashlib
 import hmac
 import logging
 import os
@@ -17,12 +16,12 @@ from functools import cache
 from pathlib import Path
 
 from .. import config
+from . import crypto
 
 log = logging.getLogger(__name__)
 
 TOKEN_TTL = 7 * 24 * 3600
 PASSWORD_FILE = config.DATA_DIR / "admin_password.txt"
-SECRET_FILE = config.DATA_DIR / ".secret"
 
 _lock = threading.Lock()
 
@@ -50,21 +49,12 @@ def admin_password() -> str:
 
 
 @cache
-def secret() -> bytes:
-    """Случайный секрет сервера из DATA_DIR — основа подписей токенов (админки и покупателей)."""
-    with _lock:
-        if not SECRET_FILE.exists():
-            _private_file(SECRET_FILE, secrets.token_bytes(32))
-        return SECRET_FILE.read_bytes()
-
-
-@cache
 def _signing_key() -> bytes:
-    return secret() + admin_password().encode()
+    return crypto.hmac256(crypto.subkey("admin/token"), admin_password().encode())
 
 
 def _sign(msg: str) -> str:
-    return hmac.new(_signing_key(), msg.encode(), hashlib.sha256).hexdigest()
+    return crypto.hmac256(_signing_key(), msg.encode()).hex()
 
 
 def check_password(password: str) -> bool:

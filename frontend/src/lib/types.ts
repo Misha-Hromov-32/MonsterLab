@@ -158,6 +158,12 @@ export interface Session {
   user: User
 }
 
+/** Регистрация: аккаунт создан, письмо со ссылкой отправлено — войти можно после подтверждения. */
+export interface Registered {
+  status: 'verify'
+  email: string
+}
+
 /** Условия подписки: /api/billing/plan и раздел «Подписка» в админке. */
 export interface BillingPlan {
   /** подключена ли оплата (ключи ЮKassa заданы на сервере) */

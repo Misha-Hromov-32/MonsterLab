@@ -10,25 +10,108 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import config
-from app.services import accounts, billing, expert, improve, marketplace
+from app.services import accounts, billing, db, expert, improve, mail, marketplace
 
-from .conftest import jpeg_bytes, make_cover
+from .conftest import OUTBOX, PASSWORD, jpeg_bytes, link_token, make_cover, verified_token
 
 
-def test_register_login_me(client: TestClient) -> None:
+def test_register_verify_login_me(anon: TestClient) -> None:
     creds = {"email": "Anna@Example.com", "password": "пароль-подлиннее"}
-    assert client.post("/api/auth/register", json=creds).status_code == 200
-    again = client.post("/api/auth/register", json=creds)
+    r = anon.post("/api/auth/register", json=creds)
+    assert r.json() == {"status": "verify", "email": "anna@example.com"}
+
+    # до подтверждения почты входа нет, даже с верным паролем
+    r = anon.post("/api/auth/login", json=creds)
+    assert r.status_code == 403 and r.json()["detail"]["code"] == "email_unverified"
+    # повторная регистрация до подтверждения не меняет пароль и не шлёт письмо чаще раза в минуту
+    sent = len(OUTBOX)
+    assert anon.post("/api/auth/register", json={**creds, "password": "чужой-пароль"}).status_code == 200
+    assert len(OUTBOX) == sent
+
+    session = anon.post("/api/auth/verify", json={"token": link_token("anna@example.com", "verify")}).json()
+    assert session["user"]["email"] == "anna@example.com" and session["token"].startswith("u2.")
+    again = anon.post("/api/auth/register", json=creds)
     assert again.status_code == 422 and "уже зарегистрирован" in again.json()["detail"]["message"]
 
-    assert client.post("/api/auth/login", json={**creds, "password": "не тот"}).status_code == 401
-    token = client.post("/api/auth/login", json={**creds, "email": "anna@example.com"}).json()["token"]
-    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).json()
+    assert anon.post("/api/auth/login", json={**creds, "password": "чужой-пароль"}).status_code == 401
+    token = anon.post("/api/auth/login", json={**creds, "email": " anna@example.com"}).json()["token"]
+    me = anon.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).json()
     assert me["email"] == "anna@example.com" and me["plan"] == "free"
     assert set(me["usage"]) == set(accounts.FEATURES)
 
 
-@pytest.mark.parametrize("token", ["", "u1.1.9999999999.bad", "u1.x.y.z", "admin-token"])
+def test_links_are_single_use(anon: TestClient) -> None:
+    anon.post("/api/auth/register", json={"email": "once@example.com", "password": PASSWORD})
+    token = link_token("once@example.com", "verify")
+    assert anon.post("/api/auth/verify", json={"token": token}).status_code == 200
+    r = anon.post("/api/auth/verify", json={"token": token})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "bad_link"
+    assert anon.post("/api/auth/verify", json={"token": "x" * 43}).status_code == 422
+
+
+def test_password_reset_revokes_old_sessions(anon: TestClient) -> None:
+    old = verified_token(anon, "reset@example.com")
+    auth = {"Authorization": f"Bearer {old}"}
+    assert anon.get("/api/auth/me", headers=auth).status_code == 200
+
+    # на неизвестный адрес ответ тот же, но письма нет
+    sent = len(OUTBOX)
+    assert anon.post("/api/auth/forgot", json={"email": "nobody@example.com"}).json() == {"ok": True}
+    assert len(OUTBOX) == sent
+    assert anon.post("/api/auth/forgot", json={"email": "Reset@example.com"}).json() == {"ok": True}
+    token = link_token("reset@example.com", "reset")
+
+    short = anon.post("/api/auth/reset", json={"token": token, "password": "123"})
+    assert short.status_code == 422  # короткий пароль ссылку не гасит
+    r = anon.post("/api/auth/reset", json={"token": token, "password": "новый-пароль-1"})
+    assert r.status_code == 200 and r.json()["token"]
+
+    assert anon.get("/api/auth/me", headers=auth).status_code == 401  # старый вход отозван
+    assert anon.post("/api/auth/login", json={"email": "reset@example.com", "password": PASSWORD}).status_code == 401
+    ok = anon.post("/api/auth/login", json={"email": "reset@example.com", "password": "новый-пароль-1"})
+    assert ok.status_code == 200
+
+
+def test_email_and_password_are_not_stored_in_clear(anon: TestClient) -> None:
+    verified_token(anon, "secret.buyer@example.com")
+    raw = (config.DATA_DIR / "app.sqlite").read_bytes()
+    assert b"secret.buyer" not in raw and PASSWORD.encode() not in raw
+    with db.connect() as con:
+        row = con.execute("SELECT password FROM users ORDER BY id DESC LIMIT 1").fetchone()
+    assert row["password"].startswith("$argon2id$")
+
+
+def test_letter_is_html_with_inline_logo() -> None:
+    msg = mail.verification_letter("a&b@example.com", "https://site.test/?verify=abc")
+    html = msg.get_body(("html",)).get_content()
+    assert "https://site.test/?verify=abc" in html and "cid:logo" in html
+    assert "a&amp;b@example.com" in html  # данные в шаблоне экранируются
+    assert "{{" not in html
+    assert any(part.get_content_type() == "image/png" for part in msg.walk())
+    assert "https://site.test/?verify=abc" in msg.get_body(("plain",)).get_content()
+
+
+def test_resend_is_throttled(anon: TestClient) -> None:
+    anon.post("/api/auth/register", json={"email": "slow@example.com", "password": PASSWORD})
+    sent = len(OUTBOX)
+    assert anon.post("/api/auth/resend", json={"email": "slow@example.com"}).json() == {"ok": True}
+    assert len(OUTBOX) == sent  # минута ещё не прошла
+
+
+def test_mail_failure_is_reported_and_retryable(anon: TestClient, monkeypatch) -> None:
+    def broken(msg) -> None:
+        raise mail.MailError("Не удалось отправить письмо. Попробуйте через пару минут.")
+
+    monkeypatch.setattr(mail, "deliver", broken)
+    r = anon.post("/api/auth/register", json={"email": "later@example.com", "password": PASSWORD})
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "mail_failed"
+    monkeypatch.setattr(mail, "deliver", OUTBOX.append)
+    # ссылка из неотправленного письма отозвана — повторить можно сразу, без минуты ожидания
+    assert anon.post("/api/auth/resend", json={"email": "later@example.com"}).status_code == 200
+    assert link_token("later@example.com", "verify")
+
+
+@pytest.mark.parametrize("token", ["", "u2.1.9999999999.bad", "u1.1.9999999999.bad", "u2.x.y.z", "admin-token"])
 def test_bad_user_tokens(client: TestClient, token: str) -> None:
     assert client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
 
@@ -80,7 +163,7 @@ def test_competitors_from_marketplace(client: TestClient, user_headers: dict, mo
     assert body["items"][0]["brand"] == "Бренд"
     assert client.get(body["items"][0]["url"]).headers["content-type"] == "image/jpeg"
     assert client.get("/api/competitors/files/zzzz/1.jpg").status_code == 404
-    assert client.get("/api/competitors", params={"query": "термос"}).status_code == 401
+    assert TestClient(client.app).get("/api/competitors", params={"query": "термос"}).status_code == 401
 
 
 def test_choice_percent_sums_to_100() -> None:

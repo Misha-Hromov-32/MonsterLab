@@ -11,6 +11,7 @@ import type {
   Showcase,
   ShelfResult,
   Site,
+  Registered,
   Session,
   User,
 } from './lib/types'
@@ -89,7 +90,7 @@ export const api = {
   analyze(file: File, signal?: AbortSignal) {
     const fd = new FormData()
     fd.append('file', file)
-    return request<Analysis>('/api/analyze', { method: 'POST', body: fd }, { timeoutMs: 120_000, signal })
+    return request<Analysis>('/api/analyze', withAuth({ method: 'POST', body: fd }), { timeoutMs: 120_000, signal })
   },
 
   shelf(variants: Record<string, string>, competitors: File[], layout: Layout) {
@@ -97,7 +98,7 @@ export const api = {
     fd.append('variants', JSON.stringify(variants))
     fd.append('layout', layout)
     competitors.forEach((f) => fd.append('competitors', f))
-    return request<ShelfResult>('/api/shelf', { method: 'POST', body: fd }, { timeoutMs: 600_000 })
+    return request<ShelfResult>('/api/shelf', withAuth({ method: 'POST', body: fd }), { timeoutMs: 600_000 })
   },
 
   critique: (id: string, context: object) =>
@@ -110,10 +111,18 @@ export const api = {
 
   // ---------------------------------------------------------- аккаунт, подписка, платные инструменты
 
+  // письмо уходит прямо во время запроса — даём почтовому серверу время ответить
   register: (email: string, password: string) =>
-    request<Session>('/api/auth/register', jsonBody('POST', { email, password }), { timeoutMs: 20_000 }),
+    request<Registered>('/api/auth/register', jsonBody('POST', { email, password }), { timeoutMs: 40_000 }),
   login: (email: string, password: string) =>
     request<Session>('/api/auth/login', jsonBody('POST', { email, password }), { timeoutMs: 20_000 }),
+  resend: (email: string) =>
+    request<{ ok: true }>('/api/auth/resend', jsonBody('POST', { email }), { timeoutMs: 40_000 }),
+  verify: (token: string) => request<Session>('/api/auth/verify', jsonBody('POST', { token }), { timeoutMs: 20_000 }),
+  forgot: (email: string) =>
+    request<{ ok: true }>('/api/auth/forgot', jsonBody('POST', { email }), { timeoutMs: 40_000 }),
+  resetPassword: (token: string, password: string) =>
+    request<Session>('/api/auth/reset', jsonBody('POST', { token, password }), { timeoutMs: 20_000 }),
   me: () => request<User>('/api/auth/me', withAuth(), { timeoutMs: 15_000 }),
 
   billingPlan: () => request<BillingPlan>('/api/billing/plan', {}, { timeoutMs: 15_000 }),

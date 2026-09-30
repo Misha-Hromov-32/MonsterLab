@@ -173,10 +173,8 @@ def test_token_without_env_password_does_not_deadlock(tmp_path, monkeypatch: pyt
 
     monkeypatch.setattr(auth.config, "ADMIN_PASSWORD", "")
     monkeypatch.setattr(auth, "PASSWORD_FILE", tmp_path / "admin_password.txt")
-    monkeypatch.setattr(auth, "SECRET_FILE", tmp_path / ".secret")
     auth.admin_password.cache_clear()
     auth._signing_key.cache_clear()
-    auth.secret.cache_clear()
     result: list[str] = []
     worker = threading.Thread(target=lambda: result.append(auth.make_token()), daemon=True)
     worker.start()
@@ -186,4 +184,3 @@ def test_token_without_env_password_does_not_deadlock(tmp_path, monkeypatch: pyt
     finally:
         auth.admin_password.cache_clear()
         auth._signing_key.cache_clear()
-        auth.secret.cache_clear()

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import shutil
 import tempfile
+from email.message import EmailMessage
 
 import numpy as np
 import pytest
@@ -17,41 +19,73 @@ os.environ["ADMIN_PASSWORD"] = "test-password"
 os.environ.pop("STATIC_DIR", None)
 os.environ.pop("PROXYAPI_KEY", None)
 os.environ.pop("TRUST_PROXY", None)
+os.environ.pop("MASTER_KEY", None)
+os.environ.pop("SMTP_HOST", None)
 
 from fastapi.testclient import TestClient
 
 from app import ratelimit
 from app.main import app
-from app.services import precompute
+from app.services import mail, precompute
 
 # Фоновый поток расчёта примеров в тестах не нужен: тесты вызывают precompute.run_pending() сами
 # и проверяют результат детерминированно.
 precompute.start = lambda: None
 
+# Письма не уходят по SMTP, а складываются сюда — тесты достают из них ссылки.
+OUTBOX: list[EmailMessage] = []
+mail.deliver = OUTBOX.append
+
+PASSWORD = "секретный-пароль"
+_users = iter(range(1, 100_000))
+
+
+def link_token(email: str, purpose: str) -> str:
+    """Токен из последней ссылки verify/reset, отправленной на этот адрес."""
+    for msg in reversed(OUTBOX):
+        if msg["To"] == email:
+            found = re.search(rf"\?{purpose}=([\w-]+)", msg.get_body(("plain",)).get_content())
+            if found:
+                return found.group(1)
+    raise AssertionError(f"Письма {purpose} для {email} нет")
+
+
+def verified_token(client: TestClient, email: str | None = None) -> str:
+    """Регистрирует покупателя, подтверждает почту по ссылке из письма и возвращает токен входа."""
+    email = email or f"buyer{next(_users)}@example.com"
+    r = client.post("/api/auth/register", json={"email": email, "password": PASSWORD})
+    assert r.status_code == 200, r.text
+    r = client.post("/api/auth/verify", json={"token": link_token(email, "verify")})
+    assert r.status_code == 200, r.text
+    return r.json()["token"]
+
 
 @pytest.fixture(scope="session")
 def client() -> TestClient:
+    """Клиент вошедшего покупателя: все функции сервиса доступны только после входа."""
     with TestClient(app) as c:
+        c.headers["Authorization"] = f"Bearer {verified_token(c)}"
         yield c
     shutil.rmtree(os.environ["DATA_DIR"], ignore_errors=True)
+
+
+@pytest.fixture
+def anon(client: TestClient) -> TestClient:
+    """Гость без входа (приложение уже запущено фикстурой client)."""
+    return TestClient(app)
 
 
 @pytest.fixture(autouse=True)
 def _fresh_limits() -> None:
     """Лимиты частоты общие на процесс — сбрасываем, чтобы тесты не влияли друг на друга."""
-    for limiter in (ratelimit.analysis_limit, ratelimit.expert_limit, ratelimit.login_limit):
+    for limiter in (ratelimit.analysis_limit, ratelimit.expert_limit, ratelimit.login_limit, ratelimit.mail_limit):
         limiter._hits.clear()
-
-
-_users = iter(range(1, 100_000))
 
 
 @pytest.fixture
 def user_headers(client: TestClient) -> dict:
     """Свежий покупатель на бесплатном тарифе — заголовок с его токеном входа."""
-    creds = {"email": f"buyer{next(_users)}@example.com", "password": "секретный-пароль"}
-    token = client.post("/api/auth/register", json=creds).json()["token"]
-    return {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {verified_token(client)}"}
 
 
 def make_cover(seed: int = 0, size: tuple[int, int] = (360, 480)) -> np.ndarray:

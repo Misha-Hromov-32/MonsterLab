@@ -2,10 +2,12 @@ import { computed, reactive } from 'vue'
 import { api, ApiError } from '../api'
 import { session, setUserToken } from './session'
 import { formatDate } from './format'
-import type { BillingPlan, User } from './types'
+import type { BillingPlan, Session, User } from './types'
 
 export type AccountDialog = '' | 'login' | 'account' | 'tariffs'
-export type AuthMode = 'login' | 'register'
+/** sent — «проверьте почту», forgot — запрос ссылки для нового пароля, reset — ввод нового пароля */
+export type AuthMode = 'login' | 'register' | 'sent' | 'forgot' | 'reset'
+export type LetterKind = 'verify' | 'reset'
 
 /**
  * Аккаунт покупателя: кто вошёл, условия подписки и какой диалог открыт.
@@ -18,6 +20,11 @@ export const account = reactive({
   authMode: 'login' as AuthMode,
   /** почему открыли диалог: «войдите, чтобы…», «исчерпан лимит…» */
   reason: '',
+  /** куда ушло письмо и какое (режим sent) */
+  pendingEmail: '',
+  letter: 'verify' as LetterKind,
+  /** токен из ссылки сброса пароля (режим reset) */
+  resetToken: '',
 })
 
 export const signedIn = computed(() => !!session.token)
@@ -49,6 +56,7 @@ export function openTariffs(reason = '') {
 export function closeDialog() {
   account.dialog = ''
   account.reason = ''
+  account.resetToken = ''
   afterLogin = null
 }
 
@@ -80,23 +88,107 @@ export async function loadPlan() {
   }
 }
 
-/** Вход или регистрация. Возвращает текст ошибки для формы или '' при успехе. */
-export async function signIn(mode: AuthMode, email: string, password: string): Promise<string> {
-  try {
-    const s = mode === 'register' ? await api.register(email, password) : await api.login(email, password)
-    setUserToken(s.token)
-    account.user = s.user
-  } catch (e) {
-    return (e as Error).message
-  }
+/** Вход состоялся: сохраняем токен и выполняем то, ради чего покупатель входил. */
+function finishLogin(s: Session) {
+  setUserToken(s.token)
+  account.user = s.user
   const next = afterLogin
   closeDialog()
   next?.()
-  return ''
+}
+
+/** Окно переходит в «Проверьте почту». */
+function showSent(email: string, letter: LetterKind, reason = '') {
+  account.pendingEmail = email.trim().toLowerCase()
+  account.letter = letter
+  account.reason = reason
+  account.authMode = 'sent'
 }
 
 /**
- * Платная функция без входа: сразу предлагаем войти, не дёргая сервер.
+ * Вход или регистрация. Возвращает текст ошибки для формы или '' — тогда окно либо закрылось
+ * (вошли), либо показывает «Проверьте почту» (зарегистрировались или почта ещё не подтверждена).
+ */
+export async function signIn(mode: 'login' | 'register', email: string, password: string): Promise<string> {
+  try {
+    if (mode === 'register') {
+      showSent((await api.register(email, password)).email, 'verify')
+      return ''
+    }
+    finishLogin(await api.login(email, password))
+  } catch (e) {
+    if (e instanceof ApiError && e.code === 'email_unverified') {
+      showSent(email, 'verify', e.message)
+      return ''
+    }
+    return (e as Error).message
+  }
+  return ''
+}
+
+/** «Отправить ещё раз» в окне «Проверьте почту». */
+export async function resendLetter(): Promise<string> {
+  try {
+    if (account.letter === 'reset') await api.forgot(account.pendingEmail)
+    else await api.resend(account.pendingEmail)
+    return ''
+  } catch (e) {
+    return (e as Error).message
+  }
+}
+
+/** «Забыли пароль?»: письмо со ссылкой. Сервер отвечает одинаково, есть такой аккаунт или нет. */
+export async function requestReset(email: string): Promise<string> {
+  try {
+    await api.forgot(email.trim())
+    showSent(email, 'reset')
+    return ''
+  } catch (e) {
+    return (e as Error).message
+  }
+}
+
+/** Новый пароль по ссылке из письма — и сразу вход. */
+export async function setNewPassword(password: string): Promise<string> {
+  try {
+    finishLogin(await api.resetPassword(account.resetToken, password))
+    return ''
+  } catch (e) {
+    return (e as Error).message
+  }
+}
+
+/**
+ * Переход по ссылке из письма: ?verify=… подтверждает почту и сразу входит,
+ * ?reset=… открывает окно нового пароля. Возвращает true, если в адресе была такая ссылка.
+ */
+export async function handleEmailLink(notify: (msg: string) => void): Promise<boolean> {
+  const url = new URL(location.href)
+  const verify = url.searchParams.get('verify')
+  const reset = url.searchParams.get('reset')
+  if (!verify && !reset) return false
+  // одноразовый токен не должен оставаться в адресной строке и истории браузера
+  url.searchParams.delete('verify')
+  url.searchParams.delete('reset')
+  history.replaceState(history.state, '', url.pathname + url.search + url.hash)
+  if (reset) {
+    openLogin('', undefined, 'reset')
+    account.resetToken = reset
+    return true
+  }
+  try {
+    const s = await api.verify(verify!)
+    setUserToken(s.token)
+    account.user = s.user
+    notify(`Почта подтверждена — добро пожаловать, ${s.user.email}`)
+  } catch (e) {
+    openLogin((e as Error).message)
+  }
+  return true
+}
+
+/**
+ * Функция сервиса без входа: сразу предлагаем войти, не дёргая сервер.
  * then — что повторить после входа. Возвращает true, если можно продолжать.
  */
 export function requireLogin(reason: string, then?: () => void) {

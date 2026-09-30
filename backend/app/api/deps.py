@@ -37,18 +37,23 @@ def require_admin(authorization: str | None = Header(None)) -> None:
 
 
 def current_user(authorization: str | None = Header(None)) -> accounts.User | None:
-    """Покупатель по токену входа или None — для функций, доступных и без входа."""
+    """Покупатель с подтверждённой почтой по токену входа или None."""
     token = (authorization or "").removeprefix("Bearer ").strip()
-    return accounts.user_from_token(token) if token.startswith("u1.") else None
+    return accounts.user_from_token(token) if token.startswith(f"{accounts.TOKEN_PREFIX}.") else None
+
+
+def require_user(user: accounts.User | None = Depends(current_user)) -> accounts.User:
+    """Все функции сервиса — только после входа: без него открыты лишь главная с витриной и тарифы."""
+    if user is None:
+        raise api_error(401, "login_required", "Войдите или зарегистрируйтесь, чтобы проверять обложки")
+    return user
 
 
 def paid(feature: str):
     """Зависимость для платной функции: нужен вход и неисчерпанный дневной лимит тарифа.
     Сам запуск списывается в обработчике после успеха — сбой модели лимит не тратит."""
 
-    def dependency(user: accounts.User | None = Depends(current_user)) -> accounts.User:
-        if user is None:
-            raise api_error(401, "login_required", "Войдите, чтобы пользоваться этой функцией")
+    def dependency(user: accounts.User = Depends(require_user)) -> accounts.User:
         try:
             accounts.check(user, feature)
         except accounts.LimitReached as exc:

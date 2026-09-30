@@ -138,6 +138,8 @@ export async function loadHealth(attempt = 0): Promise<void> {
 
 // ------------------------------------------------------------ варианты
 
+const LOGIN_TO_CHECK = 'Войдите или зарегистрируйтесь — проверка обложек доступна после входа'
+
 /** Отмена текущего анализа по варианту: при замене и удалении старый ответ уже не нужен. */
 const inflight = new Map<Key, AbortController>()
 
@@ -164,6 +166,8 @@ export function addFiles(files: FileList | File[], target?: Key, analyses?: (Ana
     toast(IMAGE_HINT)
     return
   }
+  // проверка обложек — только после входа; после входа файлы добавятся сами
+  if (!requireLogin(LOGIN_TO_CHECK, () => addFiles(list, target, analyses))) return
   if (target) {
     replaceVariant(target, list[0])
     return
@@ -267,7 +271,7 @@ export async function analyze(v: Variant) {
   } catch (e) {
     if (ctrl.signal.aborted || v.file !== file) return
     v.status = 'error'
-    v.error = (e as Error).message
+    v.error = paidError(e, () => analyze(v)) ?? (e as Error).message
   } finally {
     if (inflight.get(v.key) === ctrl) inflight.delete(v.key)
   }
@@ -394,7 +398,7 @@ export async function runShelf() {
   } catch (e) {
     if (gen !== shelfGen) return
     state.shelfStatus = 'error'
-    state.shelfError = (e as Error).message
+    state.shelfError = paidError(e, runShelf) ?? (e as Error).message
   }
 }
 
@@ -522,6 +526,7 @@ let exampleBusy = false
 /** Открывает опубликованный пример: варианты в свободные слоты, конкуренты и данные о товаре. */
 export async function loadExample(ex: Example) {
   if (exampleBusy) return
+  if (!requireLogin(LOGIN_TO_CHECK, () => loadExample(ex))) return
   const slots = freeKeys.value.length
   if (!slots) {
     toast('Все четыре слота заняты — начните новый анализ, чтобы открыть пример')

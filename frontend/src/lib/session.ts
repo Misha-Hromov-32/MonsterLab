@@ -24,7 +24,7 @@ export function setUserToken(token: string) {
   }
 }
 
-/** Заголовок входа для запросов покупателя; без входа — пустой: бесплатные функции работают и так. */
+/** Заголовок входа для запросов покупателя; без входа — пустой (сервер ответит login_required). */
 export function authHeader(): Record<string, string> {
   return session.token ? { Authorization: `Bearer ${session.token}` } : {}
 }

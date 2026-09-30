@@ -34,7 +34,7 @@ describe('токен покупателя', () => {
     expect(s.authHeader()).toEqual({ Authorization: 'Bearer u1.abc' })
   })
 
-  it('платные запросы идут с токеном, бесплатные — без', async () => {
+  it('запросы сервиса идут с токеном, публичные — без', async () => {
     localStorage.setItem('ml.user.token', 'u1.xyz')
     const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
@@ -43,12 +43,14 @@ describe('токен покупателя', () => {
     await api.critique('id1', {})
     await api.competitors('сок', 5)
     await api.analyze(new File(['x'], 'a.png', { type: 'image/png' }))
+    await api.site()
 
     const headers = (i: number) => new Headers(fetchMock.mock.calls[i][1]?.headers)
     expect(headers(0).get('Authorization')).toBe('Bearer u1.xyz')
     expect(headers(0).get('Content-Type')).toBe('application/json')
     expect(headers(1).get('Authorization')).toBe('Bearer u1.xyz')
     expect(fetchMock.mock.calls[1][0]).toBe(`/api/competitors?${new URLSearchParams({ query: 'сок', limit: '5' })}`)
-    expect(headers(2).get('Authorization')).toBeNull()
+    expect(headers(2).get('Authorization')).toBe('Bearer u1.xyz')
+    expect(headers(3).get('Authorization')).toBeNull()
   })
 })

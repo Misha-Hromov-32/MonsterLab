@@ -13,6 +13,10 @@ const api = vi.hoisted(() => ({
   exampleResults: vi.fn(),
   register: vi.fn(),
   login: vi.fn(),
+  resend: vi.fn(),
+  verify: vi.fn(),
+  forgot: vi.fn(),
+  resetPassword: vi.fn(),
   me: vi.fn(),
   billingPlan: vi.fn(),
   checkout: vi.fn(),
@@ -267,9 +271,9 @@ describe('примеры', () => {
 
 describe('платные функции', () => {
   it('без входа разбор не уходит на сервер, а открывает вход; после входа запускается сам', async () => {
+    await twoReady()
     const { setUserToken } = await import('./lib/session')
     setUserToken('')
-    await twoReady()
     const v = store.state.variants[0]
 
     await store.runCritique(v)
@@ -438,5 +442,66 @@ describe('возврат с оплаты', () => {
     expect(api.me).toHaveBeenCalledTimes(2)
     expect(notify).toHaveBeenCalledWith('Подписка активна до 25 октября 2026')
     expect(location.search).toBe('')
+  })
+})
+
+describe('вход и подтверждение почты', () => {
+  beforeEach(async () => {
+    const { setUserToken } = await import('./lib/session')
+    setUserToken('')
+  })
+
+  it('без входа обложка не уходит на сервер; после входа добавляется сама', async () => {
+    store.addFiles([img('a.png')])
+    expect(api.analyze).not.toHaveBeenCalled()
+    expect(store.state.variants).toHaveLength(0)
+    expect(acc.account.dialog).toBe('login')
+
+    api.login.mockResolvedValueOnce({ token: 'u2.new', user })
+    api.analyze.mockResolvedValueOnce(analysis('a1'))
+    expect(await acc.signIn('login', user.email, 'password1')).toBe('')
+    await flush()
+    expect(store.state.variants).toHaveLength(1)
+    expect(api.analyze).toHaveBeenCalledTimes(1)
+  })
+
+  it('после регистрации и при неподтверждённой почте окно просит проверить почту', async () => {
+    acc.openLogin('', undefined, 'register')
+    api.register.mockResolvedValueOnce({ status: 'verify', email: 'new@example.ru' })
+    expect(await acc.signIn('register', 'New@example.ru', 'password1')).toBe('')
+    expect(acc.account.authMode).toBe('sent')
+    expect(acc.account.pendingEmail).toBe('new@example.ru')
+    expect(localStorage.getItem('ml.user.token')).toBeNull()
+
+    acc.openLogin()
+    api.login.mockRejectedValueOnce(new ApiError('Подтвердите почту', 'email_unverified', 403))
+    expect(await acc.signIn('login', 'new@example.ru', 'password1')).toBe('')
+    expect(acc.account.authMode).toBe('sent')
+    expect(acc.account.dialog).toBe('login')
+  })
+
+  it('ссылка из письма подтверждает почту, входит и убирает токен из адреса', async () => {
+    history.replaceState(null, '', '/?verify=abc123')
+    api.verify.mockResolvedValueOnce({ token: 'u2.ok', user })
+    const notify = vi.fn()
+
+    expect(await acc.handleEmailLink(notify)).toBe(true)
+    expect(api.verify).toHaveBeenCalledWith('abc123')
+    expect(localStorage.getItem('ml.user.token')).toBe('u2.ok')
+    expect(notify).toHaveBeenCalledWith(expect.stringMatching(/Почта подтверждена/))
+    expect(location.search).toBe('')
+  })
+
+  it('ссылка сброса открывает окно нового пароля', async () => {
+    history.replaceState(null, '', '/?reset=tok')
+    expect(await acc.handleEmailLink(vi.fn())).toBe(true)
+    expect(acc.account.dialog).toBe('login')
+    expect(acc.account.authMode).toBe('reset')
+
+    api.resetPassword.mockResolvedValueOnce({ token: 'u2.reset', user })
+    expect(await acc.setNewPassword('новый-пароль')).toBe('')
+    expect(api.resetPassword).toHaveBeenCalledWith('tok', 'новый-пароль')
+    expect(acc.account.dialog).toBe('')
+    expect(localStorage.getItem('ml.user.token')).toBe('u2.reset')
   })
 })

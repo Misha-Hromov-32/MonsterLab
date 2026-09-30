@@ -16,7 +16,7 @@ from . import __version__, config
 from .api import account, admin, analysis, expert, public, tools
 from .core import saliency
 from .errors import install_handlers
-from .services import auth, precompute, site
+from .services import auth, crypto, precompute, site
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -25,6 +25,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await asyncio.to_thread(saliency.load)  # ~10–20 с на загрузку весов, не блокируем event loop
     await asyncio.to_thread(site.load)  # первый запуск: settings.json и встроенные примеры
+    crypto.master_key()  # ключ шифрования: не задан MASTER_KEY — сгенерировать в DATA_DIR
     auth.admin_password()  # если пароль не задан — сгенерировать и показать в логе
     precompute.start()  # примеры считаются в фоне, сервис уже отвечает
     yield

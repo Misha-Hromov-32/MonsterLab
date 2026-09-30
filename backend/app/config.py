@@ -55,6 +55,30 @@ TRUST_PROXY = _flag("TRUST_PROXY")
 
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
 
+# ---------------------------------------------------------------- шифрование, см. services/crypto.py
+
+# Мастер-ключ: 64 hex-символа (openssl rand -hex 32). Пусто — ключ генерируется в DATA_DIR/.master_key.
+_master = os.getenv("MASTER_KEY", "").strip()
+try:
+    MASTER_KEY = bytes.fromhex(_master) if _master else b""
+except ValueError:
+    MASTER_KEY = b""
+if _master and len(MASTER_KEY) != 32:
+    raise RuntimeError("MASTER_KEY — 64 hex-символа (32 байта), например из `openssl rand -hex 32`")
+
+# ---------------------------------------------------------------- почта (подтверждение email, сброс пароля)
+
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORT = _int("SMTP_PORT", 465)
+SMTP_USER = os.getenv("SMTP_USER", "").strip()
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+# ssl — сразу TLS (порт 465), starttls — обычно порт 587, none — без шифрования (только для отладки)
+SMTP_SECURITY = os.getenv("SMTP_SECURITY", "").strip().lower() or ("ssl" if SMTP_PORT == 465 else "starttls")
+if SMTP_SECURITY not in ("ssl", "starttls", "none"):
+    raise RuntimeError("SMTP_SECURITY: ssl, starttls или none")
+MAIL_FROM = os.getenv("MAIL_FROM", "").strip() or SMTP_USER
+MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "").strip() or "Monster Lab"
+
 PROXYAPI_KEY = os.getenv("PROXYAPI_KEY", "").strip()
 PROXYAPI_BASE_URL = os.getenv("PROXYAPI_BASE_URL", "").strip() or "https://api.proxyapi.ru/v1"
 if not PROXYAPI_BASE_URL.startswith("https://"):

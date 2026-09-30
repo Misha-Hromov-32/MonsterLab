@@ -39,7 +39,7 @@ ssh root@IP_СЕРВЕРА 'mkdir -p /opt/monster-lab && tar -xzf /opt/monster-l
 ```bash
 cd /opt/monster-lab
 cp .env.example .env
-nano .env        # впишите ADMIN_PASSWORD=свой_пароль (остальное можно не трогать)
+nano .env        # впишите ADMIN_PASSWORD, MASTER_KEY, PUBLIC_URL и почту SMTP_* (см. docs/configuration.md)
 ```
 
 ## 3. Запустить

@@ -11,7 +11,7 @@ import LoginDialog from './components/LoginDialog.vue'
 import AccountDialog from './components/AccountDialog.vue'
 import TariffsDialog from './components/TariffsDialog.vue'
 import { addFiles, loadHealth, loadSite, state, toast } from './store'
-import { account, checkPaymentReturn, refreshMe } from './lib/account'
+import { account, checkPaymentReturn, handleEmailLink, refreshMe } from './lib/account'
 
 // ?preview=1 — главная внутри iframe админки: только витрина, без опроса сервиса
 // и без перехвата перетаскивания файлов (иначе он мешал бы самой админке).
@@ -50,9 +50,13 @@ onMounted(() => {
   loadSite()
   if (preview) return
   loadHealth()
-  // вернулись со страницы оплаты — дождёмся подтверждения; иначе просто обновим тариф и лимиты
+  // вернулись со страницы оплаты — дождёмся подтверждения; пришли по ссылке из письма — подтвердим
+  // почту или откроем окно нового пароля; иначе просто обновим тариф и лимиты
   if (new URLSearchParams(location.search).get('payment') === 'return') checkPaymentReturn(toast)
-  else refreshMe()
+  else
+    handleEmailLink(toast).then((handled) => {
+      if (!handled) refreshMe()
+    })
   window.addEventListener('dragenter', onEnter)
   window.addEventListener('dragleave', onLeave)
   window.addEventListener('dragover', onOver)
