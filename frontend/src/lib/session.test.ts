@@ -47,7 +47,6 @@ describe('токен покупателя', () => {
 
     const headers = (i: number) => new Headers(fetchMock.mock.calls[i][1]?.headers)
     expect(headers(0).get('Authorization')).toBe('Bearer u1.xyz')
-    expect(headers(0).get('Content-Type')).toBe('application/json')
     expect(headers(1).get('Authorization')).toBe('Bearer u1.xyz')
     expect(fetchMock.mock.calls[1][0]).toBe(`/api/competitors?${new URLSearchParams({ query: 'сок', limit: '5' })}`)
     expect(headers(2).get('Authorization')).toBe('Bearer u1.xyz')

@@ -30,7 +30,7 @@ from . import showcase, site
 log = logging.getLogger(__name__)
 
 # Увеличьте, если поменялись метрики или формат результатов — все примеры пересчитаются.
-ALGO_VERSION = 2
+ALGO_VERSION = 3
 DB_FILE = config.DATA_DIR / "examples.sqlite"
 KEYS = "ABCD"  # варианты примера открываются в интерфейсе в эти слоты, по порядку
 

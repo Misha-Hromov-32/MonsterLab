@@ -96,11 +96,16 @@ _DEFAULT_MODELS = "google/gemini-2.5-flash,anthropic/claude-haiku-4-5"
 _models = os.getenv("EXPERT_MODELS") or os.getenv("JURY_MODELS") or _DEFAULT_MODELS
 EXPERT_MODELS = [m.strip() for m in _models.split(",") if m.strip()]
 EXPERT_CONCURRENCY = _int("EXPERT_CONCURRENCY", 6)
+# Визуальный разбор «как арт-директор» — одна сильная модель; если она не ответила — первая из EXPERT_MODELS
+VISUAL_MODEL = os.getenv("VISUAL_MODEL", "").strip() or "anthropic/claude-sonnet-5-5"
+VISUAL_MAX_RIVALS = 3  # сколько конкурентов показать модели рядом с обложкой
 
 # ---------------------------------------------------------------- генерация улучшенной обложки
 
 # Модель ProxyAPI для редактирования картинок (эндпоинт /images/edits)
 IMAGE_MODEL = os.getenv("IMAGE_MODEL", "").strip() or "openai/gpt-image-2"
+# medium — ~14 ₽ и ~30 с за обложку; high — ~51 ₽ и ~75 с, разница в превью почти не видна
+IMAGE_QUALITY = os.getenv("IMAGE_QUALITY", "").strip() or "medium"
 
 # ---------------------------------------------------------------- конкуренты с маркетплейса
 

@@ -29,6 +29,7 @@ FIELD_NAMES = {
     "query": "поисковый запрос",
     "category": "категория",
     "price": "цена",
+    "positioning": "позиционирование",
     "audience": "аудитория",
     "title": "название",
     "title_muted": "вторая строка заголовка",

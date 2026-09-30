@@ -62,8 +62,8 @@ def test_service_needs_login(anon: TestClient) -> None:
 
 
 def test_expert_needs_login_then_key(client: TestClient, anon: TestClient, user_headers: dict) -> None:
-    assert anon.post("/api/expert/critique", json={"id": "x"}).json()["detail"]["code"] == "login_required"
-    r = client.post("/api/expert/critique", json={"id": "whatever"}, headers=user_headers)
+    assert anon.post("/api/expert/critique", data={"id": "x"}).json()["detail"]["code"] == "login_required"
+    r = client.post("/api/expert/critique", data={"id": "whatever"}, headers=user_headers)
     assert r.status_code == 503
     assert r.json()["detail"]["code"] == "expert_disabled"
 
@@ -114,8 +114,8 @@ def test_unknown_routes_answer_in_api_format(client: TestClient) -> None:
 
 
 def test_validation_error_names_field_in_russian(client: TestClient, user_headers: dict) -> None:
-    body = {"id": "x", "context": {"price": "1" * 50}}
-    r = client.post("/api/expert/critique", json=body, headers=user_headers)
+    body = {"id": "x", "context": json.dumps({"price": "1" * 50})}
+    r = client.post("/api/expert/critique", data=body, headers=user_headers)
     detail = r.json()["detail"]
     assert r.status_code == 422 and "цена" in detail["message"]
 

@@ -84,8 +84,14 @@ function remove(id: string) {
         <span class="of num">/100</span>
       </div>
       <p class="verdict">{{ verdict }}</p>
-      <p class="lead">Насколько быстро покупатель считает обложку и поймёт, куда смотреть.</p>
+      <p class="lead">
+        Техническая часть: куда упадёт взгляд и что прочитается в ленте. Стиль, смысл надписей и позиционирование — в
+        визуальном разборе.
+      </p>
     </section>
+
+    <!-- визуальный разбор — сразу под индексом: стиль и смысл важнее технических метрик -->
+    <CritiquePanel :variant="variant" />
 
     <section>
       <div class="sec-head"><span class="label">Метрики</span></div>
@@ -100,7 +106,7 @@ function remove(id: string) {
           title="Лёгкость восприятия"
           :value="a.scores.ease"
           :detail="`элементов на обложке: ${a.raw.elements} · заметных цветов: ${a.raw.colors}`"
-          hint="Чем меньше плашек, надписей и цветов, тем быстрее обложка считывается."
+          hint="Сколько отдельных блоков и цветов на обложке. Товар, заголовок и 3–5 плашек — норма для маркетплейса."
         />
         <MetricRow
           title="Читаемость на превью"
@@ -176,8 +182,6 @@ function remove(id: string) {
         />
       </div>
     </section>
-
-    <CritiquePanel :variant="variant" />
   </aside>
 </template>
 

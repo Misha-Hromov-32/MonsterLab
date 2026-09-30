@@ -1,162 +1,177 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { Loader2, MessageSquareText } from 'lucide-vue-next'
-import { expertEnabled, runCritique } from '../store'
-import { silentExperts } from '../lib/format'
-import type { ExpertScore, Variant } from '../lib/types'
+import { computed } from 'vue'
+import { Check, Loader2, Sparkles, X } from 'lucide-vue-next'
+import { expertEnabled, runCritique, state } from '../store'
+import { VISUAL_MAX_RIVALS } from '../lib/constants'
+import type { CritiqueScore, Variant } from '../lib/types'
 
+// Визуальный разбор «как арт-директор»: целостная оценка стиля, позиционирования и смысла надписей —
+// то, чего не видят метрики внимания. Ответ модели уже нормализован сервером (services/expert.py).
 const props = defineProps<{ variant: Variant }>()
 const c = computed(() => props.variant.critique)
-const tab = ref(0)
-// новый разбор или другой вариант — начинаем с первого эксперта
-watch(
-  () => [props.variant.key, props.variant.critique],
-  () => (tab.value = 0),
-)
+const loading = computed(() => props.variant.critiqueStatus === 'loading')
+const rivals = computed(() => Math.min(state.competitors.length, VISUAL_MAX_RIVALS))
 
-// ключи — из ответа моделей; не путать с метриками анализа (там ease — «Лёгкость восприятия»)
-const SCORE_TITLES: Record<string, string> = {
-  clarity: 'Понятность',
+const SCORE_TITLES: Record<CritiqueScore, string> = {
+  aesthetics: 'Эстетика',
+  offer: 'Ясность оффера',
+  positioning: 'Позиционирование',
+  standout: 'Выделяется в выдаче',
   trust: 'Доверие',
-  premium: 'Премиальность',
-  emotion: 'Эмоция',
-  readability: 'Читаемость',
 }
-const SEV: Record<string, string> = { high: 'bad', medium: 'warn', low: '' }
-
-// оценки экспертов — по шкале 1–10; пропускаем пустые, чтобы в разметке не было проверок на undefined
 const scores = computed(() =>
-  Object.entries(c.value?.scores ?? {}).filter((e): e is [string, ExpertScore] => e[1] !== undefined),
+  (Object.keys(SCORE_TITLES) as CritiqueScore[])
+    .filter((k) => c.value?.scores[k] !== undefined)
+    .map((k) => ({ k, title: SCORE_TITLES[k], v: c.value!.scores[k]! })),
 )
-const toPct = (n: number) => `${((n - 1) / 9) * 100}%`
+const tone = (v: number) => (v >= 7 ? 'good' : v >= 5 ? 'warn' : 'bad')
+const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1))
 
-const opinion = computed(() => {
-  const ops = c.value?.opinions ?? []
-  return ops[Math.min(tab.value, ops.length - 1)]
-})
-
-const tabs = ref<HTMLButtonElement[]>([])
-function onTabKey(e: KeyboardEvent, n: number) {
-  const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
-  if (!step) return
-  e.preventDefault()
-  tab.value = (tab.value + step + n) % n
-  tabs.value[tab.value]?.focus()
-}
+// подробности, которые читают по желанию — свёрнуты, чтобы главное (вердикт, сильное, что улучшить) было сверху
+const details = computed(() =>
+  [
+    { title: 'Стиль и исполнение', text: c.value?.style },
+    { title: 'Позиционирование', text: c.value?.positioning },
+    { title: 'Порядок чтения', text: c.value?.reading_order },
+    { title: 'Рядом с конкурентами', text: c.value?.shelf },
+  ].filter((d) => d.text),
+)
 </script>
 
 <template>
-  <section v-if="expertEnabled" class="expert">
+  <section v-if="expertEnabled" class="visual">
     <div class="sec-head">
-      <span class="label">Экспертный разбор</span>
+      <span class="label">Визуальный разбор</span>
+      <span class="label tag">как арт-директор</span>
     </div>
 
     <div v-if="variant.critiqueStatus !== 'ready' || !c" class="ask">
-      <button class="btn primary" :disabled="variant.critiqueStatus === 'loading'" @click="runCritique(variant)">
-        <Loader2 v-if="variant.critiqueStatus === 'loading'" :size="15" class="spin" />
-        <MessageSquareText v-else :size="15" />
-        {{ variant.critiqueStatus === 'loading' ? 'Эксперт изучает обложку…' : 'Получить экспертный разбор' }}
+      <p class="pitch">
+        Оценка визуала целиком: общее впечатление, стиль, какой сегмент и аудиторию считывает обложка, работает ли
+        каждая надпись и как она смотрится рядом с конкурентами.
+      </p>
+      <p class="rivals">
+        <template v-if="rivals"
+          >Сравним с {{ rivals }} {{ rivals === 1 ? 'конкурентом' : 'конкурентами' }} с полки.</template
+        >
+        <template v-else>Добавьте конкурентов на вкладке «Полка» — разбор сравнит обложку с ними.</template>
+      </p>
+      <button class="btn primary" :disabled="loading" @click="runCritique(variant)">
+        <Loader2 v-if="loading" :size="15" class="spin" />
+        <Sparkles v-else :size="15" />
+        {{ loading ? 'Арт-директор смотрит обложку… ~30 с' : 'Разобрать визуал' }}
       </button>
-      <span class="who"
-        >Что поймёт покупатель, вызывает ли доверие, какие надписи не читаются и что конкретно исправить.</span
-      >
       <p v-if="variant.critiqueStatus === 'error'" class="err">{{ variant.critiqueError }}</p>
     </div>
 
     <div v-else class="result rise">
-      <blockquote v-if="c.opinions[0]?.offer" class="offer">
-        «{{ c.opinions[0].offer }}»
-        <cite class="num">так поймёт покупатель за 1 секунду</cite>
-      </blockquote>
-
-      <div class="scores">
-        <div v-for="[k, s] in scores" :key="k" class="score">
-          <span class="st">{{ SCORE_TITLES[k] ?? k }}</span>
-          <div class="range">
-            <i class="span" :style="{ left: toPct(s.min), width: `${((s.max - s.min) / 9) * 100}%` }" />
-            <i class="pt" :style="{ left: toPct(s.mean) }" />
-          </div>
-          <span class="sv num">{{ s.mean.toFixed(1) }}</span>
+      <div class="top">
+        <div v-if="c.overall !== null" class="overall" :class="tone(c.overall)">
+          <span class="num">{{ fmt(c.overall) }}</span
+          ><small class="num">/10</small>
         </div>
-        <div v-if="c.price_guess" class="score price">
-          <span class="st">Ожидаемая цена</span>
-          <span class="sv num">≈ {{ c.price_guess.toLocaleString('ru-RU') }} ₽</span>
+        <p class="verdict">{{ c.verdict || c.impression }}</p>
+      </div>
+
+      <div v-if="c.reads_as.segment || c.reads_as.mood" class="chips">
+        <span v-if="c.reads_as.segment" class="chip lime">{{ c.reads_as.segment }}</span>
+        <span v-if="c.reads_as.mood" class="chip lilac">{{ c.reads_as.mood }}</span>
+      </div>
+      <p v-if="c.reads_as.audience" class="audience"><b>Цепляет:</b> {{ c.reads_as.audience }}</p>
+
+      <p v-if="c.verdict && c.impression" class="impression">{{ c.impression }}</p>
+
+      <div v-if="scores.length" class="scores">
+        <div v-for="s in scores" :key="s.k" class="score">
+          <span class="st">{{ s.title }}</span>
+          <div class="bar"><i :class="tone(s.v)" :style="{ width: `${(s.v / 10) * 100}%` }" /></div>
+          <span class="sv num">{{ fmt(s.v) }}</span>
         </div>
       </div>
 
-      <div v-if="c.opinions.length > 1" class="tabs" role="radiogroup" aria-label="Мнение эксперта">
-        <button
-          v-for="(o, i) in c.opinions"
-          :key="o.model"
-          ref="tabs"
-          type="button"
-          role="radio"
-          :aria-checked="tab === i"
-          :tabindex="tab === i ? 0 : -1"
-          :class="{ on: tab === i }"
-          @click="tab = i"
-          @keydown="onTabKey($event, c.opinions.length)"
-        >
-          Эксперт {{ i + 1 }}
-        </button>
+      <div v-if="c.strengths.length" class="block">
+        <span class="label">Что сильного — не трогать</span>
+        <ul class="strengths">
+          <li v-for="(s, i) in c.strengths" :key="i"><Check :size="14" aria-hidden="true" />{{ s }}</li>
+        </ul>
       </div>
 
-      <div v-if="opinion" class="opinion">
-        <p v-if="opinion.verdict" class="verdict">{{ opinion.verdict }}</p>
-        <ul v-if="opinion.issues?.length" class="issues">
-          <li v-for="(it, i) in opinion.issues" :key="i">
-            <i class="dot" :class="SEV[it.severity]" />
-            <div>
-              <strong>{{ it.problem }}</strong>
-              <p>{{ it.fix }}</p>
-            </div>
+      <div v-if="c.improvements.length" class="block">
+        <span class="label">Что улучшить</span>
+        <ol class="improvements">
+          <li v-for="(it, i) in c.improvements" :key="i">
+            <strong>{{ it.what }}</strong>
+            <p v-if="it.why">{{ it.why }}</p>
+            <p v-if="it.how" class="how"><b>Как:</b> {{ it.how }}</p>
+          </li>
+        </ol>
+      </div>
+      <p v-else class="nothing">Менять нечего — обложка сильная.</p>
+
+      <details v-for="d in details" :key="d.title" class="more">
+        <summary>{{ d.title }}</summary>
+        <p>{{ d.text }}</p>
+      </details>
+
+      <details v-if="c.messages.length" class="more">
+        <summary>Надписи на обложке · {{ c.messages.length }}</summary>
+        <ul class="messages">
+          <li v-for="(m, i) in c.messages" :key="i" :class="{ off: !m.works }">
+            <span class="mt">
+              <component
+                :is="m.works ? Check : X"
+                :size="13"
+                class="mi"
+                :aria-label="m.works ? 'работает' : 'не работает'"
+              />
+              «{{ m.text }}»
+              <span class="role">{{ m.role }}</span>
+            </span>
+            <span v-if="m.comment" class="mc">{{ m.comment }}</span>
           </li>
         </ul>
-        <div v-if="opinion.strengths?.length" class="strengths">
-          <span class="label">Сильные стороны</span>
-          <ul>
-            <li v-for="(s, i) in opinion.strengths" :key="i">{{ s }}</li>
-          </ul>
-        </div>
-        <div v-if="opinion.texts?.length" class="texts">
-          <span class="label">Надписи на обложке</span>
-          <ul>
-            <li v-for="(t, i) in opinion.texts" :key="i" :class="{ bad: !t.legible_on_thumb }">
-              <span>{{ t.text }}</span>
-              <span class="num">{{ t.legible_on_thumb ? 'читается' : 'мелко' }}</span>
-            </li>
-          </ul>
-        </div>
-      </div>
+      </details>
 
-      <p v-if="c.errors.length" class="failed">{{ silentExperts(c.errors.length) }}</p>
-
-      <button class="btn sm ghost again" @click="runCritique(variant)">Спросить ещё раз</button>
+      <button class="btn sm ghost again" :disabled="loading" @click="runCritique(variant)">
+        <Loader2 v-if="loading" :size="14" class="spin" />
+        Разобрать ещё раз
+      </button>
     </div>
   </section>
 </template>
 
 <style scoped>
-.expert {
-  padding-top: 22px;
-  border-top: 1px solid var(--line);
+.visual {
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
 }
 
 .sec-head {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   margin-bottom: 12px;
+}
+
+.tag {
+  color: var(--accent);
 }
 
 .ask {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   justify-items: start;
 }
 
-.who {
-  font-size: 12.5px;
+.pitch {
+  margin: 0;
+  font-size: 13.5px;
   line-height: 1.5;
+}
+
+.rivals {
+  margin: 0;
+  font-size: 12px;
   color: var(--ink-3);
 }
 
@@ -168,80 +183,128 @@ function onTabKey(e: KeyboardEvent, n: number) {
 
 .result {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
-.offer {
+.top {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.overall {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--lime);
+  color: var(--on-tile);
+}
+
+.overall.warn {
+  background: var(--sun);
+}
+
+.overall.bad {
+  background: color-mix(in srgb, var(--bad) 22%, var(--panel));
+  color: var(--ink);
+}
+
+.overall .num {
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+}
+
+.overall small {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.verdict {
   margin: 0;
-  padding: 14px 16px;
-  border-radius: var(--radius);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  font-size: 15px;
+  font-size: 14.5px;
   line-height: 1.45;
   font-weight: 500;
   letter-spacing: -0.01em;
 }
 
-.offer cite {
-  display: block;
-  margin-top: 8px;
-  font-size: 10.5px;
-  font-style: normal;
-  font-weight: 400;
-  color: var(--ink-3);
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: -8px;
+}
+
+.chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--on-tile);
+}
+
+.chip.lime {
+  background: var(--lime);
+}
+
+.chip.lilac {
+  background: var(--lilac);
+}
+
+.audience,
+.impression {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.audience b {
+  color: var(--ink);
+  font-weight: 500;
 }
 
 .scores {
   display: grid;
-  gap: 10px;
+  gap: 9px;
 }
 
 .score {
   display: grid;
-  grid-template-columns: 112px 1fr 34px;
-  align-items: center;
+  grid-template-columns: 132px 1fr 28px;
   gap: 10px;
-}
-
-.score.price {
-  grid-template-columns: 112px 1fr;
-}
-
-.score.price .sv {
-  text-align: left;
+  align-items: center;
 }
 
 .st {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--ink-2);
 }
 
-.range {
-  position: relative;
-  height: 4px;
-  border-radius: 2px;
+.bar {
+  height: 6px;
+  border-radius: 3px;
   background: var(--panel-2);
+  overflow: hidden;
 }
 
-.range .span {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  min-width: 2px;
-  background: var(--line-strong);
-  border-radius: 2px;
-}
-
-.range .pt {
-  position: absolute;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+.bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
   background: var(--ink);
-  border: 2px solid var(--bg);
-  transform: translate(-50%, -50%);
+}
+
+.bar i.warn {
+  background: var(--warn);
+}
+
+.bar i.bad {
+  background: var(--bad);
 }
 
 .sv {
@@ -250,112 +313,150 @@ function onTabKey(e: KeyboardEvent, n: number) {
   text-align: right;
 }
 
-.tabs {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--line);
-}
-
-.tabs button {
-  position: relative;
-  padding: 6px 8px;
-  border: 0;
-  background: none;
-  font-size: 12.5px;
-  color: var(--ink-3);
-}
-
-.tabs button.on {
-  color: var(--ink);
-}
-
-.tabs button.on::after {
-  content: '';
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: -1px;
-  height: 2px;
-  background: var(--ink);
-}
-
-.opinion {
+.block {
   display: grid;
-  gap: 16px;
+  gap: 8px;
 }
 
-.verdict {
+.strengths,
+.improvements,
+.messages {
   margin: 0;
-  font-size: 13.5px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.strengths li {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 8px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
-.issues {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 12px;
+.strengths :deep(svg) {
+  margin-top: 3px;
+  color: var(--good);
 }
 
-.issues li {
-  display: grid;
-  grid-template-columns: auto 1fr;
+.improvements {
+  counter-reset: imp;
   gap: 10px;
 }
 
-.issues .dot {
-  margin-top: 6px;
+.improvements li {
+  counter-increment: imp;
+  position: relative;
+  padding: 12px 14px 12px 40px;
+  border-radius: var(--radius);
+  background: var(--panel-2);
 }
 
-.issues strong {
-  font-size: 13px;
+.improvements li::before {
+  content: counter(imp);
+  position: absolute;
+  left: 12px;
+  top: 11px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 11.5px;
   font-weight: 600;
 }
 
-.issues p {
-  margin: 2px 0 0;
+.improvements strong {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.improvements p {
+  margin: 4px 0 0;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--ink-2);
 }
 
-.strengths ul,
-.texts ul {
-  list-style: none;
+.improvements .how {
+  color: var(--ink);
+}
+
+.improvements .how b {
+  font-weight: 600;
+}
+
+.nothing {
+  margin: 0;
+  font-size: 13px;
+  color: var(--good);
+}
+
+.more {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.more summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  list-style-position: outside;
+}
+
+.more p {
   margin: 8px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 5px;
-  font-size: 12.5px;
+  font-size: 13px;
+  line-height: 1.55;
   color: var(--ink-2);
 }
 
-.strengths li::before {
-  content: '+ ';
-  color: var(--good);
+.messages {
+  margin-top: 10px;
 }
 
-.texts li {
+.messages li {
+  display: grid;
+  gap: 2px;
+}
+
+.mt {
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
-.texts li .num {
-  font-size: 10.5px;
+.mi {
   color: var(--good);
-  white-space: nowrap;
 }
 
-.texts li.bad .num {
+.messages li.off .mi {
   color: var(--bad);
 }
 
-.failed {
-  margin: 0;
+.role {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--ink-2);
   font-size: 11px;
-  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.mc {
+  padding-left: 19px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
 }
 
 .again {

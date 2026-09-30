@@ -281,7 +281,7 @@ describe('платные функции', () => {
     expect(acc.account.dialog).toBe('login')
 
     api.login.mockResolvedValueOnce({ token: 'u1.new', user })
-    api.critique.mockResolvedValueOnce({ models: [], errors: [], scores: {}, price_guess: null, opinions: [] })
+    api.critique.mockResolvedValueOnce({ model: 'm', errors: [], verdict: 'ок', improvements: [] })
     expect(await acc.signIn('login', user.email, 'password1')).toBe('')
     await flush()
 
@@ -338,13 +338,8 @@ describe('улучшенная обложка', () => {
   it('передаёт замечания экспертов без повторов и сохраняет картинку', async () => {
     await twoReady()
     const v = store.state.variants[0]
-    const issue = { severity: 'high' as const, problem: 'Мелкий текст', fix: 'Увеличить шрифт' }
-    v.critique = {
-      opinions: [
-        { model: 'm1', issues: [issue] },
-        { model: 'm2', issues: [issue] },
-      ],
-    } as Critique
+    const issue = { priority: 1, what: 'Мелкий текст', why: 'не читается в ленте', how: 'Увеличить шрифт' }
+    v.critique = { improvements: [issue, issue] } as Critique
     api.improve.mockResolvedValueOnce({ image: IMAGE })
 
     await store.runImprove(v)

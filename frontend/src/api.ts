@@ -104,8 +104,14 @@ export const api = {
     return request<ShelfResult>('/api/shelf', withAuth({ method: 'POST', body: fd }), { timeoutMs: 600_000 })
   },
 
-  critique: (id: string, context: object) =>
-    request<Critique>('/api/expert/critique', withAuth(jsonBody('POST', { id, context })), { timeoutMs: 300_000 }),
+  /** визуальный разбор; competitors — обложки конкурентов с полки, чтобы оценить обложку рядом с ними */
+  critique(id: string, context: object, competitors: File[] = []) {
+    const fd = new FormData()
+    fd.append('id', id)
+    fd.append('context', JSON.stringify(context))
+    competitors.forEach((f) => fd.append('competitors', f))
+    return request<Critique>('/api/expert/critique', withAuth({ method: 'POST', body: fd }), { timeoutMs: 300_000 })
+  },
 
   compare: (variants: Record<string, string>, context: object) =>
     request<CompareResult>('/api/expert/compare', withAuth(jsonBody('POST', { variants, context })), {

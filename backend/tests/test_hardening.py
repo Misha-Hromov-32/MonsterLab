@@ -121,14 +121,44 @@ async def _noop() -> None:
     return None
 
 
-def test_critique_survives_nan_and_failed_model(fake_models: dict) -> None:
-    fake_models["a/one"] = '{"scores": {"clarity": 8, "trust": NaN}, "price_guess_rub": Infinity, "verdict": "ок"}'
-    fake_models["b/two"] = '```json\n{"scores": {"clarity": 6, "trust": 7}, "price_guess_rub": 990}\n```'
-    result = asyncio.run(expert.critique("data:image/jpeg;base64,", {}))
-    # у первой модели NaN — ответ отбрасывается целиком, считается как не ответившая
-    assert result["errors"] == ["a/one"]
-    assert result["scores"]["clarity"]["mean"] == 6
-    assert result["price_guess"] == 990
+VISUAL_ANSWER = {
+    "impression": "Чисто и понятно.",
+    "verdict": "Сильная обложка.",
+    "reads_as": {"segment": "средний", "audience": "офис", "mood": "минимализм", "лишнее": "x"},
+    "messages": [
+        {"text": "500 мл", "role": "факт", "works": True, "comment": "отвечает на запрос"},
+        {"text": "ХИТ", "role": "реклама", "works": False, "comment": "пусто"},
+        {"role": "оффер"},
+    ],
+    "improvements": [
+        {"priority": 3, "what": "мелочь", "why": "", "how": ""},
+        {"priority": 1, "what": "главное", "why": "доверие", "how": "убрать чужой логотип"},
+        {"priority": "срочно", "what": "без приоритета"},
+    ],
+    "scores": {"aesthetics": 12, "offer": 8, "trust": "высокое"},
+}
+
+
+def test_critique_falls_back_and_normalizes(fake_models: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(expert.config, "VISUAL_MODEL", "v/isual")
+    fake_models["v/isual"] = '{"overall": NaN, "verdict": "ок"}'  # NaN — ответ отбрасывается целиком
+    fake_models["a/one"] = "```json\n" + json.dumps(VISUAL_ANSWER, ensure_ascii=False) + "\n```"
+    result = asyncio.run(expert.critique("data:image/jpeg;base64,", ["r1", "r2", "r3", "r4"], {}))
+    assert result["model"] == "a/one" and result["errors"] == ["v/isual"]
+    assert result["rivals"] == 3  # больше трёх конкурентов модели не показываем
+    assert result["scores"] == {"aesthetics": 10.0, "offer": 8.0}  # 12 → 10, «высокое» отброшено
+    assert result["overall"] == 9.0  # не задано — среднее оценок
+    assert [m["role"] for m in result["messages"]] == ["факт", "факт"]  # неизвестная роль → «факт», пустая — мимо
+    assert [i["what"] for i in result["improvements"]] == ["главное", "мелочь", "без приоритета"]
+    assert set(result["reads_as"]) == {"segment", "audience", "mood"}
+
+
+def test_critique_fails_when_no_model_answers(fake_models: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(expert.config, "VISUAL_MODEL", "v/isual")
+    fake_models["v/isual"] = 402
+    fake_models["a/one"] = '{"scores": {}}'  # пустой разбор тоже не годится
+    with pytest.raises(expert.ExpertError):
+        asyncio.run(expert.critique("data:image/jpeg;base64,", [], {}))
 
 
 def test_compare_ranks_and_reports_failed_models(fake_models: dict) -> None:

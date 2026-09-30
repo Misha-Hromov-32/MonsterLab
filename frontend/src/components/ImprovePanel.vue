@@ -94,7 +94,7 @@ function download() {
       <button class="btn primary big" @click="runImprove(v)"><Sparkles :size="16" /> Улучшить обложку</button>
       <span class="hint">
         Нейросеть перерисует обложку по выводам разбора — сохранит товар и бренд.
-        <template v-if="withCritique">Учтём и замечания экспертов.</template>
+        <template v-if="withCritique">Учтём советы визуального разбора.</template>
       </span>
       <p v-if="v.improveStatus === 'error'" class="err" role="alert">{{ v.improveError }}</p>
     </div>

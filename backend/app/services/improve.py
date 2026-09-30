@@ -59,7 +59,7 @@ def generate(jpeg: bytes, prompt: str) -> bytes:
             r = client.post(
                 "/images/edits",
                 headers={"Authorization": f"Bearer {cfg.api_key}"},
-                data={"model": config.IMAGE_MODEL, "prompt": prompt, "size": SIZE},
+                data={"model": config.IMAGE_MODEL, "prompt": prompt, "size": SIZE, "quality": config.IMAGE_QUALITY},
                 files={"image": ("cover.jpg", jpeg, "image/jpeg")},
             )
     except httpx.HTTPError as exc:

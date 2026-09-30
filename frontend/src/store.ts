@@ -1,6 +1,13 @@
 import { computed, reactive, watch } from 'vue'
 import { api, ApiError } from './api'
-import { COMPETITOR_SEARCH_LIMIT, IMPROVE_MAX_ISSUES, MAX_COMPETITORS, MAX_VARIANTS, TOAST_MS } from './lib/constants'
+import {
+  COMPETITOR_SEARCH_LIMIT,
+  IMPROVE_MAX_ISSUES,
+  MAX_COMPETITORS,
+  MAX_VARIANTS,
+  TOAST_MS,
+  VISUAL_MAX_RIVALS,
+} from './lib/constants'
 import { dataUrlToFile, IMAGE_HINT, isImage } from './lib/files'
 import { baseName, plural } from './lib/format'
 import { paidError, refreshMe, requireLogin } from './lib/account'
@@ -44,7 +51,7 @@ function savePrefs(key: string, value: unknown) {
 const prefs = loadPrefs('ml.prefs', {
   mode: 'heat' as OverlayMode,
   opacity: 0.8,
-  context: { category: '', query: '', price: '', audience: '' },
+  context: { category: '', query: '', price: '', audience: '', positioning: '' },
   layout: 'mobile' as Layout,
 })
 
@@ -300,7 +307,8 @@ export async function runCritique(v: Variant) {
   v.critiqueStatus = 'loading'
   v.critiqueError = undefined
   try {
-    const critique = await withIds([v], (ids) => api.critique(ids[v.key], state.context))
+    const rivals = state.competitors.slice(0, VISUAL_MAX_RIVALS).map((c) => c.file)
+    const critique = await withIds([v], (ids) => api.critique(ids[v.key], state.context, rivals))
     if (v.file !== file) return
     v.critique = critique
     v.critiqueStatus = 'ready'
@@ -338,7 +346,7 @@ const IMPROVE_FAIL = 'Не удалось нарисовать улучшенн�
 
 /** Замечания экспертов «проблема — как исправить» без повторов: нейросеть учтёт их при перерисовке. */
 export function critiqueIssues(v: Variant) {
-  const all = (v.critique?.opinions ?? []).flatMap((o) => o.issues ?? []).map((i) => `${i.problem} — ${i.fix}`)
+  const all = (v.critique?.improvements ?? []).map((i) => (i.how ? `${i.what} — ${i.how}` : i.what))
   return [...new Set(all)].slice(0, IMPROVE_MAX_ISSUES)
 }
 

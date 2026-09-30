@@ -99,7 +99,7 @@ function select(key: Key) {
       <section class="extra" :class="{ open: extra }">
         <div class="head">
           <span class="label">О товаре</span>
-          <span class="label hint">чтобы экспертный разбор был точнее</span>
+          <span class="label hint">чтобы визуальный разбор был точнее</span>
         </div>
         <div class="form">
           <label class="field">
@@ -126,6 +126,15 @@ function select(key: Key) {
               <input v-model.trim="state.context.audience" class="input" maxlength="80" placeholder="офис, 25–40" />
             </label>
           </div>
+          <label class="field">
+            <span class="flabel">Бренд и позиционирование</span>
+            <input
+              v-model.trim="state.context.positioning"
+              class="input"
+              maxlength="160"
+              placeholder="средний+, для города, минимализм"
+            />
+          </label>
         </div>
       </section>
     </template>

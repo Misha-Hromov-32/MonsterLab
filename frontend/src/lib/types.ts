@@ -55,28 +55,28 @@ export interface Aoi {
   h: number
 }
 
-export interface ExpertScore {
-  mean: number
-  min: number
-  max: number
-}
+export type CritiqueScore = 'aesthetics' | 'offer' | 'positioning' | 'standout' | 'trust'
+export type MessageRole = 'оффер' | 'факт' | 'статус' | 'бренд' | 'призыв' | 'шум'
 
-export interface Opinion {
-  model: string
-  offer?: string
-  verdict?: string
-  strengths?: string[]
-  issues?: { severity: 'high' | 'medium' | 'low'; problem: string; fix: string }[]
-  texts?: { text: string; legible_on_thumb: boolean }[]
-}
-
+/** Визуальный разбор «как арт-директор» (POST /api/expert/critique), оценки — 1–10. */
 export interface Critique {
-  models: string[]
-  /** id моделей, которые не ответили: разбор собран из остальных; в интерфейсе — только их число, без имён */
+  model: string
+  /** модели, которые не ответили до той, что дала разбор; в интерфейсе не показываются */
   errors: string[]
-  scores: Partial<Record<'clarity' | 'trust' | 'premium' | 'emotion' | 'readability', ExpertScore>>
-  price_guess: number | null
-  opinions: Opinion[]
+  /** сколько конкурентов модель видела рядом с обложкой */
+  rivals: number
+  overall: number | null
+  verdict: string
+  impression: string
+  reads_as: { segment: string; audience: string; mood: string }
+  positioning: string
+  style: string
+  messages: { text: string; role: MessageRole; works: boolean; comment: string }[]
+  reading_order: string
+  shelf: string
+  strengths: string[]
+  improvements: { priority: number; what: string; why: string; how: string }[]
+  scores: Partial<Record<CritiqueScore, number>>
 }
 
 export interface CompareResult {
@@ -232,6 +232,8 @@ export interface ProductContext {
   category: string
   price: string
   audience: string
+  /** бренд и позиционирование: «средний+, для города» — визуальный разбор сверяет с ним обложку */
+  positioning?: string
 }
 
 export interface Example {

@@ -1,6 +1,8 @@
 """Экспертный разбор: мультимодальные модели через ProxyAPI (OpenAI-совместимый API).
 
-critique — развёрнутый разбор одной обложки: каждая модель отвечает отдельно, оценки усредняются.
+critique — визуальный разбор обложки «как арт-директор»: общее впечатление, стиль, позиционирование,
+           смысл каждой надписи, порядок чтения и вид среди конкурентов. Одна сильная модель
+           (VISUAL_MODEL); если она не ответила — запасная из EXPERT_MODELS.
 compare  — попарные сравнения «на что нажмёт покупатель». Каждая пара показывается в обоих
            порядках, чтобы погасить склонность моделей выбирать первую картинку, а итоговый
            рейтинг собирается моделью Брэдли–Терри.
@@ -26,7 +28,11 @@ log = logging.getLogger(__name__)
 ATTEMPTS = 3
 RETRY_STATUSES = {429, 500, 502, 503, 504}
 THINKING_TOKENS = 3000  # запас на размышления «думающих» моделей сверх длины самого ответа
-SCORE_KEYS = ("clarity", "trust", "premium", "emotion", "readability")
+SCORE_KEYS = ("aesthetics", "offer", "positioning", "standout", "trust")
+MESSAGE_ROLES = ("оффер", "факт", "статус", "бренд", "призыв", "шум")
+# Модели, у которых можно выключить «размышления»: для мгновенного выбора «на что нажму» они не нужны,
+# а стоят в 7 раз дороже самого ответа (замер 30.09.2026: 3,3 ₽ против 0,46 ₽ за пару).
+NO_THINKING = ("google/gemini-2.5-flash", "google/gemini-2.5-flash-lite")
 
 _sem = asyncio.Semaphore(config.EXPERT_CONCURRENCY)
 
@@ -77,6 +83,8 @@ def _context_text(ctx: dict) -> str:
         parts.append(f"Цена товара: {ctx['price']} ₽.")
     if ctx.get("audience"):
         parts.append(f"Целевая аудитория: {ctx['audience']}.")
+    if ctx.get("positioning"):
+        parts.append(f"Бренд и позиционирование: {ctx['positioning']}.")
     parts.append("Площадка: маркетплейс (Wildberries / Ozon).")
     return " ".join(parts)
 
@@ -112,7 +120,10 @@ def _api_error(r: httpx.Response) -> str:
     return hints.get(r.status_code, f"HTTP {r.status_code}") + (f" ({msg})" if msg else "")
 
 
-async def _ask(client: httpx.AsyncClient, model: str, prompt: str, images: list[str], max_tokens: int = 1200) -> dict:
+async def _ask(
+    client: httpx.AsyncClient, model: str, prompt: str, images: list[str], max_tokens: int = 1200, fast: bool = False
+) -> dict:
+    """fast — ответ без «размышлений», где модель это умеет: быстрее и в разы дешевле."""
     content: list[dict] = [{"type": "text", "text": prompt}]
     for i, url in enumerate(images, 1):
         if len(images) > 1:
@@ -126,6 +137,8 @@ async def _ask(client: httpx.AsyncClient, model: str, prompt: str, images: list[
         "max_tokens": max_tokens + THINKING_TOKENS,
         "temperature": 0.2,
     }
+    if fast and model in NO_THINKING:
+        body["reasoning_effort"] = "none"
 
     for attempt in range(1, ATTEMPTS + 1):
         last = attempt == ATTEMPTS
@@ -164,60 +177,140 @@ def _is_num(v: object) -> bool:
         return False
 
 
-# ---------------------------------------------------------------- разбор одной обложки
+# ---------------------------------------------------------------- визуальный разбор одной обложки
 
-CRITIQUE_PROMPT = """Ты — арт-директор и специалист по конверсии карточек товаров на маркетплейсах.
-Перед тобой главное фото (обложка) карточки. Покупатель видит его в выдаче на телефоне размером
-около 170×230 пикселей и решает за 1–2 секунды, нажать ли.
+CRITIQUE_PROMPT = """Ты — сильный арт-директор, который много лет делает главные фото карточек для Wildberries и Ozon
+и знает, что продаёт, а что нет. Покупатель видит обложку в выдаче на телефоне размером около 170×230 пикселей.
+{rivals}
 {context}
 
-Оцени обложку строго и конкретно, без общих слов. Верни ТОЛЬКО JSON такого вида:
+Дай честный профессиональный разбор визуала — как коллеге-дизайнеру, а не новичку. Смотри на обложку целиком:
+общее впечатление и уровень исполнения, стиль и визуальный язык, какой ценовой сегмент и аудиторию она считывает
+и совпадает ли это с заявленным, что сообщает каждая надпись и в каком порядке покупатель это прочитает,
+как обложка выглядит рядом с конкурентами.
+
+Правила:
+- Информационные плашки (объём, «новинка», комплектация, сертификаты) — нормальная часть инфографики маркетплейса.
+  Не называй их перегрузом, если они аккуратно сгруппированы и несут пользу покупателю.
+- Оценивай всё через одно: поможет ли это покупателю нажать и купить. Без абстрактных «добавьте контраст» —
+  только с привязкой к конкретному месту обложки.
+- Если обложка сильная — прямо скажи это и не выдумывай проблемы. Улучшений может быть от 0 до 3.
+- Обязательно назови, что сделано хорошо и что НЕ стоит трогать.
+
+Верни ТОЛЬКО JSON:
 {{
-  "offer": "что покупатель поймёт за 1 секунду — одна фраза от его лица",
-  "product": "что за товар, как ты его распознал",
-  "scores": {{
-    "clarity": 1-10,      // понятно ли сразу, что это и зачем
-    "trust": 1-10,        // вызывает ли доверие (качество фото, аккуратность, реализм)
-    "premium": 1-10,      // ощущение дорогого/качественного товара
-    "emotion": 1-10,      // вызывает ли желание, эмоцию
-    "readability": 1-10   // читаются ли надписи в размере превью
+  "impression": "2–3 предложения: общее впечатление, как ты описал бы обложку коллеге",
+  "reads_as": {{
+    "segment": "эконом | средний | средний+ | премиум",
+    "audience": "кого цепляет",
+    "mood": "стиль в 2–5 словах"
   }},
-  "price_guess_rub": число или null,   // сколько, по ощущению, стоит товар
-  "texts": [{{"text": "надпись на картинке", "legible_on_thumb": true/false}}],
-  "strengths": ["что сделано хорошо", "..."],
-  "issues": [{{"severity": "high|medium|low", "problem": "что мешает", "fix": "как конкретно исправить"}}],
-  "verdict": "одно предложение: главный вывод"
+  "positioning": "совпадает ли то, что считывается, с заявленными ценой, аудиторией и позиционированием",
+  "style": "визуальный язык: цвет, типографика, свет и качество фото, целостность — 2–3 предложения",
+  "messages": [{{
+    "text": "надпись",
+    "role": "оффер | факт | статус | бренд | призыв | шум",
+    "works": true,
+    "comment": "зачем она покупателю и работает ли"
+  }}],
+  "reading_order": "что покупатель считает первым, вторым, третьим — и правильный ли это порядок",
+  "shelf": "как обложка смотрится среди конкурентов: чем выделяется или с кем сливается",
+  "strengths": ["что сильного и что не трогать"],
+  "improvements": [{{
+    "priority": 1,
+    "what": "что изменить",
+    "why": "как это повлияет на решение покупателя",
+    "how": "как сделать"
+  }}],
+  "scores": {{"aesthetics": 1-10, "offer": 1-10, "positioning": 1-10, "standout": 1-10, "trust": 1-10}},
+  "overall": 1-10,
+  "verdict": "одно предложение — главный вывод"
 }}
-Пиши по-русски. Не больше 4 проблем, самые важные — первыми."""
+Пиши по-русски, живым профессиональным языком, без канцелярита."""
+
+RIVALS_SHOWN = "Изображение 1 — наша обложка. Изображения 2–{n} — конкуренты, которые стоят рядом в выдаче."
+RIVALS_NONE = "На изображении — наша обложка. Конкурентов не показали: сравнивай с типичной выдачей этой категории."
 
 
-async def critique(image_url: str, ctx: dict) -> dict:
-    cfg = current_config()
-    prompt = CRITIQUE_PROMPT.format(context=_context_text(ctx))
-    async with _client(cfg) as client:
-        results = await asyncio.gather(
-            *(_ask(client, m, prompt, [image_url]) for m in cfg.models), return_exceptions=True
-        )
-    ok = [(m, r) for m, r in zip(cfg.models, results) if isinstance(r, dict)]
-    failed = [(m, r) for m, r in zip(cfg.models, results) if isinstance(r, BaseException)]
-    for _, exc in failed:
-        log.warning("Экспертный разбор: %s", exc)
-    if not ok:
-        raise ExpertError("; ".join(str(r) for _, r in failed) or "Модели не ответили")
+def _text(v: object, limit: int = 1200) -> str:
+    return str(v).strip()[:limit] if isinstance(v, str | int | float) and not isinstance(v, bool) else ""
 
-    scores = {}
-    for k in SCORE_KEYS:
-        vals = [float(v) for _, r in ok if _is_num(v := (r.get("scores") or {}).get(k))]
-        if vals:
-            scores[k] = {"mean": round(sum(vals) / len(vals), 1), "min": min(vals), "max": max(vals)}
-    prices = [float(r["price_guess_rub"]) for _, r in ok if _is_num(r.get("price_guess_rub"))]
+
+def _score(v: object) -> float | None:
+    return round(min(10.0, max(1.0, float(v))), 1) if _is_num(v) else None  # type: ignore[arg-type]
+
+
+def normalize_critique(raw: dict) -> dict:
+    """Ответ модели → предсказуемая структура: лишние поля отбрасываются, оценки — в 1–10, списки ограничены."""
+    scores = {k: s for k in SCORE_KEYS if (s := _score((raw.get("scores") or {}).get(k))) is not None}
+    overall = _score(raw.get("overall"))
+    if overall is None and scores:
+        overall = round(sum(scores.values()) / len(scores), 1)
+    reads = raw.get("reads_as") if isinstance(raw.get("reads_as"), dict) else {}
+    messages = []
+    for m in (raw.get("messages") or [])[:12]:
+        if isinstance(m, dict) and _text(m.get("text"), 120):
+            role = _text(m.get("role"), 20).lower()
+            messages.append(
+                {
+                    "text": _text(m.get("text"), 120),
+                    "role": role if role in MESSAGE_ROLES else "факт",
+                    "works": m.get("works") is not False,
+                    "comment": _text(m.get("comment"), 400),
+                }
+            )
+    improvements = []
+    for i in raw.get("improvements") or []:
+        if isinstance(i, dict) and _text(i.get("what"), 300):
+            prio = i.get("priority")
+            improvements.append(
+                {
+                    "priority": int(prio) if _is_num(prio) and 1 <= float(prio) <= 3 else 3,
+                    "what": _text(i.get("what"), 300),
+                    "why": _text(i.get("why"), 500),
+                    "how": _text(i.get("how"), 500),
+                }
+            )
+    improvements.sort(key=lambda x: x["priority"])
     return {
-        "models": [m for m, _ in ok],
-        "errors": [m for m, _ in failed],  # только id моделей: подробности — в журнале сервера
+        "overall": overall,
+        "verdict": _text(raw.get("verdict"), 400),
+        "impression": _text(raw.get("impression")),
+        "reads_as": {k: _text(reads.get(k), 200) for k in ("segment", "audience", "mood")},
+        "positioning": _text(raw.get("positioning")),
+        "style": _text(raw.get("style")),
+        "messages": messages,
+        "reading_order": _text(raw.get("reading_order")),
+        "shelf": _text(raw.get("shelf")),
+        "strengths": [_text(x, 300) for x in (raw.get("strengths") or [])[:6] if _text(x, 300)],
+        "improvements": improvements[:4],
         "scores": scores,
-        "price_guess": round(sum(prices) / len(prices)) if prices else None,
-        "opinions": [{**r, "model": m} for m, r in ok],
     }
+
+
+async def critique(image_url: str, rivals: list[str], ctx: dict) -> dict:
+    """Визуальный разбор. rivals — data URL обложек конкурентов из выдачи (до VISUAL_MAX_RIVALS)."""
+    cfg = current_config()
+    rivals = rivals[: config.VISUAL_MAX_RIVALS]
+    intro = RIVALS_SHOWN.format(n=len(rivals) + 1) if rivals else RIVALS_NONE
+    prompt = CRITIQUE_PROMPT.format(rivals=intro, context=_context_text(ctx))
+    # сначала сильная модель, при сбое — запасные из списка экспертов
+    models = list(dict.fromkeys([config.VISUAL_MODEL, *cfg.models]))[:2]
+    errors: list[str] = []
+    async with _client(cfg) as client:
+        for model in models:
+            try:
+                raw = await _ask(client, model, prompt, [image_url, *rivals], 2600)
+            except ExpertError as exc:
+                log.warning("Визуальный разбор: %s", exc)
+                errors.append(model)
+                continue
+            result = normalize_critique(raw)
+            if result["impression"] or result["verdict"]:
+                return {"model": model, "errors": errors, "rivals": len(rivals), **result}
+            log.warning("Визуальный разбор: %s вернула пустой разбор", model)
+            errors.append(model)
+    raise ExpertError("Модели не ответили")
 
 
 # ---------------------------------------------------------------- сравнение вариантов
@@ -278,7 +371,8 @@ async def compare(images: dict[str, str], ctx: dict) -> dict:
     jobs = [(m, a, b) for m in cfg.models for a, b in itertools.permutations(keys, 2)]
     async with _client(cfg) as client:
         results = await asyncio.gather(
-            *(_ask(client, m, prompt, [images[a], images[b]], 300) for m, a, b in jobs), return_exceptions=True
+            *(_ask(client, m, prompt, [images[a], images[b]], 300, fast=True) for m, a, b in jobs),
+            return_exceptions=True,
         )
 
     games: list[tuple[str, str, float]] = []

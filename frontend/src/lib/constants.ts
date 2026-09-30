@@ -30,3 +30,6 @@ export const IMPROVE_MAX_ISSUES = 6
 
 /** Сколько конкурентов берём из выдачи маркетплейса за один поиск. */
 export const COMPETITOR_SEARCH_LIMIT = 8
+
+/** сколько конкурентов с полки видит визуальный разбор — как VISUAL_MAX_RIVALS в backend/app/config.py */
+export const VISUAL_MAX_RIVALS = 3
