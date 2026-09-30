@@ -288,3 +288,22 @@ def test_unreadable_email_means_signed_out_not_500(anon: TestClient) -> None:
     with db.connect() as con:  # как будто сменили MASTER_KEY: шифртекст больше не сходится
         con.execute("UPDATE users SET email_enc = ? WHERE id = ?", (b"\x00" * 40, user.id))
     assert anon.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
+
+
+def test_admin_stats_counts_runs_and_visits(client: TestClient, anon: TestClient) -> None:
+    token = client.post("/api/admin/login", json={"password": "test-password"}).json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    before = client.get("/api/admin/stats", headers=headers).json()
+    anon.get("/api/public/site")
+    anon.get("/api/public/site", params={"preview": "true"})  # предпросмотр из админки не считается
+    files = {"file": ("c.jpg", jpeg_bytes(make_cover(6)), "image/jpeg")}
+    assert client.post("/api/analyze", files=files).status_code == 200
+    after = client.get("/api/admin/stats", headers=headers).json()
+
+    runs = {f["feature"]: f for f in after["features"]}
+    was = {f["feature"]: f for f in before["features"]}
+    assert runs["analyze"]["today"] == was["analyze"]["today"] + 1
+    assert after["daily"][-1]["visits"] == before["daily"][-1]["visits"] + 1
+    assert len(after["daily"]) == 30 and after["users"]["total"] >= 1
+    assert any(u["email"] == "session@example.com" and u["plan"] == "Агентство" for u in after["latest_users"])
+    assert anon.get("/api/admin/stats").status_code == 401

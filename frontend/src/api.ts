@@ -84,7 +84,9 @@ export const withAuth = (init: RequestInit = {}): RequestInit => ({
 
 export const api = {
   health: () => request<Health>('/api/health', {}, { timeoutMs: 10_000 }),
-  site: () => request<Site>('/api/public/site', {}, { timeoutMs: 10_000 }),
+  /** preview — главная в iframe админки: такой показ не считается визитом */
+  site: (preview = false) =>
+    request<Site>(`/api/public/site${preview ? '?preview=true' : ''}`, {}, { timeoutMs: 10_000 }),
   legal: () => request<Legal>('/api/public/legal', {}, { timeoutMs: 10_000 }),
   showcase: () => request<Showcase | null>('/api/public/showcase'),
   exampleResults: (id: string) =>

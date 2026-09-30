@@ -84,8 +84,8 @@ def checkout(user: accounts.User, plan_id: str) -> str:
     payment = r.json()
     with db.connect() as con:
         con.execute(
-            "INSERT OR IGNORE INTO payments (id, user_id, amount, status, created_at) VALUES (?, ?, ?, ?, ?)",
-            (payment["id"], user.id, amount["value"], payment["status"], time.time()),
+            "INSERT OR IGNORE INTO payments (id, user_id, amount, status, plan, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (payment["id"], user.id, amount["value"], payment["status"], info["id"], time.time()),
         )
     return payment["confirmation"]["confirmation_url"]
 

@@ -399,3 +399,4 @@ def spend(user: User, feature: str) -> None:
             "ON CONFLICT (user_id, feature, day) DO UPDATE SET count = count + 1",
             (user.id, feature, _period(user)),
         )
+        con.execute("INSERT INTO events (ts, user_id, feature) VALUES (?, ?, ?)", (time.time(), user.id, feature))

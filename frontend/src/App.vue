@@ -47,7 +47,7 @@ function onDrop(e: DragEvent) {
 }
 
 onMounted(() => {
-  loadSite()
+  loadSite(preview)
   if (preview) return
   loadHealth()
   // вернулись со страницы оплаты — дождёмся подтверждения; пришли по ссылке из письма — подтвердим

@@ -316,3 +316,29 @@ export interface AdminSettings {
   designs: Design[]
   billing: Billing
 }
+
+/** Статистика для админки: GET /api/admin/stats (services/stats.py). Суммы — в рублях, даты — unix-секунды. */
+export interface AdminStats {
+  generated_at: number
+  users: {
+    total: number
+    verified: number
+    new_7: number
+    new_30: number
+    paying: number
+    by_plan: { id: string; title: string; count: number }[]
+  }
+  revenue: { total: number; last_30: number; payments_30: number; ai_cost_30: number }
+  funnel_30: { visits: number; registered: number; verified: number; active: number; paid: number }
+  features: { feature: string; today: number; week: number; month: number; total: number; cost_30: number }[]
+  daily: { day: string; visits: number; registered: number; runs: number; revenue: number }[]
+  payments: { created_at: number; email: string; plan: string; amount: number; status: string }[]
+  latest_users: {
+    email: string
+    created_at: number
+    verified: boolean
+    plan: string
+    pro_until: number | null
+    runs: number
+  }[]
+}

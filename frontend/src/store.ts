@@ -499,9 +499,9 @@ export const featuredExample = computed<Example | null>(() => {
   return examples.find((e) => e.id === site.showcase?.example) ?? examples[0] ?? null
 })
 
-export async function loadSite() {
+export async function loadSite(preview = false) {
   try {
-    site.data = await api.site()
+    site.data = await api.site(preview)
   } catch {
     /* главная покажет тексты по умолчанию */
   } finally {

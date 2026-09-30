@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch, type Component } from 'vue'
-import { CreditCard, ExternalLink, Image as ImageIcon, LayoutTemplate, LogOut, Sparkles } from 'lucide-vue-next'
+import {
+  BarChart3,
+  CreditCard,
+  ExternalLink,
+  Image as ImageIcon,
+  LayoutTemplate,
+  LogOut,
+  Sparkles,
+} from 'lucide-vue-next'
 import Logo from '../components/Logo.vue'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import ToastMessage from '../components/ToastMessage.vue'
@@ -9,12 +17,14 @@ import LandingPanel from './LandingPanel.vue'
 import ExamplesPanel from './ExamplesPanel.vue'
 import ExpertPanel from './ExpertPanel.vue'
 import BillingPanel from './BillingPanel.vue'
+import StatsPanel from './StatsPanel.vue'
 import { adminApi, auth, setToken } from './adminApi'
 import { TOAST_MS } from '../lib/constants'
 import type { AdminSettings } from '../lib/types'
 
-type Tab = 'landing' | 'examples' | 'expert' | 'billing'
+type Tab = 'stats' | 'landing' | 'examples' | 'expert' | 'billing'
 const tabs: { id: Tab; title: string; icon: Component }[] = [
+  { id: 'stats', title: 'Статистика', icon: BarChart3 },
   { id: 'landing', title: 'Главная', icon: LayoutTemplate },
   { id: 'examples', title: 'Примеры', icon: ImageIcon },
   { id: 'expert', title: 'Нейросети', icon: Sparkles },
@@ -23,7 +33,7 @@ const tabs: { id: Tab; title: string; icon: Component }[] = [
 
 function tabFromHash(): Tab {
   const id = location.hash.slice(1)
-  return tabs.find((t) => t.id === id)?.id ?? 'landing'
+  return tabs.find((t) => t.id === id)?.id ?? 'stats'
 }
 
 const tab = ref<Tab>(tabFromHash())
@@ -102,7 +112,8 @@ onUnmounted(() => {
     <main class="content">
       <p v-if="error" class="err load-err">{{ error }}</p>
       <template v-if="data">
-        <LandingPanel v-if="tab === 'landing'" :data="data" @saved="notify" />
+        <StatsPanel v-if="tab === 'stats'" />
+        <LandingPanel v-else-if="tab === 'landing'" :data="data" @saved="notify" />
         <ExamplesPanel v-else-if="tab === 'examples'" :data="data" @changed="reload" @notify="notify" />
         <ExpertPanel v-else-if="tab === 'expert'" :data="data" @notify="notify" @changed="reload" />
         <BillingPanel v-else :data="data" @notify="notify" @changed="reload" />

@@ -49,7 +49,19 @@ CREATE TABLE IF NOT EXISTS payments (
     amount TEXT NOT NULL,
     status TEXT NOT NULL,
     applied INTEGER NOT NULL DEFAULT 0,
-    created_at REAL NOT NULL
+    created_at REAL NOT NULL,
+    plan TEXT
+);
+-- статистика для админки: каждый успешный запуск функции и открытия сайта по дням
+CREATE TABLE IF NOT EXISTS events (
+    ts REAL NOT NULL,
+    user_id INTEGER NOT NULL,
+    feature TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS events_ts ON events (ts);
+CREATE TABLE IF NOT EXISTS visits (
+    day TEXT PRIMARY KEY,
+    count INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS usage (
     user_id INTEGER NOT NULL,
@@ -73,7 +85,8 @@ ADDED_COLUMNS = {
         "legal_version": "TEXT",
         "plan_id": "TEXT",  # оплаченный тариф; действует, пока pro_until в будущем
         "period_start": "REAL",  # начало оплаченного периода — от него считаются квоты
-    }
+    },
+    "payments": {"plan": "TEXT"},
 }
 
 _lock = threading.Lock()

@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from .. import config
 from ..core.imaging import decode
 from ..ratelimit import analysis_limit
-from ..services import accounts, precompute, site
+from ..services import accounts, precompute, site, stats
 from ..services.uploads import store
 
 router = APIRouter(prefix="/api/public")
@@ -28,7 +28,9 @@ def _example_out(ex: dict) -> dict:
 
 
 @router.get("/site")
-def get_site() -> dict:
+def get_site(preview: bool = False) -> dict:
+    if not preview:  # предпросмотр главной в админке — не визит
+        stats.record_visit()
     return {
         "landing": site.read()["landing"],
         "examples": [_example_out(e) for e in site.published_examples()],

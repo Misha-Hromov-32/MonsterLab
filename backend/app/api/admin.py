@@ -14,7 +14,7 @@ from ..core.imaging import BadImage
 from ..errors import api_error
 from ..ratelimit import client_ip, login_limit
 from ..schemas import ProductContext
-from ..services import auth, billing, expert, site
+from ..services import auth, billing, expert, site, stats
 from .deps import read_upload, require_admin
 
 router = APIRouter(prefix="/api/admin")
@@ -157,6 +157,12 @@ def put_billing(body: BillingSettings) -> dict:
         raise api_error(422, "bad_request", "У тарифов должны быть разные id")
     site.update(lambda d: d.__setitem__("billing", body.model_dump()))
     return {**body.model_dump(), "enabled": billing.enabled()}
+
+
+@guarded.get("/stats")
+def get_stats() -> dict:
+    """Полная статистика: воронка, выручка, тарифы, запуски функций, платежи и покупатели."""
+    return stats.overview()
 
 
 @guarded.post("/expert/check")
