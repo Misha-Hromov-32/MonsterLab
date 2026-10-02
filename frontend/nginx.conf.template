@@ -1,19 +1,23 @@
 # Шаблон: при старте контейнера nginx подставляет переменные окружения (${REAL_IP_FROM}).
+
+# Первая линия защиты от потока запросов с одного адреса (после set_real_ip_from ниже это адрес
+# покупателя, а не прокси). Бэкенд дополнительно держит свои лимиты: вход, письма, анализ.
+limit_req_zone $binary_remote_addr zone=api:10m rate=20r/s;
+limit_conn_zone $binary_remote_addr zone=perip:10m;
+
 server {
   listen 80;
   server_name _;
   root /usr/share/nginx/html;
   server_tokens off;
 
-  # тест полки присылает до 12 конкурентов по 25 МБ (MAX_UPLOAD_MB по умолчанию) за один запрос —
-  # поднимете MAX_UPLOAD_MB, поднимите и этот лимит
-  client_max_body_size 320m;
+  # По умолчанию запрос к API — небольшой JSON. Большие тела разрешены только там, где грузят картинки
+  # (локации ниже); поднимете MAX_UPLOAD_MB — поднимите и их.
+  client_max_body_size 2m;
   gzip on;
   gzip_types text/css application/javascript application/json image/svg+xml;
 
-  add_header X-Content-Type-Options "nosniff" always;
-  add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-  add_header X-Frame-Options "SAMEORIGIN" always;
+  include /etc/nginx/snippets/security-headers.conf;
 
   # Адрес клиента за внешним прокси (Caddy и т. п.): X-Forwarded-For принимается только от
   # REAL_IP_FROM. По умолчанию — никому не верим (127.0.0.1 внутри контейнера не бывает).
@@ -21,33 +25,58 @@ server {
   real_ip_header X-Forwarded-For;
   real_ip_recursive on;
 
-  location /api/ {
-    proxy_pass http://backend:8000;
-    proxy_set_header Host $host;
-    # по этому адресу бэкенд ограничивает частоту запросов
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    # тест полки с нейросетью на слабом сервере может идти несколько минут — ждём до 10
-    proxy_read_timeout 600s;
-    proxy_send_timeout 600s;
+  # общие настройки проксирования для всех локаций /api/…
+  proxy_set_header Host $host;
+  # по этому адресу бэкенд ограничивает частоту запросов
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  # тест полки с нейросетью на слабом сервере может идти несколько минут — ждём до 10
+  proxy_read_timeout 600s;
+  proxy_send_timeout 600s;
+
+  limit_req_status 429;
+  limit_conn_status 429;
+  error_page 429 = @rate_limited;
+
+  location @rate_limited {
+    default_type "application/json; charset=utf-8";
+    return 429 '{"detail":{"code":"rate_limited","message":"Слишком много запросов. Подождите немного."}}';
   }
 
-  # add_header внутри location отменяет заголовки уровня server, поэтому они повторены.
+  location /api/ {
+    limit_req zone=api burst=100 nodelay;
+    limit_conn perip 40;
+    proxy_pass http://backend:8000;
+  }
+
+  # одна обложка — до 25 МБ (MAX_UPLOAD_MB)
+  location = /api/analyze {
+    client_max_body_size 30m;
+    limit_req zone=api burst=100 nodelay;
+    limit_conn perip 40;
+    proxy_pass http://backend:8000;
+  }
+
+  # тест полки, выбор покупателя и примеры в админке — до 12 конкурентов по 25 МБ за один запрос
+  location ~ ^/api/(shelf$|expert/|admin/examples/) {
+    client_max_body_size 320m;
+    limit_req zone=api burst=100 nodelay;
+    limit_conn perip 40;
+    proxy_pass http://backend:8000;
+  }
+
+  # add_header внутри location отменяет заголовки уровня server, поэтому они подключены ещё раз.
   # У собранных файлов хэш в имени — кэшируем навсегда.
   location /assets/ {
     add_header Cache-Control "public, max-age=31536000, immutable";
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
+    include /etc/nginx/snippets/security-headers.conf;
     try_files $uri =404;
   }
 
   location / {
     add_header Cache-Control "no-cache";
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
+    include /etc/nginx/snippets/security-headers.conf;
     try_files $uri $uri/ /index.html;
   }
 }

@@ -9,5 +9,6 @@ FROM nginx:alpine
 # шаблон превращается в /etc/nginx/conf.d/default.conf при старте (envsubst в образе nginx)
 ENV REAL_IP_FROM=127.0.0.1
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80

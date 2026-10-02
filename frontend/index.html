@@ -16,19 +16,8 @@
     <meta property="og:description" content="Куда посмотрит покупатель — до того, как карточка выйдет в выдачу." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://monsterlab.hromovms.ru/" />
-    <script>
-      // тема до загрузки CSS, чтобы страница не мигала: выбор пользователя или системная
-      ;(function () {
-        var t = null
-        try {
-          t = localStorage.getItem('ml.theme')
-        } catch (e) {}
-        if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-        document.documentElement.dataset.theme = t
-        var m = document.querySelector('meta[name="theme-color"]')
-        if (m) m.setAttribute('content', t === 'dark' ? '#121212' : '#ffffff')
-      })()
-    </script>
+    <!-- тема до загрузки CSS, чтобы страница не мигала (отдельный файл — CSP запрещает встроенные скрипты) -->
+    <script src="/theme.js"></script>
   </head>
   <body>
     <noscript>Для работы MonStoreLab нужен JavaScript.</noscript>
