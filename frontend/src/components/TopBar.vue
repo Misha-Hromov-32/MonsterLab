@@ -318,5 +318,9 @@ function home() {
   .hide-xs {
     display: none;
   }
+  /* строка «MON STORE LAB» широкая — на телефоне мельче, чтобы не наезжать на кнопки аккаунта */
+  .brand :deep(.wm) {
+    height: 14px;
+  }
 }
 </style>

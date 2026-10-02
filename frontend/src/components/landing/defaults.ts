@@ -3,7 +3,7 @@ import type { Landing } from '../../lib/types'
 
 /** Тексты на случай, если сервер ещё не ответил. Основной источник — админ-панель. */
 export const DEFAULT_LANDING: Landing = {
-  design: 'split',
+  design: 'brand',
   eyebrow: 'Обложки для маркетплейсов',
   title: 'Проверьте обложку',
   title_muted: 'перед публикацией.',

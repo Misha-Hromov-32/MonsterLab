@@ -25,12 +25,12 @@ SETTINGS_FILE = config.DATA_DIR / "settings.json"
 EXAMPLES_DIR = config.DATA_DIR / "examples"
 EXAMPLE_MAX_SIDE = 1600
 
-DESIGNS = ("editorial", "split", "feed")
+DESIGNS = ("brand", "editorial", "split", "feed")
 ROLES = {"variants": config.MAX_VARIANTS, "competitors": config.MAX_COMPETITORS}
 
 DEFAULTS: dict = {
     "landing": {
-        "design": "split",
+        "design": "brand",
         "eyebrow": "Обложки для маркетплейсов",
         "title": "Проверьте обложку",
         "title_muted": "перед публикацией.",
@@ -106,6 +106,10 @@ DEFAULTS: dict = {
     "seeded": {},  # {slug встроенного примера: ревизия}
 }
 
+# Ревизия главной: со второй по умолчанию — дизайн «Бренд» в стиле логотипа. Сохранённый раньше вариант
+# переключается на него один раз; дальше выбор из админки остаётся как есть.
+LANDING_REV = 2
+
 _lock = threading.RLock()
 _cache: dict | None = None
 _subscribers: list[Callable[[], None]] = []
@@ -158,10 +162,20 @@ def load() -> dict:
             config.DATA_DIR.mkdir(parents=True, exist_ok=True)
             raw = _read_file()
             data = _merge(DEFAULTS, raw or {})
-            if _seed(data) or raw is None:
+            upgraded = _upgrade_landing(data)
+            if _seed(data) or upgraded or raw is None:
                 _write(data)
             _cache = data
         return copy.deepcopy(_cache)
+
+
+def _upgrade_landing(data: dict) -> bool:
+    """Один раз переводит главную на текущий дизайн по умолчанию. True — настройки изменились."""
+    if data.get("landing_rev", 1) >= LANDING_REV:
+        return False
+    data["landing"]["design"] = DEFAULTS["landing"]["design"]
+    data["landing_rev"] = LANDING_REV
+    return True
 
 
 def _write(data: dict) -> None:

@@ -163,3 +163,13 @@ def test_gif_is_rejected_like_in_the_interface(client: TestClient) -> None:
     Image.new("RGB", (100, 100)).save(buf, format="GIF")
     r = client.post("/api/analyze", files={"file": ("a.gif", buf.getvalue(), "image/gif")})
     assert r.status_code == 422 and "JPG" in r.json()["detail"]["message"]
+
+
+def test_landing_switches_to_brand_design_once() -> None:
+    from app.services import site
+
+    old = {"landing": {"design": "split"}}
+    assert site._upgrade_landing(old) and old["landing"]["design"] == "brand"
+    # выбор, сделанный после переключения, больше не трогаем
+    old["landing"]["design"] = "feed"
+    assert not site._upgrade_landing(old) and old["landing"]["design"] == "feed"

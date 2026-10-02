@@ -245,7 +245,7 @@ export type Layout = 'mobile' | 'desktop'
 
 // ------------------------------------------------------------ сайт, примеры, админка
 
-export type Design = 'editorial' | 'split' | 'feed'
+export type Design = 'brand' | 'editorial' | 'split' | 'feed'
 
 export interface Landing {
   design: Design
