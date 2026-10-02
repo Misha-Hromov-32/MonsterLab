@@ -122,10 +122,12 @@ async def verify(body: LinkToken, request: Request) -> dict:
     ip = client_ip(request)
     login_limit.check(ip)
     try:
-        user = await asyncio.to_thread(accounts.verify_email, body.token)
+        user, reset = await asyncio.to_thread(accounts.verify_email, body.token)
     except accounts.AccountError as exc:
         login_limit.hit(ip)
         raise api_error(422, "bad_link", str(exc)) from exc
+    if reset:  # на почту регистрировались несколько раз — пароль задаёт владелец почты
+        return {"status": "set_password", "email": user.email, "reset": reset}
     return await asyncio.to_thread(_session, user)
 
 

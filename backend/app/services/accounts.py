@@ -198,8 +198,9 @@ def find(email: str) -> User | None:
 def register(email: str, password: str, accepted: bool = False) -> User:
     """Новый покупатель с неподтверждённой почтой. accepted — приняты пользовательское соглашение
     и дано согласие на обработку персональных данных: без этого аккаунт не создаётся.
-    Если он уже регистрировался, но не подтвердил почту, — возвращаем его же
-    (пароль не меняем: иначе чужой человек мог бы перехватить аккаунт)."""
+    Если он уже регистрировался, но не подтвердил почту, — возвращаем его же и помечаем «спорным»:
+    кто из регистрировавшихся владеет почтой, неизвестно, поэтому пароль не меняем, а после
+    подтверждения владелец почты задаёт его заново (см. verify_email)."""
     if not accepted:
         raise AccountError("Чтобы зарегистрироваться, примите соглашение и дайте согласие на обработку данных")
     email = normalize(email)
@@ -212,6 +213,11 @@ def register(email: str, password: str, accepted: bool = False) -> User:
     if existing is not None:
         if existing.verified:
             raise AccountError("Этот email уже зарегистрирован — войдите")
+        with db.connect() as con:
+            stored = con.execute("SELECT password FROM users WHERE id = ?", (existing.id,)).fetchone()["password"]
+        if not crypto.check_password(password, stored):  # тот же пароль — тот же человек нажал ещё раз
+            with db.connect() as con:
+                con.execute("UPDATE users SET contested = 1 WHERE id = ?", (existing.id,))
         return existing
     hashed = crypto.hash_password(password)  # Argon2 — до транзакции, чтобы не держать базу
     now = time.time()
@@ -257,7 +263,7 @@ def login(email: str, password: str) -> User:
 # ---------------------------------------------------------------- ссылки из писем
 
 
-def _issue(user: User, purpose: str) -> str | None:
+def _issue(user: User, purpose: str, cooldown: bool = True) -> str | None:
     """Новый одноразовый токен для ссылки; None — прошлое письмо ушло меньше минуты назад."""
     now = time.time()
     token, token_hash = crypto.random_token()
@@ -266,7 +272,7 @@ def _issue(user: User, purpose: str) -> str | None:
         last = con.execute(
             "SELECT MAX(created_at) FROM email_tokens WHERE user_id = ? AND purpose = ?", (user.id, purpose)
         ).fetchone()[0]
-        if last and now - last < RESEND_COOLDOWN:
+        if cooldown and last and now - last < RESEND_COOLDOWN:
             return None
         con.execute(
             "INSERT INTO email_tokens (hash, user_id, purpose, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -314,11 +320,23 @@ def _consume(token: str, purpose: str) -> int:
     return row["user_id"]
 
 
-def verify_email(token: str) -> User:
+def verify_email(token: str) -> tuple[User, str | None]:
+    """Подтверждает почту. Второе значение — токен для нового пароля, если пароль нужно задать заново:
+    на эту почту регистрировались несколько раз, и пароль мог прийти от чужого человека, который
+    заранее занял адрес (захват аккаунта до регистрации). Ссылку открыл владелец почты — пароль
+    задаёт он, а прежний перестаёт действовать."""
     user_id = _consume(token, "verify")
     with db.connect() as con:
+        row = con.execute("SELECT contested FROM users WHERE id = ?", (user_id,)).fetchone()
+        contested = bool(row and row["contested"])
         con.execute("UPDATE users SET verified_at = ? WHERE id = ? AND verified_at IS NULL", (time.time(), user_id))
-    return get(user_id)
+        if contested:
+            con.execute(
+                "UPDATE users SET password = ?, stamp = ?, contested = 0 WHERE id = ?",
+                (crypto.hash_password(secrets.token_urlsafe(32)), secrets.token_hex(16), user_id),
+            )
+    user = get(user_id)
+    return user, (_issue(user, "reset", cooldown=False) if contested and user else None)
 
 
 def reset_password(token: str, password: str) -> User:

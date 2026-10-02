@@ -23,9 +23,9 @@ def test_register_verify_login_me(anon: TestClient) -> None:
     # до подтверждения почты входа нет, даже с верным паролем
     r = anon.post("/api/auth/login", json=creds)
     assert r.status_code == 403 and r.json()["detail"]["code"] == "email_unverified"
-    # повторная регистрация до подтверждения не меняет пароль и не шлёт письмо чаще раза в минуту
+    # повторная регистрация до подтверждения шлёт письмо не чаще раза в минуту
     sent = len(OUTBOX)
-    assert anon.post("/api/auth/register", json={**creds, "password": "чужой-пароль"}).status_code == 200
+    assert anon.post("/api/auth/register", json=creds).status_code == 200
     assert len(OUTBOX) == sent
 
     session = anon.post("/api/auth/verify", json={"token": link_token("anna@example.com", "verify")}).json()
@@ -38,6 +38,27 @@ def test_register_verify_login_me(anon: TestClient) -> None:
     me = anon.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).json()
     assert me["email"] == "anna@example.com" and me["plan"] == "demo" and me["plan_title"] == "Демо"
     assert set(me["usage"]) == set(accounts.FEATURES)
+
+
+def test_preregistered_password_does_not_survive_verification(anon: TestClient) -> None:
+    """Захват до регистрации: чужой человек занимает адрес своим паролем, владелец регистрируется
+    и подтверждает почту. Пароль чужого после этого не должен открывать аккаунт."""
+    email = "victim@example.com"
+    attacker = {"email": email, "password": "пароль-захватчика", **CONSENT}
+    owner = {"email": email, "password": "пароль-владельца", **CONSENT}
+    assert anon.post("/api/auth/register", json=attacker).status_code == 200
+    assert anon.post("/api/auth/register", json=owner).status_code == 200
+
+    r = anon.post("/api/auth/verify", json={"token": link_token(email, "verify")})
+    body = r.json()
+    assert r.status_code == 200 and body["status"] == "set_password" and "token" not in body
+    assert anon.post("/api/auth/login", json=attacker).status_code == 401
+    assert anon.post("/api/auth/login", json=owner).status_code == 401  # пароль задаётся заново
+
+    session = anon.post("/api/auth/reset", json={"token": body["reset"], "password": owner["password"]}).json()
+    assert session["user"]["email"] == email
+    assert anon.post("/api/auth/login", json=attacker).status_code == 401
+    assert anon.post("/api/auth/login", json=owner).status_code == 200
 
 
 def test_links_are_single_use(anon: TestClient) -> None:

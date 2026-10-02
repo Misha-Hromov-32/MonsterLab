@@ -191,6 +191,13 @@ export interface Session {
   user: User
 }
 
+/** Почта подтверждена, но пароль нужно задать заново: на неё регистрировались несколько раз. */
+export interface SetPassword {
+  status: 'set_password'
+  email: string
+  reset: string
+}
+
 /** Галочки при регистрации: соглашение с политикой и отдельное согласие на обработку данных. */
 export interface Consent {
   terms: boolean

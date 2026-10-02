@@ -189,6 +189,15 @@ export async function handleEmailLink(notify: (msg: string) => void): Promise<bo
   }
   try {
     const s = await api.verify(verify!)
+    if ('reset' in s) {
+      openLogin(
+        `Почта ${s.email} подтверждена. На неё регистрировались несколько раз, поэтому задайте пароль заново — прежний больше не действует.`,
+        undefined,
+        'reset',
+      )
+      account.resetToken = s.reset
+      return true
+    }
     setUserToken(s.token)
     account.user = s.user
     notify(`Почта подтверждена: ${s.user.email}`)

@@ -19,6 +19,7 @@ import type {
   Site,
   Registered,
   Session,
+  SetPassword,
   User,
 } from './lib/types'
 
@@ -197,7 +198,8 @@ export const api = {
     request<Session>('/api/auth/login', jsonBody('POST', { email, password }), { timeoutMs: 20_000 }),
   resend: (email: string) =>
     request<{ ok: true }>('/api/auth/resend', jsonBody('POST', { email }), { timeoutMs: 40_000 }),
-  verify: (token: string) => request<Session>('/api/auth/verify', jsonBody('POST', { token }), { timeoutMs: 20_000 }),
+  verify: (token: string) =>
+    request<Session | SetPassword>('/api/auth/verify', jsonBody('POST', { token }), { timeoutMs: 20_000 }),
   forgot: (email: string) =>
     request<{ ok: true }>('/api/auth/forgot', jsonBody('POST', { email }), { timeoutMs: 40_000 }),
   resetPassword: (token: string, password: string) =>
