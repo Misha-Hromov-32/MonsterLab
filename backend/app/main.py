@@ -13,10 +13,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, config
-from .api import account, admin, analysis, expert, library, public, tools
+from .api import account, admin, analysis, expert, jobs, library, public, tools
 from .core import saliency
 from .errors import install_handlers
 from .services import auth, crypto, precompute, site
+from .services.jobs import queue
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -27,13 +28,15 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await asyncio.to_thread(site.load)  # первый запуск: settings.json и встроенные примеры
     crypto.master_key()  # ключ шифрования: не задан MASTER_KEY — сгенерировать в DATA_DIR
     auth.admin_password()  # если пароль не задан — сгенерировать и показать в логе
-    precompute.start()  # примеры считаются в фоне, сервис уже отвечает
+    await queue.start()  # очередь тяжёлых задач: нейросеть, модели, генерация, браузер
+    precompute.start()  # примеры считаются в фоне через ту же очередь, с низшим приоритетом
     yield
+    await queue.stop()
 
 
 app = FastAPI(title="Monster Lab API", version=__version__, lifespan=lifespan)
 install_handlers(app)
-for module in (analysis, expert, public, account, tools, library):
+for module in (analysis, expert, public, account, tools, library, jobs):
     app.include_router(module.router)
 app.include_router(admin.router)
 app.include_router(admin.guarded)

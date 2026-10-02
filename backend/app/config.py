@@ -48,6 +48,18 @@ MAX_VARIANTS = 4
 MAX_COMPETITORS = 12
 MAX_EXPERT_MODELS = 6
 
+# ---------------------------------------------------------------- очередь тяжёлых задач (services/jobs.py)
+
+# Сколько задач каждой полосы выполняется одновременно; остальные ждут в очереди
+QUEUE_NEURAL_WORKERS = _int("QUEUE_NEURAL_WORKERS", 2)  # анализ и полка: нейросеть внимания + метрики
+QUEUE_AI_WORKERS = _int("QUEUE_AI_WORKERS", 4)  # визуальный разбор и выбор покупателя
+QUEUE_IMAGE_WORKERS = _int("QUEUE_IMAGE_WORKERS", 2)  # генерация улучшенных обложек
+QUEUE_BROWSER_WORKERS = _int("QUEUE_BROWSER_WORKERS", 1)  # Chromium для выдачи WB — тяжёлый, по одному
+QUEUE_PER_USER = _int("QUEUE_PER_USER", 8)  # задач одного покупателя в работе и в ожидании
+QUEUE_MAX_WAITING = _int("QUEUE_MAX_WAITING", 300)  # ожидающих в одной полосе — дальше «сервис перегружен»
+QUEUE_MAX_WAIT_S = _int("QUEUE_MAX_WAIT_S", 900)  # дольше ждать бессмысленно — клиент уже ушёл
+QUEUE_JOB_TIMEOUT_S = _int("QUEUE_JOB_TIMEOUT_S", 600)  # одна задача дольше 10 минут — зависла
+
 # Бэкенд стоит за своим nginx и может верить X-Real-IP (задаётся в docker-compose.yml).
 TRUST_PROXY = _flag("TRUST_PROXY")
 

@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 import numpy as np
-from fastapi import Depends, Header, UploadFile
+from fastapi import Depends, Header, Request, UploadFile
+from fastapi.responses import JSONResponse
 
 from .. import config
 from ..core.imaging import BadImage, decode
 from ..errors import api_error
-from ..services import accounts, auth
+from ..services import accounts, auth, jobs
 
 
 async def read_upload(file: UploadFile) -> bytes:
@@ -61,3 +64,31 @@ def paid(feature: str):
         return user
 
     return dependency
+
+
+SYNC_WAIT_S = 900  # синхронный режим (X-Wait: 1) ждёт не дольше, чем задача может простоять в очереди
+
+
+async def enqueue(
+    request: Request,
+    lane: str,
+    title: str,
+    work: Callable[[], Awaitable[Any]],
+    user: accounts.User,
+    feature: str,
+) -> Any:
+    """Ставит тяжёлую работу в очередь. По умолчанию — сразу 202 {"job": …}, клиент опрашивает
+    /api/jobs/{id}. С заголовком X-Wait: 1 ждёт результат и возвращает его как обычная ручка
+    (удобно для внешних API-клиентов и тестов)."""
+    try:
+        job = jobs.queue.submit(lane, title, work, user=user, feature=feature)
+    except jobs.QueueFull as exc:
+        raise api_error(429, exc.code, exc.message) from exc
+    if request.headers.get("x-wait") == "1":
+        if not await jobs.queue.wait(job, SYNC_WAIT_S):
+            raise api_error(504, "timeout", "Очередь не успела дойти до задачи. Попробуйте позже.")
+        if job.status == "done":
+            return job.result
+        err = job.error or {"status": 500, "code": "internal", "message": "Что-то пошло не так"}
+        raise api_error(err["status"], err["code"], err["message"])
+    return JSONResponse(status_code=202, content={"job": jobs.queue.public(job)})

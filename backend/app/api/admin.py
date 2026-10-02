@@ -14,7 +14,7 @@ from ..core.imaging import BadImage
 from ..errors import api_error
 from ..ratelimit import client_ip, login_limit
 from ..schemas import ProductContext
-from ..services import auth, billing, expert, site, stats
+from ..services import accounts, auth, billing, expert, jobs, site, stats
 from .deps import read_upload, require_admin
 
 router = APIRouter(prefix="/api/admin")
@@ -157,6 +157,20 @@ def put_billing(body: BillingSettings) -> dict:
         raise api_error(422, "bad_request", "У тарифов должны быть разные id")
     site.update(lambda d: d.__setitem__("billing", body.model_dump()))
     return {**body.model_dump(), "enabled": billing.enabled()}
+
+
+@guarded.get("/queue")
+def get_queue() -> dict:
+    """Очередь сейчас: загрузка полос и все задачи, которые ждут или выполняются."""
+    snap = jobs.queue.snapshot()
+    emails: dict[int, str] = {}
+    for job in snap["jobs"]:
+        uid = job.pop("user_id")
+        if uid is not None and uid not in emails:
+            user = accounts.get(uid)
+            emails[uid] = user.email if user else "—"
+        job["email"] = emails.get(uid, "фоновая задача") if uid is not None else "фоновая задача"
+    return snap
 
 
 @guarded.get("/stats")

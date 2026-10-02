@@ -362,3 +362,42 @@ export interface AdminStats {
     runs: number
   }[]
 }
+
+/** Задача очереди (services/jobs.py): тяжёлые ручки отвечают 202 {job}, клиент опрашивает /api/jobs/{id}. */
+export interface Job {
+  id: string
+  lane: 'neural' | 'ai' | 'image' | 'browser'
+  title: string
+  status: 'queued' | 'running' | 'done' | 'error' | 'cancelled'
+  /** место в очереди: 1 — следующая; 0 — уже не ждёт */
+  position: number
+  eta_s: number
+  waited_s: number
+  result?: unknown
+  error?: { status: number; code: string; message: string }
+}
+
+/** Очередь для админки: GET /api/admin/queue. */
+export interface AdminQueue {
+  lanes: {
+    id: string
+    title: string
+    workers: number
+    running: number
+    waiting: number
+    done_1h: number
+    failed_1h: number
+    avg_wait_s: number
+    avg_run_s: number
+  }[]
+  jobs: {
+    lane: string
+    title: string
+    status: string
+    email: string
+    plan: string
+    position: number
+    waited_s: number
+    running_s: number
+  }[]
+}

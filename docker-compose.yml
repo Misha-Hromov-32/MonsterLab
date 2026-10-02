@@ -14,8 +14,7 @@ services:
       TRUST_PROXY: "1"  # бэкенд виден только nginx — ему можно верить в X-Real-IP
     volumes:
       - data:/data
-    # DeepGaze в пике занимает ~1.3 ГБ; без нейросети (NEURAL=0) хватит и 256 МБ
-    mem_limit: ${BACKEND_MEM_LIMIT:-1800m}
+    # Лимитов памяти и процессора нет: нагрузку держит очередь задач (QUEUE_* в .env).
     restart: unless-stopped
 
   frontend:

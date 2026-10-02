@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref, watch, type Component } from 'vue'
 import {
   BarChart3,
+  ListOrdered,
   CreditCard,
   ExternalLink,
   Image as ImageIcon,
@@ -18,13 +19,15 @@ import ExamplesPanel from './ExamplesPanel.vue'
 import ExpertPanel from './ExpertPanel.vue'
 import BillingPanel from './BillingPanel.vue'
 import StatsPanel from './StatsPanel.vue'
+import QueuePanel from './QueuePanel.vue'
 import { adminApi, auth, setToken } from './adminApi'
 import { TOAST_MS } from '../lib/constants'
 import type { AdminSettings } from '../lib/types'
 
-type Tab = 'stats' | 'landing' | 'examples' | 'expert' | 'billing'
+type Tab = 'stats' | 'queue' | 'landing' | 'examples' | 'expert' | 'billing'
 const tabs: { id: Tab; title: string; icon: Component }[] = [
   { id: 'stats', title: 'Статистика', icon: BarChart3 },
+  { id: 'queue', title: 'Очередь', icon: ListOrdered },
   { id: 'landing', title: 'Главная', icon: LayoutTemplate },
   { id: 'examples', title: 'Примеры', icon: ImageIcon },
   { id: 'expert', title: 'Нейросети', icon: Sparkles },
@@ -113,6 +116,7 @@ onUnmounted(() => {
       <p v-if="error" class="err load-err">{{ error }}</p>
       <template v-if="data">
         <StatsPanel v-if="tab === 'stats'" />
+        <QueuePanel v-else-if="tab === 'queue'" />
         <LandingPanel v-else-if="tab === 'landing'" :data="data" @saved="notify" />
         <ExamplesPanel v-else-if="tab === 'examples'" :data="data" @changed="reload" @notify="notify" />
         <ExpertPanel v-else-if="tab === 'expert'" :data="data" @notify="notify" @changed="reload" />

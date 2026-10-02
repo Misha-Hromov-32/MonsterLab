@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -16,7 +16,7 @@ from ..errors import api_error
 from ..schemas import ProductContext
 from ..services import accounts, improve, library, marketplace
 from ..services.uploads import store
-from .deps import paid
+from .deps import enqueue, paid
 
 router = APIRouter(prefix="/api")
 
@@ -38,36 +38,43 @@ def _prepare(image_id: str, issues: list[str], ctx: dict) -> tuple[bytes, str]:
 
 
 @router.post("/improve")
-async def improve_cover(req: ImproveRequest, user: accounts.User = Depends(paid("improve"))) -> dict:
-    jpeg, prompt = await asyncio.to_thread(_prepare, req.id, req.issues, req.context.model_dump())
-    try:
-        result = await asyncio.to_thread(improve.generate, jpeg, prompt)
-    except improve.ImproveError as exc:
-        raise api_error(502, "improve_failed", str(exc)) from exc
-    baseline = (await asyncio.to_thread(cover_report, decode(jpeg)))["index"]
-    saved = await asyncio.to_thread(
-        library.save, user.id, decode(result), "Сгенерированная обложка", None, "generated", baseline
-    )
-    await asyncio.to_thread(accounts.spend, user, "improve")
-    return {"image": data_url(result), **saved}
+async def improve_cover(request: Request, req: ImproveRequest, user: accounts.User = Depends(paid("improve"))):
+    store.jpeg(req.id)  # картинки уже нет (перезапуск) — сразу image_expired, без очереди
+
+    async def work() -> dict:
+        jpeg, prompt = await asyncio.to_thread(_prepare, req.id, req.issues, req.context.model_dump())
+        try:
+            result = await asyncio.to_thread(improve.generate, jpeg, prompt)
+        except improve.ImproveError as exc:
+            raise api_error(502, "improve_failed", str(exc)) from exc
+        baseline = (await asyncio.to_thread(cover_report, decode(jpeg)))["index"]
+        saved = await asyncio.to_thread(
+            library.save, user.id, decode(result), "Сгенерированная обложка", None, "generated", baseline
+        )
+        return {"image": data_url(result), **saved}
+
+    return await enqueue(request, "image", "Улучшенная обложка", work, user, "improve")
 
 
 @router.get("/competitors")
 async def competitors(
+    request: Request,
     query: str = Query(min_length=2, max_length=120),
     limit: int = Query(8, ge=1, le=config.MAX_COMPETITORS),
     user: accounts.User = Depends(paid("competitors")),
-) -> dict:
-    try:
-        items = await marketplace.search(query, limit)
-    except marketplace.MarketplaceError as exc:
-        raise api_error(502, "marketplace_failed", str(exc)) from exc
-    await asyncio.to_thread(accounts.spend, user, "competitors")
-    key = marketplace.query_key(query)
-    return {
-        "query": query,
-        "items": [{**i, "url": f"/api/competitors/files/{key}/{i['id']}.jpg"} for i in items],
-    }
+):
+    async def work() -> dict:
+        try:
+            items = await marketplace.search(query, limit)
+        except marketplace.MarketplaceError as exc:
+            raise api_error(502, "marketplace_failed", str(exc)) from exc
+        key = marketplace.query_key(query)
+        return {
+            "query": query,
+            "items": [{**i, "url": f"/api/competitors/files/{key}/{i['id']}.jpg"} for i in items],
+        }
+
+    return await enqueue(request, "browser", "Подбор конкурентов", work, user, "competitors")
 
 
 @router.get("/competitors/files/{key}/{name}")

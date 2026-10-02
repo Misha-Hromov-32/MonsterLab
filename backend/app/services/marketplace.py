@@ -116,7 +116,9 @@ async def _open_search(query: str, want: int) -> list[dict]:
             args=BROWSER_ARGS,
         )
         try:
-            page = await browser.new_page(user_agent=USER_AGENT, locale="ru-RU", viewport={"width": 1000, "height": 900})
+            page = await browser.new_page(
+                user_agent=USER_AGENT, locale="ru-RU", viewport={"width": 1000, "height": 900}
+            )
             # картинки, видео и шрифты не грузим: адреса обложек берём из разметки (img.src),
             # а без них браузер занимает в разы меньше памяти — рядом в контейнере живёт нейросеть
             await page.route("**/*", _skip_heavy)

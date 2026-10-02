@@ -67,6 +67,7 @@ def client() -> TestClient:
     а квот хватает на весь прогон тестов."""
     with TestClient(app) as c:
         c.headers["Authorization"] = f"Bearer {verified_token(c, 'session@example.com')}"
+        c.headers["X-Wait"] = "1"  # тяжёлые ручки отвечают результатом, а не задачей очереди (см. test_jobs.py)
         accounts.activate(accounts.find("session@example.com").id, "agency", 30)
         yield c
     shutil.rmtree(os.environ["DATA_DIR"], ignore_errors=True)
@@ -75,7 +76,7 @@ def client() -> TestClient:
 @pytest.fixture
 def anon(client: TestClient) -> TestClient:
     """Гость без входа (приложение уже запущено фикстурой client)."""
-    return TestClient(app)
+    return TestClient(app, headers={"X-Wait": "1"})
 
 
 @pytest.fixture(autouse=True)

@@ -1,4 +1,5 @@
 import { authHeader } from './lib/session'
+import { forgetJob, trackJob } from './lib/queue'
 import type {
   Analysis,
   SavedCover,
@@ -10,6 +11,7 @@ import type {
   Critique,
   ExampleResults,
   Health,
+  Job,
   Legal,
   Layout,
   Showcase,
@@ -69,7 +71,57 @@ export async function request<T>(url: string, init: RequestInit = {}, opts: Requ
     }
     throw new ApiError(message, code, res.status)
   }
+  if (res.status === 202) {
+    // тяжёлая работа поставлена в очередь — ждём её здесь, вызывающему коду это незаметно
+    const body = await res.json()
+    return (body?.job ? waitJob<T>(body.job, signal) : body) as T
+  }
   return res.json() as Promise<T>
+}
+
+const JOB_POLL_S = 10 // сервер отвечает, как только задача сдвинулась или завершилась
+const JOB_MAX_MS = 20 * 60_000
+const JOB_RETRIES = 4
+
+/** Ждёт задачу очереди: место и оценку времени показывает плашка (lib/queue.ts), потом — результат. */
+async function waitJob<T>(first: Job, signal?: AbortSignal): Promise<T> {
+  let job = first
+  const started = Date.now()
+  let failures = 0
+  trackJob(job)
+  try {
+    while (job.status === 'queued' || job.status === 'running') {
+      if (Date.now() - started > JOB_MAX_MS) throw new ApiError('Очередь слишком длинная. Попробуйте позже.', 'timeout')
+      try {
+        job = (
+          await request<{ job: Job }>(`/api/jobs/${job.id}?wait=${JOB_POLL_S}`, withAuth(), {
+            timeoutMs: (JOB_POLL_S + 20) * 1000,
+            signal,
+          })
+        ).job
+        failures = 0
+        trackJob(job)
+      } catch (e) {
+        // короткий обрыв связи не должен терять задачу — повторяем опрос
+        if (!(e instanceof ApiError) || !['network', 'timeout'].includes(e.code) || ++failures > JOB_RETRIES) throw e
+        await new Promise((r) => setTimeout(r, 1500 * failures))
+      }
+    }
+  } catch (e) {
+    if (e instanceof ApiError && e.code === 'aborted')
+      // картинку заменили, пока задача ждала, — снимаем её, чтобы не занимала очередь
+      void fetch(`/api/jobs/${job.id}`, withAuth({ method: 'DELETE' })).catch(() => {})
+    throw e
+  } finally {
+    forgetJob(job.id)
+  }
+  if (job.status === 'done') return job.result as T
+  const err = job.error
+  throw new ApiError(
+    err?.message ?? 'Не удалось выполнить задачу. Попробуйте ещё раз.',
+    err?.code ?? 'error',
+    err?.status ?? 0,
+  )
 }
 
 export const jsonBody = (method: string, body: unknown): RequestInit => ({

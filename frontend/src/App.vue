@@ -7,6 +7,7 @@ import AnalyzeView from './components/AnalyzeView.vue'
 import CompareView from './components/CompareView.vue'
 import ShelfView from './components/ShelfView.vue'
 import ToastMessage from './components/ToastMessage.vue'
+import QueueBadge from './components/QueueBadge.vue'
 import LoginDialog from './components/LoginDialog.vue'
 import AccountDialog from './components/AccountDialog.vue'
 import LibraryDialog from './components/LibraryDialog.vue'
@@ -107,6 +108,7 @@ onUnmounted(() => {
     <TariffsDialog v-else-if="account.dialog === 'tariffs'" />
 
     <ToastMessage :message="state.toast" />
+    <QueueBadge />
   </div>
 </template>
 

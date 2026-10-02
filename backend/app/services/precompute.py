@@ -25,7 +25,7 @@ from .. import config
 from ..core import saliency, shelf
 from ..core.imaging import decode
 from ..core.report import cover_report
-from . import showcase, site
+from . import jobs, showcase, site
 
 log = logging.getLogger(__name__)
 
@@ -124,7 +124,8 @@ def run_pending() -> int:
             continue
         started = time.perf_counter()
         try:
-            payload = compute(ex)
+            # через очередь нейросети с фоновым приоритетом: покупатели всегда идут первыми
+            payload = jobs.queue.run_blocking("neural", f"Пример «{ex['title']}»", lambda ex=ex: compute(ex))
         except Exception:  # битый файл примера не должен останавливать расчёт остальных
             log.exception("Не удалось посчитать пример «%s»", ex["title"])
             _failed[ex["id"]] = print_
