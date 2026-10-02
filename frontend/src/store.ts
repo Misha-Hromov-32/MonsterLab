@@ -80,6 +80,8 @@ export const state = reactive({
   /** подбор конкурентов из выдачи маркетплейса */
   competitorSearch: { status: 'idle' as Status, error: '' },
   toast: '',
+  /** слепые зоны WB поверх обложки: '' — выключены, zones — разметка углов, wb — как с бейджами площадки */
+  blind: '' as '' | 'zones' | 'wb',
 })
 
 watch(

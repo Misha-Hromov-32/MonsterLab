@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { baseName } from '../lib/format'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { Crop, Download, Smartphone, RefreshCw } from 'lucide-vue-next'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { Crop, Download, LayoutPanelTop, Smartphone, RefreshCw } from 'lucide-vue-next'
 import HeatImage from './HeatImage.vue'
 import Segmented from './Segmented.vue'
 import Inspector from './Inspector.vue'
 import AnalyzingLoader from './AnalyzingLoader.vue'
+import BlindZonesOverlay from './BlindZonesOverlay.vue'
 import { analyze, current, state } from '../store'
 import { AOI_LABELS } from '../lib/constants'
 import { exportPng, GRADIENT_CSS } from '../lib/heat'
 import { hasOpacity, OVERLAY_MODES } from '../lib/overlay'
+import { checkBlindZones, type ZoneCheck } from '../lib/blindzones'
 
 const drawing = ref(false)
 const preview = ref(false)
@@ -40,6 +42,28 @@ function onKey(e: KeyboardEvent) {
 }
 
 const a = computed(() => current.value?.analysis)
+
+const BLIND_VIEWS = [
+  { id: 'zones' as const, title: 'Зоны', hint: 'Свободны ли углы, которые закрывает WB' },
+  { id: 'wb' as const, title: 'Как в WB', hint: 'Обложка с бейджами, сердечком, скидкой и корзиной' },
+]
+const blindChecks = ref<ZoneCheck[] | null>(null)
+watch(
+  () => [state.blind, current.value?.url, a.value] as const,
+  async ([on, url, an]) => {
+    if (!on || !url || !an) return
+    blindChecks.value = null
+    try {
+      const res = await checkBlindZones(url, an.width, an.height, an.grid)
+      if (current.value?.url === url) blindChecks.value = res
+    } catch {
+      blindChecks.value = []
+    }
+  },
+  { immediate: true },
+)
+// «Как в WB» показываем на чистой обложке — тепловая карта под бейджами только мешает
+const overlayMode = computed(() => (state.blind === 'wb' ? 'original' : state.mode))
 
 // вписываем картинку в доступную область по ширине и высоте
 const fit = computed(() => {
@@ -110,6 +134,17 @@ function createAoi(rect: { x: number; y: number; w: number; h: number }) {
           </button>
           <button
             class="btn sm"
+            :class="{ primary: state.blind }"
+            :aria-pressed="!!state.blind"
+            :disabled="!a"
+            title="Слепые зоны Wildberries: углы, которые закрывают бейджи, сердечко, скидка и корзина"
+            @click="state.blind = state.blind ? '' : 'zones'"
+          >
+            <LayoutPanelTop :size="14" /> Слепые зоны
+          </button>
+          <Segmented v-if="state.blind" v-model="state.blind" :options="BLIND_VIEWS" size="sm" label="Слепые зоны" />
+          <button
+            class="btn sm"
             :class="{ primary: preview }"
             :aria-pressed="preview"
             :disabled="!a"
@@ -146,11 +181,18 @@ function createAoi(rect: { x: number; y: number; w: number; h: number }) {
             :height="a.height"
             :grid="a.grid"
             :fixations="a.fixations"
-            :mode="state.mode"
+            :mode="overlayMode"
             :opacity="state.opacity"
             :aois="current.aois"
             :editable="drawing"
             @create="createAoi"
+          />
+          <BlindZonesOverlay
+            v-if="state.blind"
+            :width="a.width"
+            :height="a.height"
+            :checks="blindChecks"
+            :view="state.blind"
           />
           <span class="tick tl" /><span class="tick tr" /><span class="tick bl" /><span class="tick br" />
         </div>
@@ -171,7 +213,13 @@ function createAoi(rect: { x: number; y: number; w: number; h: number }) {
       </div>
 
       <div class="legend">
-        <template v-if="state.mode === 'heat'">
+        <span v-if="state.blind === 'zones'" class="num">
+          Цветные углы закрывает интерфейс WB · <b class="ok">✓</b> свободно · <b class="busy">!</b> занято
+        </span>
+        <span v-else-if="state.blind === 'wb'" class="num"
+          >Так обложку увидят в выдаче: с бейджами, сердечком, скидкой и корзиной</span
+        >
+        <template v-else-if="state.mode === 'heat'">
           <span class="num">мало</span>
           <span class="scale" :style="{ background: GRADIENT_CSS }" />
           <span class="num">много внимания</span>
@@ -393,6 +441,13 @@ function createAoi(rect: { x: number; y: number; w: number; h: number }) {
 }
 .w40 {
   width: 40%;
+}
+
+.legend b.ok {
+  color: var(--good);
+}
+.legend b.busy {
+  color: var(--bad);
 }
 
 .legend {

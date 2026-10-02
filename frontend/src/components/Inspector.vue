@@ -4,6 +4,7 @@ import { X } from 'lucide-vue-next'
 import MetricRow from './MetricRow.vue'
 import CritiquePanel from './CritiquePanel.vue'
 import ImprovePanel from './ImprovePanel.vue'
+import BlindZonesPanel from './BlindZonesPanel.vue'
 import { features } from '../store'
 import { aoiStat } from '../lib/heat'
 import { pct, tone } from '../lib/format'
@@ -154,6 +155,8 @@ function remove(id: string) {
       </datalist>
       <p v-if="aois.length" class="aoi-help num">×2 — зона получает вдвое больше внимания, чем занимает места</p>
     </section>
+
+    <BlindZonesPanel :variant="variant" :analysis="a" />
 
     <section v-if="notes.length">
       <div class="sec-head"><span class="label">Что исправить</span></div>
