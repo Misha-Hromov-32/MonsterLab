@@ -25,9 +25,9 @@ async function submit() {
 <template>
   <div class="login">
     <form class="box rise" @submit.prevent="submit">
-      <Logo :size="40" :wordmark="false" />
+      <Logo :size="40" />
       <h1>Админ-панель</h1>
-      <p>Monster Lab · управление главной, примерами и экспертным разбором</p>
+      <p>MonStoreLab · управление главной, примерами и экспертным разбором</p>
       <label class="field">
         <span class="flabel">Пароль</span>
         <input v-model="password" class="input" type="password" autocomplete="current-password" autofocus />

@@ -71,7 +71,7 @@ watch(
   (t) => (t ? reload() : (data.value = null)),
 )
 onMounted(() => {
-  document.title = 'Админ-панель — Monster Lab'
+  document.title = 'Админ-панель — MonStoreLab'
   window.addEventListener('hashchange', onHashChange)
   if (auth.token) reload()
 })
@@ -88,7 +88,7 @@ onUnmounted(() => {
       <div class="brand">
         <Logo :size="30" :wordmark="false" />
         <div>
-          <strong>Monster Lab</strong>
+          <strong>MonStoreLab</strong>
           <span class="num">админ-панель</span>
         </div>
       </div>

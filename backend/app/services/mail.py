@@ -81,22 +81,22 @@ def verification_letter(to: str, link: str) -> EmailMessage:
         "preheader": "Подтвердите почту — и можно проверять обложки",
         "eyebrow": "Подтверждение почты",
         "title": "Остался один шаг",
-        "lead": f"Вы зарегистрировались в Monster Lab с адресом {to}. "
+        "lead": f"Вы зарегистрировались в MonStoreLab с адресом {to}. "
         "Подтвердите, что это ваша почта, — и сразу откроются разбор обложек, тест полки и примеры.",
         "button": "Подтвердить почту",
         "link": link,
-        "note": f"Ссылка действует {VERIFY_TTL_HOURS} часа. Если вы не регистрировались в Monster Lab, "
+        "note": f"Ссылка действует {VERIFY_TTL_HOURS} часа. Если вы не регистрировались в MonStoreLab, "
         "просто удалите это письмо: без подтверждения аккаунт не заработает.",
         "features_html": _template("features.html"),
     }
     text = (
         "Остался один шаг\n\n"
-        f"Вы зарегистрировались в Monster Lab с адресом {to}.\n"
+        f"Вы зарегистрировались в MonStoreLab с адресом {to}.\n"
         f"Подтвердите почту по ссылке:\n{link}\n\n"
         f"Ссылка действует {VERIFY_TTL_HOURS} часа. Если вы не регистрировались — просто удалите это письмо.\n\n"
-        f"— Monster Lab, {config.PUBLIC_URL}\n"
+        f"— MonStoreLab, {config.PUBLIC_URL}\n"
     )
-    return _letter(to, "Подтвердите почту для Monster Lab", letter, text)
+    return _letter(to, "Подтвердите почту для MonStoreLab", letter, text)
 
 
 def reset_letter(to: str, link: str) -> EmailMessage:
@@ -115,9 +115,9 @@ def reset_letter(to: str, link: str) -> EmailMessage:
         "Новый пароль в один клик\n\n"
         f"Для аккаунта {to} запросили сброс пароля. Задайте новый по ссылке:\n{link}\n\n"
         f"Ссылка действует {RESET_TTL_HOURS} час. Если вы не запрашивали сброс — ничего не делайте.\n\n"
-        f"— Monster Lab, {config.PUBLIC_URL}\n"
+        f"— MonStoreLab, {config.PUBLIC_URL}\n"
     )
-    return _letter(to, "Сброс пароля Monster Lab", letter, text)
+    return _letter(to, "Сброс пароля MonStoreLab", letter, text)
 
 
 # ---------------------------------------------------------------- отправка

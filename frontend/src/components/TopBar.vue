@@ -71,7 +71,7 @@ function home() {
 
 <template>
   <header class="top" :class="{ working }">
-    <button type="button" class="brand" :title="working ? 'Новый анализ' : 'Monster Lab'" @click="home">
+    <button type="button" class="brand" :title="working ? 'Новый анализ' : 'MonStoreLab'" @click="home">
       <Logo :size="32" sub="тест обложек для маркетплейсов" />
     </button>
 

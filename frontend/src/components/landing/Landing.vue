@@ -25,7 +25,7 @@ const design = computed(() => DESIGNS[override ?? landing.value.design] ?? Desig
   <div v-else class="landing-page">
     <component :is="design" :l="landing" />
     <footer class="legal-foot">
-      <span>© Monster Lab</span>
+      <span>© MonStoreLab</span>
       <a href="/legal#terms">Пользовательское соглашение</a>
       <a href="/legal#privacy">Политика конфиденциальности</a>
     </footer>

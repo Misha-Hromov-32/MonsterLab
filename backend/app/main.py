@@ -34,7 +34,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await queue.stop()
 
 
-app = FastAPI(title="Monster Lab API", version=__version__, lifespan=lifespan)
+app = FastAPI(title="MonStoreLab API", version=__version__, lifespan=lifespan)
 install_handlers(app)
 for module in (analysis, expert, public, account, tools, library, jobs):
     app.include_router(module.router)

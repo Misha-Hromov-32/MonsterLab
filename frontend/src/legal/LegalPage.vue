@@ -13,7 +13,7 @@ import type { Legal } from '../lib/types'
 const legal = ref<Legal | null>(null)
 const site = location.host
 
-const operator = computed(() => legal.value?.operator || 'владелец сервиса Monster Lab')
+const operator = computed(() => legal.value?.operator || 'владелец сервиса MonStoreLab')
 const email = computed(() => legal.value?.email || '')
 const edition = computed(() => {
   const v = legal.value?.version
@@ -30,7 +30,7 @@ const sections = [
 ]
 
 onMounted(async () => {
-  document.title = 'Правила сервиса — Monster Lab'
+  document.title = 'Правила сервиса — MonStoreLab'
   try {
     legal.value = await api.legal()
   } catch {
@@ -45,7 +45,7 @@ onMounted(async () => {
 <template>
   <div class="page">
     <header class="top">
-      <a href="/" class="home" aria-label="Monster Lab — на главную"><Logo :size="28" /></a>
+      <a href="/" class="home" aria-label="MonStoreLab — на главную"><Logo :size="28" /></a>
       <div class="top-right">
         <a href="/" class="btn pill back"><ArrowLeft :size="15" aria-hidden="true" /> К сервису</a>
         <ThemeToggle />
@@ -67,7 +67,7 @@ onMounted(async () => {
 
         <h3>1. Общие положения</h3>
         <p>
-          1.1. Соглашение определяет условия использования сервиса Monster Lab на сайте {{ site }} (далее — Сервис) —
+          1.1. Соглашение определяет условия использования сервиса MonStoreLab на сайте {{ site }} (далее — Сервис) —
           инструмента предварительной оценки обложек карточек товаров для маркетплейсов. Сервис предоставляет
           {{ operator }} (далее — Администрация).
         </p>

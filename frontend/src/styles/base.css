@@ -13,8 +13,9 @@
   --ink-3: #9e9b94;
   --line: #e7e4de;
   --line-strong: #d2cec6;
-  --accent: #a366ff;
-  --accent-soft: rgba(163, 102, 255, 0.12);
+  --brand: #c81fb2;
+  --accent: #c81fb2;
+  --accent-soft: rgba(200, 31, 178, 0.1);
   --lime: #dbf570;
   --lime-soft: #f9ffdb;
   --lilac: #c095f9;
@@ -49,8 +50,9 @@
   --ink-3: #75736d;
   --line: #2a2a29;
   --line-strong: #3a3a38;
-  --accent: #b88aff;
-  --accent-soft: rgba(184, 138, 255, 0.16);
+  --brand: #e45ad4;
+  --accent: #e45ad4;
+  --accent-soft: rgba(228, 90, 212, 0.16);
   --lime-soft: rgba(219, 245, 112, 0.14);
   --on-accent: #1c1c1c;
   --good: #3ccf8e;

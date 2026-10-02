@@ -89,7 +89,7 @@ SMTP_SECURITY = os.getenv("SMTP_SECURITY", "").strip().lower() or ("ssl" if SMTP
 if SMTP_SECURITY not in ("ssl", "starttls", "none"):
     raise RuntimeError("SMTP_SECURITY: ssl, starttls или none")
 MAIL_FROM = os.getenv("MAIL_FROM", "").strip() or SMTP_USER
-MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "").strip() or "Monster Lab"
+MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "").strip() or "MonStoreLab"
 
 # ---------------------------------------------------------------- правила сервиса (страница /legal)
 

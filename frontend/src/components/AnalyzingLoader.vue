@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { Check } from 'lucide-vue-next'
-import MonsterMark from './MonsterMark.vue'
+import BrandMark from './BrandMark.vue'
 
 defineProps<{ src: string }>()
 
@@ -44,8 +44,8 @@ onUnmounted(() => {
     </div>
 
     <div class="card">
-      <!-- глаз из логотипа: рассматривает обложку и моргает -->
-      <MonsterMark :size="56" animated />
+      <!-- знак из логотипа: «O с рожками» покачивает головой, пока идёт анализ -->
+      <BrandMark :size="56" animated />
 
       <ol class="steps">
         <li v-for="(s, i) in STAGES" :key="s" :class="{ done: i < stage, now: i === stage }">

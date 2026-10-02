@@ -62,7 +62,7 @@ async function download() {
     title: `Вариант ${x.key} · индекс заметности ${an.index}/100`,
     lines: [
       `фокус ${an.scores.focus} · лёгкость восприятия ${an.scores.ease} · превью ${an.scores.thumb} · контраст ${an.scores.contrast}`,
-      `половина внимания — на ${Math.round(an.raw.area50 * 100)}% площади · Monster Lab`,
+      `половина внимания — на ${Math.round(an.raw.area50 * 100)}% площади · MonStoreLab`,
     ],
     filename: `${base}__внимание.png`,
   })

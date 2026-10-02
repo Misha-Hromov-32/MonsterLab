@@ -51,7 +51,7 @@ def checkout(user: accounts.User, plan_id: str) -> str:
     if info is None:
         raise BillingError("Такого тарифа нет — обновите страницу")
     amount = {"value": f"{info['price_rub']:.2f}", "currency": "RUB"}
-    description = f"Monster Lab, тариф «{info['title']}» на {info['period_days']} дней"
+    description = f"MonStoreLab, тариф «{info['title']}» на {info['period_days']} дней"
     body: dict = {
         "amount": amount,
         "capture": True,

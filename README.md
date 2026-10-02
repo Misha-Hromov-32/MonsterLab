@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/images/banner.png" alt="Monster Lab — проверка обложек для маркетплейсов" width="100%">
+<img src="docs/images/logo.svg" alt="MonStoreLab" width="220">
 
 ### Проверка, сравнение и улучшение обложек
 
