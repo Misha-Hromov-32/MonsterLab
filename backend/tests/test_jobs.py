@@ -16,37 +16,65 @@ from .conftest import jpeg_bytes, make_cover, verified_token
 
 DEMO = User(1, "demo@example.com", 0, True, "s")
 AGENCY = User(2, "agency@example.com", time.time() + 86400, True, "s", "agency")
+PETYA = User(3, "petya@example.com", 0, True, "s")
+MASHA = User(4, "masha@example.com", 0, True, "s")
 
 
 def _one_worker(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(jobs.LANES, "neural", jobs.LaneSpec("тест", 1, 1))
 
 
-def test_paid_plan_overtakes_demo_and_background_goes_last(monkeypatch: pytest.MonkeyPatch) -> None:
+def _mark(order: list[str], name: str):
+    async def work() -> None:
+        order.append(name)
+
+    return work
+
+
+def test_plan_does_not_matter_first_come_first_served(monkeypatch: pytest.MonkeyPatch) -> None:
     _one_worker(monkeypatch)
 
     async def scenario() -> list[str]:
         q = jobs.JobQueue()
         await q.start()
         gate, order = asyncio.Event(), []
-
-        async def mark(name: str) -> None:
-            order.append(name)
-
         q.submit("neural", "занимает исполнителя", gate.wait)
         await asyncio.sleep(0.05)
-        background = q.submit("neural", "фон", lambda: mark("фон"))
-        demo = q.submit("neural", "демо", lambda: mark("демо"), user=DEMO)
-        agency = q.submit("neural", "агентство", lambda: mark("агентство"), user=AGENCY)
-        assert [q.position(j) for j in (agency, demo, background)] == [1, 2, 3]
-        assert q.public(demo)["eta_s"] >= 1
+        background = q.submit("neural", "фон", _mark(order, "фон"))
+        demo = q.submit("neural", "демо", _mark(order, "демо"), user=DEMO)
+        agency = q.submit("neural", "агентство", _mark(order, "агентство"), user=AGENCY)
+        # тариф не даёт обгона: демо пришёл раньше — раньше и пойдёт; фон — в самом конце
+        assert [q.position(j) for j in (demo, agency, background)] == [1, 2, 3]
+        assert q.public(agency)["eta_s"] >= 1
         gate.set()
-        for job in (agency, demo, background):
+        for job in (demo, agency, background):
             assert await q.wait(job, 5)
         await q.stop()
         return order
 
-    assert asyncio.run(scenario()) == ["агентство", "демо", "фон"]
+    assert asyncio.run(scenario()) == ["демо", "агентство", "фон"]
+
+
+def test_round_robin_between_customers(monkeypatch: pytest.MonkeyPatch) -> None:
+    _one_worker(monkeypatch)
+
+    async def scenario() -> list[str]:
+        q = jobs.JobQueue()
+        await q.start()
+        gate, order = asyncio.Event(), []
+        q.submit("neural", "занимает исполнителя", gate.wait)
+        await asyncio.sleep(0.05)
+        petya = [q.submit("neural", f"Петя {i}", _mark(order, f"Петя {i}"), user=PETYA) for i in (1, 2, 3)]
+        masha = q.submit("neural", "Маша", _mark(order, "Маша"), user=MASHA)
+        # Маша пришла последней, но не ждёт все три задачи Пети
+        assert q.position(masha) == 2 and q.position(petya[2]) == 4
+        gate.set()
+        for job in (*petya, masha):
+            assert await q.wait(job, 5)
+        await q.stop()
+        return order
+
+    assert asyncio.run(scenario()) == ["Петя 1", "Маша", "Петя 2", "Петя 3"]
 
 
 def test_per_user_cap_and_cancel(monkeypatch: pytest.MonkeyPatch) -> None:

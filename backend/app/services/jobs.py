@@ -2,7 +2,9 @@
 
 Каждая задача попадает в свою полосу (lane) с ограниченным числом одновременных исполнителей —
 так сервер не захлёбывается, сколько бы покупателей ни нажали кнопку одновременно.
-Внутри полосы — приоритетная очередь: сначала старшие тарифы, внутри тарифа — кто раньше пришёл;
+Внутри полосы очередь равная для всех тарифов и идёт по кругу между покупателями: следующей
+запускается задача того, кого обслуживали давнее всех, — тот, кто отправил десять обложек разом,
+не заставляет остальных ждать все десять. Свои задачи у каждого идут в порядке отправки;
 фоновый пересчёт примеров — в самом конце.
 
 Квота функции проверяется ещё раз прямо перед запуском (пока задача ждала, квоту могли израсходовать
@@ -17,7 +19,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import heapq
 import itertools
 import logging
 import secrets
@@ -36,8 +37,8 @@ from .uploads import ImageExpired
 
 log = logging.getLogger(__name__)
 
-BACKGROUND = 9  # приоритет фоновых задач — после всех покупателей
-PLAN_PRIORITY = {"agency": 0, "pro": 1, "start": 2, accounts.DEMO: 3}
+CUSTOMER = 0  # все покупатели равны, независимо от тарифа
+BACKGROUND = 9  # фоновые задачи — после всех покупателей
 KEEP_FINISHED_S = 15 * 60  # результат ждёт клиента 15 минут
 STATS_WINDOW_S = 60 * 60
 
@@ -87,9 +88,7 @@ class Job:
 
 
 def priority_for(user: accounts.User | None) -> int:
-    if user is None:
-        return BACKGROUND
-    return PLAN_PRIORITY.get(user.plan, 1)  # неизвестный платный тариф — как «Про»
+    return BACKGROUND if user is None else CUSTOMER
 
 
 def _error_of(exc: BaseException) -> dict:
@@ -113,7 +112,8 @@ def _error_of(exc: BaseException) -> dict:
 class JobQueue:
     def __init__(self) -> None:
         self.jobs: dict[str, Job] = {}
-        self._heaps: dict[str, list[tuple[int, int, str]]] = {lane: [] for lane in LANES}
+        self._waiting: dict[str, list[str]] = {lane: [] for lane in LANES}  # id задач в порядке постановки
+        self._served: dict[int, float] = {}  # покупатель → когда последний раз запускали его задачу
         self._running: dict[str, int] = dict.fromkeys(LANES, 0)
         self._seq = itertools.count()
         self._stats: deque[tuple[float, str, float, float, bool]] = deque(maxlen=5000)  # ts, lane, wait, run, ok
@@ -156,7 +156,7 @@ class JobQueue:
     ) -> Job:
         """Ставит задачу (вызывать из event loop). QueueFull — если ставить некуда."""
         self._cleanup()
-        waiting = len(self._heaps[lane])
+        waiting = len(self._waiting[lane])
         if user is not None and waiting >= config.QUEUE_MAX_WAITING:
             raise QueueFull("queue_full", "Сервис сейчас перегружен. Попробуйте через пару минут.")
         if user is not None:
@@ -178,7 +178,7 @@ class JobQueue:
         job.done_async = asyncio.Event()
         job.waiter_loop = asyncio.get_running_loop()
         self.jobs[job.id] = job
-        heapq.heappush(self._heaps[lane], (job.priority, job.seq, job.id))
+        self._waiting[lane].append(job.id)
         self._signal(self._loop, self._wake[lane].set)
         return job
 
@@ -234,25 +234,50 @@ class JobQueue:
         """Снимает задачу, которая ещё ждёт; запущенную не прерываем."""
         if job.status != "queued":
             return False
-        heap = self._heaps[job.lane]
-        heap[:] = [item for item in heap if item[2] != job.id]
-        heapq.heapify(heap)
+        self._waiting[job.lane].remove(job.id)
         job.status, job.finished = "cancelled", time.time()
         self._finish(job)
         return True
 
     # ------------------------------------------------------------ исполнение
 
+    def _order(self, lane: str) -> list[Job]:
+        """Ожидающие задачи полосы в порядке запуска: по кругу между покупателями.
+
+        Ключ: фон — после покупателей; у кого меньше задач уже выполняется — раньше; кого обслуживали
+        давнее — раньше (новичок, которого ещё не обслуживали, — сразу); свои задачи — в порядке отправки.
+        """
+        running: dict[int, int] = {}
+        for j in self.jobs.values():
+            if j.status == "running" and j.lane == lane and j.user is not None:
+                running[j.user.id] = running.get(j.user.id, 0) + 1
+        waiting = [self.jobs[i] for i in self._waiting[lane] if i in self.jobs]
+
+        # у одного покупателя ключ растёт с каждой его задачей в очереди: вторая задача идёт после первых
+        # задач остальных — для этого «обслуженность» считаем с учётом его же задач, стоящих раньше
+        ahead: dict[int, int] = {}
+        keyed = []
+        for j in sorted(waiting, key=lambda x: x.seq):
+            uid = j.user.id if j.user else -1
+            rank = ahead.get(uid, 0)
+            ahead[uid] = rank + 1
+            keyed.append(((j.priority, rank + running.get(uid, 0), self._served.get(uid, 0.0), j.seq), j))
+        return [j for _, j in sorted(keyed, key=lambda x: x[0])]
+
     async def _worker(self, lane: str) -> None:
-        heap, wake = self._heaps[lane], self._wake[lane]
+        waiting, wake = self._waiting[lane], self._wake[lane]
         while True:
-            while not heap:
+            while not waiting:
                 wake.clear()
                 await wake.wait()
-            _, _, job_id = heapq.heappop(heap)
-            job = self.jobs.get(job_id)
-            if job is None or job.status != "queued":
+            order = self._order(lane)
+            if not order:
+                waiting.clear()
                 continue
+            job = order[0]
+            waiting.remove(job.id)
+            if job.user is not None:
+                self._served[job.user.id] = time.time()
             await self._run(job)
 
     async def _run(self, job: Job) -> None:
@@ -297,7 +322,8 @@ class JobQueue:
         """1 — следующая на запуск; 0 — уже не ждёт."""
         if job.status != "queued":
             return 0
-        return 1 + sum(1 for p, s, _ in self._heaps[job.lane] if (p, s) < (job.priority, job.seq))
+        order = self._order(job.lane)
+        return 1 + next((i for i, j in enumerate(order) if j.id == job.id), len(order))
 
     def public(self, job: Job) -> dict:
         """То, что видит покупатель: статус, место, оценка ожидания."""
@@ -338,17 +364,17 @@ class JobQueue:
                     "title": spec.title,
                     "workers": spec.workers,
                     "running": self._running[lane],
-                    "waiting": len(self._heaps[lane]),
+                    "waiting": len(self._waiting[lane]),
                     "done_1h": len(done),
                     "failed_1h": len(recent) - len(done),
                     "avg_wait_s": round(sum(w for w, _, _ in recent) / len(recent), 1) if recent else 0,
                     "avg_run_s": round(sum(r for _, r, _ in done) / len(done), 1) if done else 0,
                 }
             )
-        active = sorted(
-            (j for j in self.jobs.values() if j.status in ("queued", "running")),
-            key=lambda j: (j.lane, j.status != "running", j.priority, j.seq),
-        )
+        running = [j for j in self.jobs.values() if j.status == "running"]
+        active = sorted(running, key=lambda j: (j.lane, j.started or 0)) + [
+            j for lane in LANES for j in self._order(lane)
+        ]
         return {
             "lanes": lanes,
             "jobs": [
