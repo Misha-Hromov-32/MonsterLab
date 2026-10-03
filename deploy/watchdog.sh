@@ -24,6 +24,9 @@ echo "$fails" >"$STATE"
 logger -t monstorelab-watchdog "сайт не отвечает: $url ($fails из $LIMIT)"
 if [ "$fails" -ge "$LIMIT" ]; then
   logger -t monstorelab-watchdog "перезапускаю контейнеры"
-  cd "$DIR" && docker compose up -d && docker compose restart
+  cd "$DIR" || exit 1
+  # снятая пауза — на случай «docker pause»; не помог перезапуск — пересоздаём контейнеры
+  docker compose unpause >/dev/null 2>&1
+  docker compose up -d && docker compose restart -t 20 || docker compose up -d --force-recreate
   echo 0 >"$STATE"
 fi
