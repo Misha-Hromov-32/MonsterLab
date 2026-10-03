@@ -96,7 +96,9 @@ async function save() {
       </span>
     </header>
     <p class="note">
-      Ключи ЮKassa задаются в переменных окружения <code>YOOKASSA_SHOP_ID</code> и <code>YOOKASSA_SECRET_KEY</code>.
+      Оплата принимается через Точку Банк (<code>TOCHKA_JWT</code>, <code>TOCHKA_CUSTOMER_CODE</code>,
+      <code>TOCHKA_MERCHANT_ID</code>) или ЮKassa (<code>YOOKASSA_SHOP_ID</code>, <code>YOOKASSA_SECRET_KEY</code>) —
+      ключи задаются в переменных окружения, выбор — <code>PAYMENT_PROVIDER</code>.
       <template v-if="!saved.enabled">Пока их нет, кнопки оплаты на сайте скрыты, а демо-квоты уже действуют.</template>
     </p>
     <p v-if="error" class="err">{{ error }}</p>

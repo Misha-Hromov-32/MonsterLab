@@ -207,6 +207,11 @@ export const api = {
   me: () => request<User>('/api/auth/me', withAuth(), { timeoutMs: 15_000 }),
 
   billingPlans: () => request<Billing>('/api/billing/plans', {}, { timeoutMs: 15_000 }),
+  /** вернулись со страницы оплаты: сервер перепроверит недавние платежи, не дожидаясь уведомления банка */
+  checkPayment: () =>
+    request<{ activated: boolean; user: User }>('/api/billing/check', withAuth({ method: 'POST' }), {
+      timeoutMs: 30_000,
+    }),
   checkout: (plan: string) =>
     request<{ url: string }>('/api/billing/checkout', withAuth(jsonBody('POST', { plan })), { timeoutMs: 30_000 }),
 

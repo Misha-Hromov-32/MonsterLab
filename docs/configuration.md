@@ -34,6 +34,13 @@
 | `MARKETPLACE` | `1` | `0` — образ без браузера: подбор конкурентов с Wildberries выключен |
 | `BROWSER_PATH` | — | путь к своему Chrome/Chromium для подбора конкурентов при запуске без Docker |
 | `COMPETITORS_CACHE_HOURS` | `24` | сколько часов хранить найденную выдачу по одному запросу |
+| `PAYMENT_PROVIDER` | `tochka`, если задан `TOCHKA_JWT`, иначе `yookassa` | через кого принимать оплату |
+| `TOCHKA_JWT` | — | JWT-ключ из интернет-банка Точки с правами на интернет-эквайринг |
+| `TOCHKA_CLIENT_ID` | — | client_id приложения Точки — для регистрации вебхука |
+| `TOCHKA_CUSTOMER_CODE` | — | код бизнес-клиента (`GET /open-banking/v1.0/customers`, `customerType: Business`) |
+| `TOCHKA_MERCHANT_ID` | — | торговая точка, 15 цифр (`GET /acquiring/v1.0/retailers`) — нужна, если точек несколько |
+| `TOCHKA_RECEIPT` | `1` | чек по 54-ФЗ через кассу Точки (email покупателя, услуга без НДС) |
+| `TOCHKA_TAX_SYSTEM` | — | система налогообложения в чеке: `osn`, `usn_income`, `usn_income_outcome`, `esn`, `patent`; пусто — как в кассе |
 | `YOOKASSA_SHOP_ID` | — | shopId магазина в ЮKassa; без него и ключа оплата выключена |
 | `YOOKASSA_SECRET_KEY` | — | секретный ключ ЮKassa |
 | `YOOKASSA_RECEIPT` | `0` | `1` — передавать чек по 54-ФЗ через ЮKassa (email покупателя, услуга) |
@@ -64,3 +71,16 @@ Unisender Go, SendPulse и т. п. Чтобы письма не попадали
 Тарифы (название, цена, срок), демо-квоты и квоты тарифов настраиваются в админ-панели («Тарифы»).
 В ЮKassa в разделе «HTTP-уведомления» укажите адрес `https://ваш-домен/api/billing/webhook`
 и событие `payment.succeeded`.
+
+### Точка Банк: вебхук об оплате
+
+Уведомления об оплате (`acquiringInternetPayment`) регистрируются один раз на client_id приложения:
+
+```bash
+curl -X PUT "https://enter.tochka.com/uapi/webhook/v1.0/$TOCHKA_CLIENT_ID"   -H "Authorization: Bearer $TOCHKA_JWT" -H "Content-Type: application/json"   -d '{"webhooksList": ["acquiringInternetPayment"], "url": "https://ваш-домен/api/billing/webhook"}'
+```
+
+API Точки подписан сертификатом Минцифры (Russian Trusted Root CA) — он лежит в
+`backend/app/certs/russian_trusted_ca.pem`; для `curl` с сервера добавьте `--cacert` с этим файлом.
+Уведомлению сервис не верит: платёж всегда перепроверяется запросом к Точке, а после возврата со страницы
+оплаты сайт сам просит сервер проверить платёж (`POST /api/billing/check`).

@@ -82,7 +82,8 @@ async function pay(p: PlanInfo) {
           Сейчас действует «{{ account.user.plan_title }}» до {{ formatDate(account.user.pro_until) }}.
         </template>
         Лимиты действуют в оплаченный период и не переносятся. При продлении срок суммируется.
-        <template v-if="canPay">Оплата через ЮKassa: картой, SberPay или ЮMoney.</template>
+        <template v-if="canPay && billing?.provider === 'tochka'">Оплата через Точку Банк: картой или по СБП.</template>
+        <template v-else-if="canPay">Оплата через ЮKassa: картой, SberPay или ЮMoney.</template>
         <template v-else>Оплата пока недоступна.</template>
         {{ ' ' }}<a href="/legal#terms" target="_blank" rel="noopener">Условия и возврат</a>
       </p>

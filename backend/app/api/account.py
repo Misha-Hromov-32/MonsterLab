@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from ..errors import api_error
-from ..ratelimit import client_ip, login_limit, mail_limit
+from ..ratelimit import analysis_limit, client_ip, login_limit, mail_limit
 from ..services import accounts, billing, mail
 from .deps import current_user
 
@@ -164,7 +164,7 @@ def me(user: accounts.User | None = Depends(current_user)) -> dict:
 @router.get("/billing/plans")
 def plans() -> dict:
     """Тарифы и демо-квоты для страницы тарифов — видны и без входа."""
-    return {"enabled": billing.enabled(), **billing.plans()}
+    return {"enabled": billing.enabled(), "provider": billing.provider(), **billing.plans()}
 
 
 @router.post("/billing/checkout")
@@ -179,13 +179,25 @@ async def checkout(body: CheckoutRequest, user: accounts.User | None = Depends(c
         raise api_error(503, "billing_unavailable", str(exc)) from exc
 
 
+@router.post("/billing/check", dependencies=[Depends(analysis_limit.dependency)])
+async def check_payment(user: accounts.User | None = Depends(current_user)) -> dict:
+    """Возврат со страницы оплаты: перепроверить недавние платежи покупателя, не дожидаясь уведомления."""
+    if user is None:
+        raise api_error(401, "login_required", "Войдите заново")
+    try:
+        activated = await asyncio.to_thread(billing.sync_user, user)
+    except billing.BillingError as exc:
+        raise api_error(503, "billing_unavailable", str(exc)) from exc
+    fresh = await asyncio.to_thread(accounts.get, user.id)
+    return {"activated": activated, "user": _me(fresh or user)}
+
+
 @router.post("/billing/webhook", include_in_schema=False)
 async def webhook(request: Request) -> dict:
-    """Уведомление ЮKassa. Телу не верим — платёж перепроверяется запросом к ЮKassa по id."""
-    try:
-        payment_id = str((await request.json())["object"]["id"])[:64]
-    except (ValueError, KeyError, TypeError):
-        return {"ok": True}  # не наш формат — ЮKassa повторять не нужно
+    """Уведомление Точки (JWT) или ЮKassa (JSON). Телу не верим — платёж перепроверяется запросом к банку по id."""
+    payment_id = billing.webhook_payment_id((await request.body())[:20_000])
+    if payment_id is None:
+        return {"ok": True}  # не наш формат — повторять не нужно
     try:
         await asyncio.to_thread(billing.confirm, payment_id)
     except billing.BillingError as exc:

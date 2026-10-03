@@ -21,6 +21,8 @@ os.environ.pop("PROXYAPI_KEY", None)
 os.environ.pop("TRUST_PROXY", None)
 os.environ.pop("MASTER_KEY", None)
 os.environ.pop("SMTP_HOST", None)
+os.environ.pop("TOCHKA_JWT", None)
+os.environ.pop("PAYMENT_PROVIDER", None)
 
 from fastapi.testclient import TestClient
 

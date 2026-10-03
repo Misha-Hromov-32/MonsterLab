@@ -133,5 +133,23 @@ YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY", "").strip()
 # Чек по 54-ФЗ через ЮKassa: включите, если магазин передаёт чеки через неё
 YOOKASSA_RECEIPT = _flag("YOOKASSA_RECEIPT")
 YOOKASSA_VAT_CODE = _int("YOOKASSA_VAT_CODE", 1)  # 1 — без НДС
-# Адрес сайта: сюда ЮKassa вернёт покупателя после оплаты
+# ---------------------------------------------------------------- оплата через Точку Банк (интернет-эквайринг)
+
+# JWT-ключ из интернет-банка Точки (права на интернет-эквайринг) и client_id приложения — для вебхуков
+TOCHKA_JWT = os.getenv("TOCHKA_JWT", "").strip()
+TOCHKA_CLIENT_ID = os.getenv("TOCHKA_CLIENT_ID", "").strip()
+# Код бизнес-клиента (customerType Business) и торговая точка (merchantId, 15 цифр) — см. docs/configuration.md
+TOCHKA_CUSTOMER_CODE = os.getenv("TOCHKA_CUSTOMER_CODE", "").strip()
+TOCHKA_MERCHANT_ID = os.getenv("TOCHKA_MERCHANT_ID", "").strip()
+# Чек по 54-ФЗ через кассу Точки: по умолчанию включён (касса подключается вместе с эквайрингом)
+TOCHKA_RECEIPT = os.getenv("TOCHKA_RECEIPT", "1").strip().lower() in ("1", "true", "yes")
+# Система налогообложения для чека: osn, usn_income, usn_income_outcome, esn, patent; пусто — как в кассе
+TOCHKA_TAX_SYSTEM = os.getenv("TOCHKA_TAX_SYSTEM", "").strip()
+
+# Через кого принимать оплату: tochka или yookassa. Не задано — Точка, если есть её ключ, иначе ЮKassa
+PAYMENT_PROVIDER = os.getenv("PAYMENT_PROVIDER", "").strip().lower() or ("tochka" if TOCHKA_JWT else "yookassa")
+if PAYMENT_PROVIDER not in ("tochka", "yookassa"):
+    raise RuntimeError("PAYMENT_PROVIDER: tochka или yookassa")
+
+# Адрес сайта: сюда платёжная страница вернёт покупателя после оплаты
 PUBLIC_URL = os.getenv("PUBLIC_URL", "").strip().rstrip("/") or "http://localhost:8080"

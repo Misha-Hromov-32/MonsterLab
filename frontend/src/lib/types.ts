@@ -220,8 +220,10 @@ export interface Registered {
 
 /** Тарифы: /api/billing/plans. demo — разовые квоты после подтверждения почты. */
 export interface Billing {
-  /** подключена ли оплата (ключи ЮKassa заданы на сервере) */
+  /** подключена ли оплата (ключи платёжного сервиса заданы на сервере) */
   enabled: boolean
+  /** через кого принимается оплата */
+  provider?: 'tochka' | 'yookassa' | null
   demo: FeatureLimits
   plans: PlanInfo[]
 }

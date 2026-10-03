@@ -62,7 +62,7 @@ onMounted(() => {
   loadHealth()
   // вернулись со страницы оплаты — дождёмся подтверждения; пришли по ссылке из письма — подтвердим
   // почту или откроем окно нового пароля; иначе просто обновим тариф и лимиты
-  if (new URLSearchParams(location.search).get('payment') === 'return') checkPaymentReturn(toast)
+  if (['return', 'fail'].includes(new URLSearchParams(location.search).get('payment') ?? '')) checkPaymentReturn(toast)
   else
     handleEmailLink(toast).then((handled) => {
       if (!handled) refreshMe()

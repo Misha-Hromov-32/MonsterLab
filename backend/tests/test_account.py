@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+import uuid
 
 import httpx
 import pytest
@@ -223,7 +224,13 @@ def yookassa(monkeypatch) -> dict:
         if request.method == "POST":
             body = json.loads(request.content)
             pid = f"pay-{len(payments) + 1}"
-            payments[pid] = {"id": pid, "status": "pending", "paid": False, "metadata": body["metadata"]}
+            payments[pid] = {
+                "id": pid,
+                "status": "pending",
+                "paid": False,
+                "metadata": body["metadata"],
+                "amount": body["amount"],
+            }
             confirmation = {"confirmation_url": f"https://pay.test/{pid}"}
             return httpx.Response(200, json={**payments[pid], "confirmation": confirmation})
         pid = request.url.path.rsplit("/", 1)[-1]
@@ -254,6 +261,97 @@ def test_payment_activates_plan_once(client: TestClient, user_headers: dict, yoo
     assert 29 * 86400 < me["pro_until"] - time.time() <= 30 * 86400  # продлено ровно один раз
     assert me["limits"]["improve"] == 10
     assert set(me["usage"].values()) == {0}  # квоты тарифа начинаются заново, демо-расход не переносится
+
+
+@pytest.fixture
+def tochka(monkeypatch) -> dict:
+    """Подменённая Точка: операции живут в словаре, статус меняет сам тест; запросы складываются в sent."""
+    ops: dict[str, dict] = {}
+    sent: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["authorization"] == "Bearer jwt-test"
+        if request.method == "POST":
+            body = json.loads(request.content)
+            sent.append({"path": request.url.path, **body})
+            oid = f"op-{uuid.uuid4()}"  # как в Точке: id операций уникальны, а база общая на весь прогон
+            ops[oid] = {"operationId": oid, "status": "CREATED", "amount": body["Data"]["amount"]}
+            link = {"paymentLink": f"https://merch.tochka.test/{oid}"}
+            return httpx.Response(200, json={"Data": {**ops[oid], **link}})
+        oid = request.url.path.rsplit("/", 1)[-1]
+        if oid not in ops:
+            return httpx.Response(404, json={"code": "404"})
+        return httpx.Response(200, json={"Data": {"Operation": [ops[oid]]}})
+
+    for name, value in {
+        "PAYMENT_PROVIDER": "tochka",
+        "TOCHKA_JWT": "jwt-test",
+        "TOCHKA_CUSTOMER_CODE": "300000001",
+        "TOCHKA_MERCHANT_ID": "200000000000001",
+        "TOCHKA_RECEIPT": True,
+    }.items():
+        monkeypatch.setattr(config, name, value)
+    real = httpx.Client
+    monkeypatch.setattr(billing.httpx, "Client", lambda **kw: real(**kw, transport=httpx.MockTransport(handler)))
+    return {"ops": ops, "sent": sent}
+
+
+def _jwt(payload: dict) -> bytes:
+    """Уведомление Точки — JWT; подпись сервис не проверяет (платёж перепроверяется в банке)."""
+    import base64
+
+    part = base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b"=")
+    return b"eyJhbGciOiJSUzI1NiJ9." + part + b".c2lnbg"
+
+
+def test_tochka_payment_with_receipt_activates_plan_once(client: TestClient, user_headers: dict, tochka: dict) -> None:
+    body = client.post("/api/billing/checkout", json={"plan": "start"}, headers=user_headers).json()
+    oid = body["url"].rsplit("/", 1)[-1]
+    req = tochka["sent"][-1]
+    assert req["path"].endswith("/acquiring/v1.0/payments_with_receipt")
+    data = req["Data"]
+    assert data["customerCode"] == "300000001" and data["merchantId"] == "200000000000001"
+    assert data["paymentMode"] == ["sbp", "card"] and data["redirectUrl"].endswith("/?payment=return")
+    assert data["Client"]["email"] and data["Items"][0]["paymentObject"] == "service"
+    assert data["Items"][0]["amount"] == data["amount"]
+
+    hook = _jwt({"webhookType": "acquiringInternetPayment", "operationId": oid, "status": "APPROVED"})
+    # уведомлению «оплачено» не верим, пока банк не подтвердит
+    assert client.post("/api/billing/webhook", content=hook).status_code == 200
+    assert client.get("/api/auth/me", headers=user_headers).json()["plan"] == "demo"
+
+    tochka["ops"][oid]["status"] = "APPROVED"
+    for _ in range(2):  # повторное уведомление не продлевает тариф второй раз
+        assert client.post("/api/billing/webhook", content=hook).status_code == 200
+    me = client.get("/api/auth/me", headers=user_headers).json()
+    assert me["plan"] == "start"
+    with db.connect() as con:
+        assert con.execute("SELECT applied, provider FROM payments WHERE id = ?", (oid,)).fetchone()[:] == (1, "tochka")
+
+
+def test_tochka_underpaid_operation_is_not_applied(client: TestClient, tochka: dict) -> None:
+    token = verified_token(client)
+    auth = {"Authorization": f"Bearer {token}"}
+    oid = client.post("/api/billing/checkout", json={"plan": "pro"}, headers=auth).json()["url"].rsplit("/", 1)[-1]
+    tochka["ops"][oid].update(status="APPROVED", amount=1.0)
+    client.post("/api/billing/webhook", content=_jwt({"operationId": oid}))
+    assert client.get("/api/auth/me", headers=auth).json()["plan"] == "demo"
+
+
+def test_return_from_payment_checks_without_webhook(client: TestClient, anon: TestClient, tochka: dict) -> None:
+    token = verified_token(client)
+    auth = {"Authorization": f"Bearer {token}"}
+    oid = client.post("/api/billing/checkout", json={"plan": "start"}, headers=auth).json()["url"].rsplit("/", 1)[-1]
+    assert client.post("/api/billing/check", headers=auth).json()["activated"] is False
+    tochka["ops"][oid]["status"] = "APPROVED"
+    r = client.post("/api/billing/check", headers=auth).json()
+    assert r["activated"] is True and r["user"]["plan"] == "start"
+    assert anon.post("/api/billing/check").status_code == 401
+
+
+def test_webhook_ignores_garbage(client: TestClient) -> None:
+    for body in (b"", b"not a jwt", b"a.b.c", b"{}", b'{"object": {}}'):
+        assert client.post("/api/billing/webhook", content=body).status_code == 200
 
 
 def test_unknown_plan_is_rejected(client: TestClient, user_headers: dict, yookassa: dict) -> None:

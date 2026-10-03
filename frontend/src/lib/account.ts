@@ -252,18 +252,25 @@ const PAYMENT_POLLS = 10
 const PAYMENT_POLL_MS = 3000
 
 /**
- * Возврат со страницы оплаты (/?payment=return): ЮKassa присылает подтверждение серверу
- * не мгновенно — несколько раз перечитываем тариф, пока он не станет платным (до ~30 секунд).
+ * Возврат со страницы оплаты (/?payment=return): просим сервер перепроверить платёж в банке и перечитываем
+ * тариф, пока он не станет платным (до ~30 секунд). /?payment=fail — оплата не прошла или её отменили.
  */
 export async function checkPaymentReturn(
   notify: (msg: string) => void,
   wait = (ms: number) => new Promise((r) => setTimeout(r, ms)),
 ) {
   const url = new URL(location.href)
-  if (url.searchParams.get('payment') !== 'return') return
+  const result = url.searchParams.get('payment')
+  if (result !== 'return' && result !== 'fail') return
   try {
+    if (result === 'fail') {
+      notify('Оплата не прошла — попробуйте ещё раз или выберите другой способ')
+      return
+    }
     if (!session.token) return
     for (let i = 0; i < PAYMENT_POLLS; i++) {
+      // проверка в банке не обязательна: если она не удалась, тариф всё равно продлит уведомление
+      await api.checkPayment().catch(() => null)
       await refreshMe()
       const u = account.user
       if (u && u.plan !== 'demo') {

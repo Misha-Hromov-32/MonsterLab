@@ -102,7 +102,7 @@ ADDED_COLUMNS = {
         # на неподтверждённую почту регистрировались повторно — пароль мог задать не владелец
         "contested": "INTEGER",
     },
-    "payments": {"plan": "TEXT"},
+    "payments": {"plan": "TEXT", "provider": "TEXT"},  # provider: tochka или yookassa (пусто — ЮKassa)
 }
 
 _lock = threading.Lock()

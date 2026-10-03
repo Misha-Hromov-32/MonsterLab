@@ -20,6 +20,7 @@ const api = vi.hoisted(() => ({
   me: vi.fn(),
   billingPlans: vi.fn(),
   checkout: vi.fn(),
+  checkPayment: vi.fn(async () => ({ activated: false, user: null })),
   improve: vi.fn(),
   competitors: vi.fn(),
 }))
@@ -492,7 +493,18 @@ describe('возврат с оплаты', () => {
     await acc.checkPaymentReturn(notify, async () => {})
 
     expect(api.me).toHaveBeenCalledTimes(2)
+    expect(api.checkPayment).toHaveBeenCalledTimes(2)
     expect(notify).toHaveBeenCalledWith('Тариф «Про» активен до 25 октября 2026')
+    expect(location.search).toBe('')
+  })
+
+  it('неудачная оплата — сообщение и чистый адрес', async () => {
+    history.replaceState(null, '', '/?payment=fail')
+    const notify = vi.fn()
+
+    await acc.checkPaymentReturn(notify, async () => {})
+
+    expect(notify).toHaveBeenCalledWith('Оплата не прошла — попробуйте ещё раз или выберите другой способ')
     expect(location.search).toBe('')
   })
 })
