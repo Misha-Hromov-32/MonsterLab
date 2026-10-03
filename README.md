@@ -6,7 +6,7 @@
 
 Карта внимания, разбор дизайна и генерация вариантов для Wildberries и Ozon.
 
-<a href="https://monsterlab.hromovms.ru/"><img src="https://img.shields.io/badge/Открыть_сервис-a366ff?style=for-the-badge" alt="Открыть сервис"></a>
+<a href="https://monstorelab.ru/"><img src="https://img.shields.io/badge/Открыть_сервис-a366ff?style=for-the-badge" alt="Открыть сервис"></a>
 <a href="docs/operator-guide.md"><img src="https://img.shields.io/badge/Руководство-1c1c1c?style=for-the-badge" alt="Руководство"></a>
 <a href="docs/deploy.md"><img src="https://img.shields.io/badge/Установка-dbf570?style=for-the-badge" alt="Установка"></a>
 

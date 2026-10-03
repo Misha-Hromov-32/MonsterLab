@@ -103,3 +103,25 @@ REAL_IP_FROM=172.16.0.0/12   # сеть Docker: оттуда приходят з
 
 и перезапустите: `docker compose up -d`. `REAL_IP_FROM` включайте только вместе с `PORT=127.0.0.1:…`:
 если порт открыт наружу, адрес в `X-Forwarded-For` сможет подставить кто угодно.
+
+## Автоперезапуск и выкатка обновлений
+
+Docker сам поднимает контейнеры после перезагрузки сервера и после падения (`restart: unless-stopped`),
+но не трогает «зависший» сервис. Для этого есть сторож — systemd-таймер, который раз в минуту проверяет
+`/api/health` и после трёх неудач подряд перезапускает контейнеры (`deploy/watchdog.sh`):
+
+```bash
+cp /root/MonsterLab/deploy/monstorelab-watchdog.* /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now monstorelab-watchdog.timer
+journalctl -t monstorelab-watchdog   # что и когда сторож перезапускал
+```
+
+Скрипт и юниты рассчитаны на проект в `/root/MonsterLab`; в другом месте поправьте путь в
+`monstorelab-watchdog.service` и `DIR` в скриптах.
+
+Новая версия выкатывается одной командой — она забирает `main`, собирает образы, перезапускает сервис
+и удаляет старые образы (иначе каждая сборка оставляет ~3 ГБ на диске). Сторож на это время отключается:
+
+```bash
+/root/MonsterLab/deploy/deploy.sh
+```

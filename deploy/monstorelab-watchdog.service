@@ -1,0 +1,8 @@
+[Unit]
+Description=MonStoreLab: проверка сайта и перезапуск при сбое
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/root/MonsterLab/deploy/watchdog.sh

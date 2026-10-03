@@ -1,0 +1,11 @@
+[Unit]
+Description=MonStoreLab: сторож раз в минуту
+
+[Timer]
+# первая проверка — через 3 минуты после загрузки: нейросети нужно время на старт
+OnBootSec=3min
+OnUnitActiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target
