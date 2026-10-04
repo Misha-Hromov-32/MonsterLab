@@ -1,0 +1,32 @@
+# Свой отправитель писем: Postfix с подписью DKIM (образ boky/postfix), только исходящая почта —
+# письма уходят прямо с сервера от имени вашего домена, без платного почтового сервиса.
+#
+# Подключение (в .env проекта):
+#   COMPOSE_FILE=docker-compose.yml:deploy/mail.compose.yml
+#   MAIL_DOMAIN=example.ru            — домен отправителя
+#   SMTP_HOST=mail  SMTP_PORT=587  SMTP_SECURITY=none  SMTP_USER=  SMTP_PASSWORD=
+#   MAIL_FROM=noreply@example.ru      MAIL_REPLY_TO=ящик, куда приходят ответы
+# Порт 587 наружу не публикуется: письма принимаются только из сети Docker (бэкенд), TLS там не нужен.
+# DNS домена (SPF, DKIM, DMARC) и обратная запись IP — в docs/deploy.md, «Почта со своего сервера».
+services:
+  mail:
+    image: boky/postfix:latest@sha256:aafc772384232497bed875e1eb66b4d3e54ba1ebc86e2e185a6dc1dbc48182ef
+    environment:
+      ALLOWED_SENDER_DOMAINS: ${MAIL_DOMAIN:?задайте MAIL_DOMAIN в .env}
+      POSTFIX_myhostname: ${MAIL_DOMAIN}
+      DKIM_AUTOGENERATE: "true"
+      DKIM_SELECTOR: mail
+      # к почтовым серверам получателей — по TLS, если они его поддерживают (Gmail, Яндекс — да)
+      POSTFIX_smtp_tls_security_level: may
+    volumes:
+      - mail-dkim:/etc/opendkim/keys # ключ DKIM: потерять его — заново менять запись в DNS
+      - mail-spool:/var/spool/postfix # очередь писем переживает перезапуск
+    restart: unless-stopped
+
+  backend:
+    depends_on:
+      - mail
+
+volumes:
+  mail-dkim:
+  mail-spool:

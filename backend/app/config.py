@@ -84,12 +84,15 @@ SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
 SMTP_PORT = _int("SMTP_PORT", 465)
 SMTP_USER = os.getenv("SMTP_USER", "").strip()
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-# ssl — сразу TLS (порт 465), starttls — обычно порт 587, none — без шифрования (только для отладки)
+# ssl — сразу TLS (порт 465), starttls — обычно порт 587, none — без шифрования (отладка или свой Postfix
+# в сети Docker — deploy/mail.compose.yml)
 SMTP_SECURITY = os.getenv("SMTP_SECURITY", "").strip().lower() or ("ssl" if SMTP_PORT == 465 else "starttls")
 if SMTP_SECURITY not in ("ssl", "starttls", "none"):
     raise RuntimeError("SMTP_SECURITY: ssl, starttls или none")
 MAIL_FROM = os.getenv("MAIL_FROM", "").strip() or SMTP_USER
 MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "").strip() or "MonStoreLab"
+# Куда приходят ответы на письма сервиса, если отправитель — адрес без входящей почты (noreply@…)
+MAIL_REPLY_TO = os.getenv("MAIL_REPLY_TO", "").strip()
 
 # ---------------------------------------------------------------- правила сервиса (страница /legal)
 

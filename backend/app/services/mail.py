@@ -66,6 +66,8 @@ def _letter(to: str, subject: str, letter: dict[str, str], text: str) -> EmailMe
     msg["Subject"] = subject
     msg["From"] = formataddr((config.MAIL_FROM_NAME, config.MAIL_FROM or "no-reply@localhost"))
     msg["To"] = to
+    if config.MAIL_REPLY_TO:
+        msg["Reply-To"] = config.MAIL_REPLY_TO
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=(config.MAIL_FROM.rpartition("@")[2] or None))
     msg["Auto-Submitted"] = "auto-generated"  # автоответчики не отвечают на такие письма

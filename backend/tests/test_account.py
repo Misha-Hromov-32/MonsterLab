@@ -113,6 +113,13 @@ def test_letter_is_html_with_inline_logo() -> None:
     assert "https://site.test/?verify=abc" in msg.get_body(("plain",)).get_content()
 
 
+def test_reply_to_goes_to_configured_mailbox(monkeypatch) -> None:
+    letter = mail.verification_letter("a@example.com", "https://x/?verify=t")
+    assert letter["Reply-To"] is None
+    monkeypatch.setattr(config, "MAIL_REPLY_TO", "hello@example.com")
+    assert mail.verification_letter("a@example.com", "https://x/?verify=t")["Reply-To"] == "hello@example.com"
+
+
 def test_resend_is_throttled(anon: TestClient) -> None:
     anon.post("/api/auth/register", json={"email": "slow@example.com", "password": PASSWORD, **CONSENT})
     sent = len(OUTBOX)

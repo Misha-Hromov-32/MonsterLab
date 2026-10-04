@@ -125,3 +125,30 @@ journalctl -t monstorelab-watchdog   # что и когда сторож пер�
 ```bash
 /root/MonsterLab/deploy/deploy.sh
 ```
+
+## Почта со своего сервера (бесплатно)
+
+Вместо ящика на Яндексе или Mail.ru письма может отправлять сам сервер — Postfix с подписью DKIM
+(`deploy/mail.compose.yml`, только исходящая почта). Нужно, чтобы хостинг не закрывал исходящий порт 25.
+
+1. В `.env`:
+   ```
+   COMPOSE_FILE=docker-compose.yml:deploy/mail.compose.yml
+   MAIL_DOMAIN=example.ru
+   SMTP_HOST=mail
+   SMTP_PORT=587
+   SMTP_SECURITY=none
+   SMTP_USER=
+   SMTP_PASSWORD=
+   MAIL_FROM=noreply@example.ru
+   MAIL_REPLY_TO=ящик-для-ответов@yandex.ru
+   ```
+2. `docker compose up -d` — Postfix сгенерирует ключ DKIM. Запись для DNS:
+   `docker compose exec mail sh -c 'cat /etc/opendkim/keys/*.txt'`.
+3. В DNS домена:
+   - TXT `@`: `v=spf1 ip4:IP-сервера ~all`
+   - TXT `mail._domainkey`: значение из шага 2 (`v=DKIM1; k=rsa; p=…`)
+   - TXT `_dmarc`: `v=DMARC1; p=none`
+4. У хостинга — обратная запись (PTR) IP сервера на домен: без неё Gmail чаще кладёт письма в спам.
+
+Проверка: отправьте письмо на Gmail и откройте «Показать оригинал» — SPF, DKIM и DMARC должны быть PASS.
