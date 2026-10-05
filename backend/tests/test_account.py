@@ -383,6 +383,15 @@ def test_demo_quota_is_lifetime_and_counts_analysis(anon: TestClient) -> None:
     assert anon.get("/api/auth/me", headers=auth).json()["usage"]["analyze"] == demo
 
 
+def test_foreign_email_is_refused_russian_is_accepted(anon: TestClient) -> None:
+    for foreign in ("someone@gmail.com", "someone@outlook.com", "someone@proton.me"):
+        r = anon.post("/api/auth/register", json={"email": foreign, "password": PASSWORD, **CONSENT})
+        assert r.status_code == 422 and "Иностранную почту" in r.json()["detail"]["message"]
+    for russian in ("Someone@Yandex.ru", "someone@mail.ru", "someone@rambler.ru"):
+        r = anon.post("/api/auth/register", json={"email": russian, "password": PASSWORD, **CONSENT})
+        assert r.status_code == 200, r.text
+
+
 def test_disposable_email_is_refused(anon: TestClient) -> None:
     r = anon.post("/api/auth/register", json={"email": "x@mailinator.com", "password": PASSWORD, **CONSENT})
     assert r.status_code == 422 and "Временные" in r.json()["detail"]["message"]

@@ -94,6 +94,12 @@ MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "").strip() or "MonStoreLab"
 # Куда приходят ответы на письма сервиса, если отправитель — адрес без входящей почты (noreply@…)
 MAIL_REPLY_TO = os.getenv("MAIL_REPLY_TO", "").strip()
 
+# Регистрация по почте — только на российских почтовых сервисах (406-ФЗ, см. services/accounts.py).
+# Дополнительные разрешённые домены через запятую: корпоративная почта на российском хостинге
+ALLOWED_EMAIL_DOMAINS = frozenset(
+    d.strip().lower().lstrip("@") for d in os.getenv("ALLOWED_EMAIL_DOMAINS", "").split(",") if d.strip()
+)
+
 # ---------------------------------------------------------------- вход через VK ID и Яндекс ID (OAuth + PKCE)
 
 # Приложение в кабинете VK ID для бизнеса (id.vk.ru): ID приложения; Redirect URL — PUBLIC_URL/auth/vk/callback

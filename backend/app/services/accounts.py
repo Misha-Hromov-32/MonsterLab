@@ -89,6 +89,45 @@ DISPOSABLE_DOMAINS = frozenset(
 )
 
 
+# 406-ФЗ (ст. 10.6 закона «Об информации»): пользователей из России сайт авторизует российскими способами.
+# По почте регистрируем только на российских почтовых сервисах; остальным — VK ID или Яндекс ID.
+# Свои домены (корпоративная почта на российском хостинге) — ALLOWED_EMAIL_DOMAINS в .env.
+RUSSIAN_EMAIL_DOMAINS = frozenset(
+    {
+        # Яндекс
+        "yandex.ru",
+        "ya.ru",
+        "yandex.com",
+        "yandex.by",
+        "yandex.kz",
+        "narod.ru",
+        # VK (Почта Mail.ru)
+        "mail.ru",
+        "inbox.ru",
+        "list.ru",
+        "bk.ru",
+        "internet.ru",
+        "vk.com",
+        # Рамблер
+        "rambler.ru",
+        "lenta.ru",
+        "autorambler.ru",
+        "myrambler.ru",
+        "ro.ru",
+    }
+)
+FOREIGN_EMAIL = (
+    "Иностранную почту по закону использовать нельзя — укажите российскую или войдите через VK ID / Яндекс ID"
+)
+
+
+def email_allowed(email: str) -> bool:
+    """Можно ли регистрироваться по этой почте (вход через VK ID / Яндекс ID не ограничен — это и есть
+    российский способ авторизации, какой бы адрес ни был привязан к аккаунту)."""
+    domain = normalize(email).rpartition("@")[2]
+    return domain in RUSSIAN_EMAIL_DOMAINS or domain in config.ALLOWED_EMAIL_DOMAINS
+
+
 class AccountError(ValueError):
     """Понятная пользователю причина: неверный пароль, занятый email и т. п."""
 
@@ -212,6 +251,8 @@ def register(email: str, password: str, accepted: bool = False) -> User:
         raise AccountError("Проверьте email")
     if email.rpartition("@")[2] in DISPOSABLE_DOMAINS:
         raise AccountError("Временные почтовые ящики не подходят — укажите свой постоянный email")
+    if not email_allowed(email):
+        raise AccountError(FOREIGN_EMAIL)
     _check_password_rules(password)
     existing = find(email)
     if existing is not None:

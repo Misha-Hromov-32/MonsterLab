@@ -22,6 +22,8 @@ os.environ.pop("TRUST_PROXY", None)
 os.environ.pop("MASTER_KEY", None)
 os.environ.pop("SMTP_HOST", None)
 os.environ.pop("TOCHKA_JWT", None)
+# тестовые адреса — на example.com; в бою регистрация только на российских почтовых сервисах
+os.environ["ALLOWED_EMAIL_DOMAINS"] = "example.com"
 os.environ.pop("PAYMENT_PROVIDER", None)
 
 from fastapi.testclient import TestClient

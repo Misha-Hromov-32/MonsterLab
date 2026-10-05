@@ -55,6 +55,7 @@
 | `MAIL_FROM` | `SMTP_USER` | адрес отправителя |
 | `MAIL_FROM_NAME` | `MonStoreLab` | имя отправителя |
 | `MAIL_REPLY_TO` | — | куда приходят ответы на письма сервиса (Reply-To), если отправитель — noreply@… |
+| `ALLOWED_EMAIL_DOMAINS` | — | дополнительные домены для регистрации по почте через запятую (по 406-ФЗ по умолчанию — только российские почтовые сервисы: Яндекс, Mail.ru, Рамблер) |
 | `VK_CLIENT_ID` | — | ID приложения VK ID (id.vk.ru, платформа «Веб»; Redirect URL — `PUBLIC_URL/auth/vk/callback`, доступ `email`) — включает кнопку «Войти с VK ID» |
 | `YANDEX_CLIENT_ID` | — | ClientID приложения на oauth.yandex.ru (Redirect URI — `PUBLIC_URL/auth/yandex/callback`, доступ к почте) |
 | `YANDEX_CLIENT_SECRET` | — | секрет приложения Яндекс ID; без него кнопка Яндекса не показывается |
