@@ -2,7 +2,7 @@ import { computed, reactive } from 'vue'
 import { api, ApiError } from '../api'
 import { session, setUserToken } from './session'
 import { formatDate } from './format'
-import type { Billing, Consent, Session, User } from './types'
+import type { Billing, Consent, OAuthProvider, Session, User } from './types'
 
 export type AccountDialog = '' | 'login' | 'account' | 'tariffs' | 'library'
 /** sent — «проверьте почту», forgot — запрос ссылки для нового пароля, reset — ввод нового пароля */
@@ -203,6 +203,74 @@ export async function handleEmailLink(notify: (msg: string) => void): Promise<bo
     notify(`Почта подтверждена: ${s.user.email}`)
   } catch (e) {
     openLogin((e as Error).message)
+  }
+  return true
+}
+
+const OAUTH_KEY = 'ml.oauth'
+const OAUTH_PATH = /^\/auth\/(vk|yandex)\/callback\/?$/
+export const OAUTH_TITLES: Record<OAuthProvider, string> = { vk: 'VK ID', yandex: 'Яндекс ID' }
+
+/**
+ * Вход через VK ID / Яндекс ID: сервер выдаёт адрес страницы провайдера и state. State запоминаем в этой
+ * вкладке — после возврата сверим: так чужая ссылка «войти» не залогинит в чужой аккаунт.
+ * Возвращает текст ошибки или '' (тогда браузер уже уходит на страницу провайдера).
+ */
+export async function startOAuth(provider: OAuthProvider, consent: Consent): Promise<string> {
+  try {
+    const r = await api.oauthStart(provider, consent.terms, consent.personalData)
+    try {
+      sessionStorage.setItem(OAUTH_KEY, JSON.stringify({ provider, state: r.state }))
+    } catch {
+      /* приватный режим — сверка state останется только на сервере */
+    }
+    location.assign(r.url)
+    return ''
+  } catch (e) {
+    return (e as Error).message
+  }
+}
+
+/** Возврат от провайдера на /auth/<провайдер>/callback. Возвращает true, если это был он. */
+export async function handleOAuthCallback(notify: (msg: string) => void): Promise<boolean> {
+  const m = location.pathname.match(OAUTH_PATH)
+  if (!m) return false
+  const provider = m[1] as OAuthProvider
+  const q = new URLSearchParams(location.search)
+  // одноразовый код не должен оставаться в адресной строке и истории браузера
+  history.replaceState(history.state, '', '/')
+  let saved: { provider?: string; state?: string } | null = null
+  try {
+    saved = JSON.parse(sessionStorage.getItem(OAUTH_KEY) ?? 'null')
+    sessionStorage.removeItem(OAUTH_KEY)
+  } catch {
+    saved = null
+  }
+  const code = q.get('code')
+  const state = q.get('state') ?? ''
+  const title = OAUTH_TITLES[provider]
+  if (!code) {
+    openLogin(`Вход через ${title} отменён. Попробуйте ещё раз или войдите по почте.`)
+    return true
+  }
+  if (saved && (saved.provider !== provider || saved.state !== state)) {
+    openLogin(`Вход через ${title} не удался: начните его на этом сайте ещё раз.`)
+    return true
+  }
+  try {
+    const s = await api.oauthFinish(provider, { code, state, device_id: q.get('device_id') })
+    setUserToken(s.token)
+    account.user = s.user
+    notify(`Вы вошли через ${title}: ${s.user.email}`)
+  } catch (e) {
+    const err = e as ApiError
+    if (err.code === 'consent_required')
+      openLogin(
+        `Аккаунта для ${title} ещё нет. Отметьте согласия и нажмите «${title}» ещё раз — аккаунт создастся сам.`,
+        undefined,
+        'register',
+      )
+    else openLogin(err.message)
   }
   return true
 }

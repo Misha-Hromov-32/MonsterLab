@@ -13,7 +13,7 @@ from ..core import saliency, shelf
 from ..core.report import cover_report
 from ..errors import api_error
 from ..ratelimit import analysis_limit
-from ..services import accounts, billing, expert, library, marketplace
+from ..services import accounts, billing, expert, library, marketplace, oauth
 from ..services.uploads import store
 from .deps import enqueue, paid, read_image
 
@@ -33,6 +33,8 @@ def health() -> dict:
             "improve": cfg.enabled,
             "competitors": marketplace.available(),
             "billing": billing.enabled(),
+            # вход через провайдеров: vk, yandex — для каких заданы ключи
+            "oauth": oauth.enabled(),
         },
     }
 

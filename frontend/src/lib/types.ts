@@ -154,8 +154,11 @@ export interface Health {
   neural: boolean
   expert: { enabled: boolean; models: string[] }
   /** какие платные функции доступны на сервере: выключенные интерфейс прячет */
-  features?: { improve: boolean; competitors: boolean; billing: boolean }
+  features?: { improve: boolean; competitors: boolean; billing: boolean; oauth?: OAuthProvider[] }
 }
+
+/** Вход через внешний аккаунт: VK ID или Яндекс ID */
+export type OAuthProvider = 'vk' | 'yandex'
 
 // ------------------------------------------------------------ аккаунт и подписка
 

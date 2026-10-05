@@ -14,7 +14,7 @@ import LibraryDialog from './components/LibraryDialog.vue'
 import TariffsDialog from './components/TariffsDialog.vue'
 import { addFiles, loadHealth, loadSite, resetAll, state, toast } from './store'
 import { session } from './lib/session'
-import { account, checkPaymentReturn, handleEmailLink, refreshMe } from './lib/account'
+import { account, checkPaymentReturn, handleEmailLink, handleOAuthCallback, refreshMe } from './lib/account'
 
 // ?preview=1 — главная внутри iframe админки: только витрина, без опроса сервиса
 // и без перехвата перетаскивания файлов (иначе он мешал бы самой админке).
@@ -64,9 +64,12 @@ onMounted(() => {
   // почту или откроем окно нового пароля; иначе просто обновим тариф и лимиты
   if (['return', 'fail'].includes(new URLSearchParams(location.search).get('payment') ?? '')) checkPaymentReturn(toast)
   else
-    handleEmailLink(toast).then((handled) => {
-      if (!handled) refreshMe()
-    })
+    // вернулись от VK ID / Яндекс ID — завершаем вход; иначе — ссылка из письма или просто обновление тарифа
+    handleOAuthCallback(toast)
+      .then((handled) => handled || handleEmailLink(toast))
+      .then((handled) => {
+        if (!handled) refreshMe()
+      })
   window.addEventListener('dragenter', onEnter)
   window.addEventListener('dragleave', onLeave)
   window.addEventListener('dragover', onOver)

@@ -3,8 +3,19 @@ import { computed, onUnmounted, ref } from 'vue'
 import { Loader2, MailCheck } from 'lucide-vue-next'
 import ModalDialog from './ModalDialog.vue'
 import Segmented from './Segmented.vue'
-import { account, closeDialog, requestReset, resendLetter, setNewPassword, signIn, type AuthMode } from '../lib/account'
-import { toast } from '../store'
+import {
+  account,
+  closeDialog,
+  OAUTH_TITLES,
+  requestReset,
+  resendLetter,
+  setNewPassword,
+  signIn,
+  startOAuth,
+  type AuthMode,
+} from '../lib/account'
+import { oauthProviders, toast } from '../store'
+import type { OAuthProvider } from '../lib/types'
 
 const MIN_PASSWORD = 8
 const RESEND_SECONDS = 60
@@ -89,6 +100,17 @@ async function submit() {
   if (account.authMode === 'sent') startCooldown()
   else if (current === 'reset') toast('Пароль изменён — вы вошли')
   else if (current === 'login') toast(`Вы вошли как ${who}`)
+}
+
+// вход через VK ID / Яндекс ID: при регистрации — только с отмеченными согласиями, как и по почте
+const consentGiven = computed(() => acceptTerms.value && acceptData.value)
+const oauthBusy = ref(false)
+
+async function viaProvider(provider: OAuthProvider) {
+  if (oauthBusy.value || (mode.value === 'register' && !consentGiven.value)) return
+  oauthBusy.value = true
+  error.value = await startOAuth(provider, { terms: acceptTerms.value, personalData: acceptData.value })
+  if (error.value) oauthBusy.value = false // при успехе браузер уже уходит на страницу провайдера
 }
 
 async function resend() {
@@ -199,6 +221,25 @@ async function resend() {
           {{ submitTitle }}
         </button>
       </form>
+
+      <div v-if="withTabs && oauthProviders.length" class="oauth">
+        <span class="or">или</span>
+        <button
+          v-for="p in oauthProviders"
+          :key="p"
+          type="button"
+          class="btn wide oauth-btn"
+          :class="p"
+          :disabled="oauthBusy || (mode === 'register' && !consentGiven)"
+          @click="viaProvider(p)"
+        >
+          <span class="oauth-logo" aria-hidden="true">{{ p === 'vk' ? 'VK' : 'Я' }}</span>
+          {{ mode === 'register' ? 'Зарегистрироваться' : 'Войти' }} с {{ OAUTH_TITLES[p] }}
+        </button>
+        <p v-if="mode === 'register' && !consentGiven" class="hint-line">
+          Отметьте согласия выше — без них аккаунт не создаётся.
+        </p>
+      </div>
 
       <button v-if="mode === 'login'" class="linkbtn" type="button" @click="go('forgot')">Забыли пароль?</button>
       <button v-else-if="mode === 'forgot'" class="linkbtn" type="button" @click="go('login')">
@@ -312,6 +353,77 @@ async function resend() {
   margin: 0;
   font-size: 12.5px;
   color: var(--ink-3);
+}
+
+.oauth {
+  display: grid;
+  gap: 8px;
+}
+
+.or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.or::before,
+.or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.oauth-btn {
+  gap: 10px;
+  border: 0;
+  color: #fff;
+  font-weight: 500;
+}
+
+.oauth-btn:disabled {
+  opacity: 0.45;
+}
+
+/* цвета кнопок — из гайдлайнов VK ID и Яндекс ID */
+.oauth-btn.vk {
+  background: #0077ff;
+}
+
+.oauth-btn.vk:hover:not(:disabled) {
+  background: #0069e0;
+}
+
+.oauth-btn.yandex {
+  background: #000;
+}
+
+.oauth-btn.yandex:hover:not(:disabled) {
+  background: #222;
+}
+
+.oauth-logo {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background: #fff;
+  color: #0077ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.yandex .oauth-logo {
+  min-width: 22px;
+  border-radius: 50%;
+  background: #fc3f1d;
+  color: #fff;
+  font-size: 13px;
 }
 
 .consents {

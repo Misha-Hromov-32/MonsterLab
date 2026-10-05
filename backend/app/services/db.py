@@ -57,6 +57,22 @@ CREATE TABLE IF NOT EXISTS email_tokens (
     expires_at REAL NOT NULL,
     created_at REAL NOT NULL
 );
+-- вход через VK ID / Яндекс ID: какой аккаунт у провайдера к какому покупателю привязан.
+-- id у провайдера хранится только «слепым» индексом HMAC-SHA256 от "провайдер:id".
+CREATE TABLE IF NOT EXISTS user_identities (
+    subject_index TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    created_at REAL NOT NULL
+);
+-- незавершённые входы через провайдера: SHA-256 от state и зашифрованный PKCE-верификатор, живут 10 минут
+CREATE TABLE IF NOT EXISTS oauth_states (
+    hash TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    verifier_enc BLOB NOT NULL,
+    accepted INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS payments (
     id TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL,

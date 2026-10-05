@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from ..errors import api_error
 from ..ratelimit import analysis_limit, client_ip, login_limit, mail_limit
-from ..services import accounts, billing, mail
+from ..services import accounts, billing, mail, oauth
 from .deps import current_user
 
 log = logging.getLogger(__name__)
@@ -100,6 +100,56 @@ async def login(body: Credentials, request: Request) -> dict:
         login_limit.hit(ip)
         await asyncio.sleep(0.8)
         raise api_error(401, "bad_password", str(exc)) from exc
+    return await asyncio.to_thread(_session, user)
+
+
+class OAuthStart(BaseModel):
+    accept_terms: bool = False
+    accept_personal_data: bool = False
+
+
+class OAuthFinish(BaseModel):
+    code: str = Field(min_length=1, max_length=2048)
+    state: str = Field(min_length=10, max_length=200)
+    device_id: str | None = Field(None, max_length=200)
+
+
+def _provider(provider: str) -> str:
+    if provider not in oauth.TITLES:
+        raise api_error(404, "not_found", "Такого способа входа нет")
+    return provider
+
+
+@router.post("/auth/oauth/{provider}/start")
+async def oauth_start(provider: str, body: OAuthStart, request: Request) -> dict:
+    """Начало входа через VK ID / Яндекс ID: адрес страницы провайдера и state для сверки после возврата."""
+    login_limit.check(client_ip(request))
+    try:
+        url, state = await asyncio.to_thread(
+            oauth.start, _provider(provider), body.accept_terms and body.accept_personal_data
+        )
+    except oauth.OAuthError as exc:
+        raise api_error(503, "oauth_unavailable", str(exc)) from exc
+    return {"url": url, "state": state}
+
+
+@router.post("/auth/oauth/{provider}/finish")
+async def oauth_finish(provider: str, body: OAuthFinish, request: Request) -> dict:
+    """Возврат от провайдера: код меняется на данные пользователя, вход — как после подтверждения почты."""
+    ip = client_ip(request)
+    login_limit.check(ip)
+    try:
+        identity = await asyncio.to_thread(oauth.finish, _provider(provider), body.code, body.state, body.device_id)
+        user = await asyncio.to_thread(
+            accounts.oauth_login, identity.provider, identity.subject, identity.email, identity.accepted
+        )
+    except oauth.OAuthError as exc:
+        login_limit.hit(ip)
+        raise api_error(422, "oauth_failed", str(exc)) from exc
+    except accounts.ConsentRequired as exc:
+        raise api_error(422, "consent_required", str(exc)) from exc
+    except accounts.AccountError as exc:
+        raise api_error(422, "oauth_failed", str(exc)) from exc
     return await asyncio.to_thread(_session, user)
 
 

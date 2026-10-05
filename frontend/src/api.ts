@@ -19,6 +19,7 @@ import type {
   Site,
   Registered,
   Session,
+  OAuthProvider,
   SetPassword,
   User,
 } from './lib/types'
@@ -207,6 +208,14 @@ export const api = {
   me: () => request<User>('/api/auth/me', withAuth(), { timeoutMs: 15_000 }),
 
   billingPlans: () => request<Billing>('/api/billing/plans', {}, { timeoutMs: 15_000 }),
+  oauthStart: (provider: OAuthProvider, terms: boolean, personalData: boolean) =>
+    request<{ url: string; state: string }>(
+      `/api/auth/oauth/${provider}/start`,
+      jsonBody('POST', { accept_terms: terms, accept_personal_data: personalData }),
+      { timeoutMs: 20_000 },
+    ),
+  oauthFinish: (provider: OAuthProvider, body: { code: string; state: string; device_id: string | null }) =>
+    request<Session>(`/api/auth/oauth/${provider}/finish`, jsonBody('POST', body), { timeoutMs: 30_000 }),
   /** вернулись со страницы оплаты: сервер перепроверит недавние платежи, не дожидаясь уведомления банка */
   checkPayment: () =>
     request<{ activated: boolean; user: User }>('/api/billing/check', withAuth({ method: 'POST' }), {

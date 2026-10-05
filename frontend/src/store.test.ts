@@ -20,6 +20,8 @@ const api = vi.hoisted(() => ({
   me: vi.fn(),
   billingPlans: vi.fn(),
   checkout: vi.fn(),
+  oauthStart: vi.fn(),
+  oauthFinish: vi.fn(),
   checkPayment: vi.fn(async () => ({ activated: false, user: null })),
   improve: vi.fn(),
   competitors: vi.fn(),
@@ -506,6 +508,56 @@ describe('возврат с оплаты', () => {
 
     expect(notify).toHaveBeenCalledWith('Оплата не прошла — попробуйте ещё раз или выберите другой способ')
     expect(location.search).toBe('')
+  })
+})
+
+describe('вход через VK ID / Яндекс ID', () => {
+  beforeEach(async () => {
+    const { setUserToken } = await import('./lib/session')
+    setUserToken('')
+    acc.account.dialog = ''
+  })
+
+  it('возврат с совпадающим state — вход и чистый адрес', async () => {
+    sessionStorage.setItem('ml.oauth', JSON.stringify({ provider: 'vk', state: 'st-1' }))
+    history.replaceState(null, '', '/auth/vk/callback?code=c1&state=st-1&device_id=dev')
+    api.oauthFinish.mockResolvedValueOnce({ token: 'u2.vk', user })
+    const notify = vi.fn()
+
+    expect(await acc.handleOAuthCallback(notify)).toBe(true)
+
+    expect(api.oauthFinish).toHaveBeenCalledWith('vk', { code: 'c1', state: 'st-1', device_id: 'dev' })
+    expect(notify).toHaveBeenCalledWith(`Вы вошли через VK ID: ${user.email}`)
+    expect(location.pathname).toBe('/')
+    expect(location.search).toBe('')
+    expect(sessionStorage.getItem('ml.oauth')).toBeNull()
+  })
+
+  it('чужой state — на сервер не идём, предлагаем начать заново', async () => {
+    sessionStorage.setItem('ml.oauth', JSON.stringify({ provider: 'vk', state: 'mine' }))
+    history.replaceState(null, '', '/auth/vk/callback?code=c1&state=attacker')
+    api.oauthFinish.mockClear()
+
+    await acc.handleOAuthCallback(vi.fn())
+
+    expect(api.oauthFinish).not.toHaveBeenCalled()
+    expect(acc.account.dialog).toBe('login')
+  })
+
+  it('нового пользователя без согласий отправляет на вкладку регистрации', async () => {
+    sessionStorage.setItem('ml.oauth', JSON.stringify({ provider: 'yandex', state: 's' }))
+    history.replaceState(null, '', '/auth/yandex/callback?code=c&state=s')
+    api.oauthFinish.mockRejectedValueOnce(new ApiError('нужно согласие', 'consent_required', 422))
+
+    await acc.handleOAuthCallback(vi.fn())
+
+    expect(acc.account.dialog).toBe('login')
+    expect(acc.account.authMode).toBe('register')
+  })
+
+  it('обычный адрес — не возврат от провайдера', async () => {
+    history.replaceState(null, '', '/')
+    expect(await acc.handleOAuthCallback(vi.fn())).toBe(false)
   })
 })
 

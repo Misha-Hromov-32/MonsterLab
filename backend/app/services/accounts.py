@@ -30,7 +30,7 @@ from . import crypto, db, mail, site
 log = logging.getLogger(__name__)
 
 # Редакция правил сервиса (страница /legal). Новая редакция — новая дата здесь и в документах.
-LEGAL_VERSION = "2026-09-30"
+LEGAL_VERSION = "2026-10-05"
 TOKEN_TTL = 30 * 24 * 3600
 TOKEN_PREFIX = "u2"
 MIN_PASSWORD = 8
@@ -91,6 +91,10 @@ DISPOSABLE_DOMAINS = frozenset(
 
 class AccountError(ValueError):
     """Понятная пользователю причина: неверный пароль, занятый email и т. п."""
+
+
+class ConsentRequired(AccountError):
+    """Вход через провайдера создал бы новый аккаунт, а согласия с правилами ещё нет."""
 
 
 class EmailUnverified(AccountError):
@@ -257,6 +261,75 @@ def login(email: str, password: str) -> User:
     user = _row(row)
     if not user.verified:
         raise EmailUnverified(f"Подтвердите почту: ссылка в письме на {user.email}")
+    return user
+
+
+# ---------------------------------------------------------------- вход через VK ID / Яндекс ID
+
+
+def _identity_index(provider: str, subject: str) -> str:
+    return crypto.blind_index(f"{provider}:{subject}", "identity")
+
+
+def oauth_login(provider: str, subject: str, email: str | None, accepted: bool) -> User:
+    """Покупатель по входу через провайдера. subject — id у провайдера, email — адрес, подтверждённый провайдером.
+
+    Уже входил так — тот же аккаунт. Иначе ищем по email: есть аккаунт — привязываем провайдера к нему
+    (тариф и обложки сохраняются); нет — создаём новый, уже с подтверждённой почтой, если приняты правила.
+    Неподтверждённый аккаунт с этим email подтверждаем, а пароль сбрасываем: его мог задать не владелец
+    почты (захват аккаунта до регистрации), а владелец только что доказал её через провайдера."""
+    index = _identity_index(provider, subject)
+    with db.connect() as con:
+        row = con.execute("SELECT user_id FROM user_identities WHERE subject_index = ?", (index,)).fetchone()
+    if row is not None and (user := get(row["user_id"])) is not None:
+        return user
+    if not email:
+        raise AccountError("Провайдер не передал email — войдите по почте или укажите почту в своём аккаунте")
+    email = normalize(email)
+    if not _EMAIL.match(email):
+        raise AccountError("Провайдер передал некорректный email — войдите по почте")
+    now = time.time()
+    existing = find(email)
+    if existing is None:
+        if not accepted:
+            raise ConsentRequired("Чтобы создать аккаунт, примите соглашение и дайте согласие на обработку данных")
+        hashed = crypto.hash_password(secrets.token_urlsafe(32))  # пароля нет — задать можно через «Забыли пароль»
+        try:
+            with db.connect() as con:
+                user_id = con.execute(
+                    "INSERT INTO users (email_index, email_enc, password, stamp, verified_at, created_at,"
+                    " terms_accepted_at, pd_consent_at, legal_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        _index(email),
+                        crypto.encrypt(email.encode(), "email"),
+                        hashed,
+                        secrets.token_hex(16),
+                        now,
+                        now,
+                        now,
+                        now,
+                        LEGAL_VERSION,
+                    ),
+                ).lastrowid
+        except sqlite3.IntegrityError:  # тот же email только что зарегистрировали параллельно
+            return oauth_login(provider, subject, email, accepted)
+    else:
+        user_id = existing.id
+        if not existing.verified:
+            hashed = crypto.hash_password(secrets.token_urlsafe(32))
+            with db.connect() as con:
+                con.execute(
+                    "UPDATE users SET verified_at = ?, password = ?, stamp = ?, contested = 0 WHERE id = ?",
+                    (now, hashed, secrets.token_hex(16), user_id),
+                )
+    with db.connect() as con:
+        con.execute(
+            "INSERT OR IGNORE INTO user_identities (subject_index, provider, user_id, created_at) VALUES (?, ?, ?, ?)",
+            (index, provider, user_id, now),
+        )
+    user = get(user_id)
+    if user is None:
+        raise AccountError("Не удалось войти — попробуйте ещё раз")
     return user
 
 

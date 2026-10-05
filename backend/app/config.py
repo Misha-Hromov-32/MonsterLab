@@ -94,6 +94,14 @@ MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "").strip() or "MonStoreLab"
 # Куда приходят ответы на письма сервиса, если отправитель — адрес без входящей почты (noreply@…)
 MAIL_REPLY_TO = os.getenv("MAIL_REPLY_TO", "").strip()
 
+# ---------------------------------------------------------------- вход через VK ID и Яндекс ID (OAuth + PKCE)
+
+# Приложение в кабинете VK ID для бизнеса (id.vk.ru): ID приложения; Redirect URL — PUBLIC_URL/auth/vk/callback
+VK_CLIENT_ID = os.getenv("VK_CLIENT_ID", "").strip()
+# Приложение на oauth.yandex.ru: ClientID и секрет; Redirect URI — PUBLIC_URL/auth/yandex/callback
+YANDEX_CLIENT_ID = os.getenv("YANDEX_CLIENT_ID", "").strip()
+YANDEX_CLIENT_SECRET = os.getenv("YANDEX_CLIENT_SECRET", "").strip()
+
 # ---------------------------------------------------------------- правила сервиса (страница /legal)
 
 # Оператор персональных данных — как в документах: «ИП Иванов Иван Иванович, ИНН …, ОГРНИП …, адрес …»

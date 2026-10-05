@@ -103,6 +103,8 @@ export const features = computed(() => ({
   competitors: !!state.health?.features?.competitors,
   billing: !!state.health?.features?.billing,
 }))
+/** Способы входа через VK ID / Яндекс ID, для которых на сервере заданы ключи. */
+export const oauthProviders = computed(() => state.health?.features?.oauth ?? [])
 /** Функции, которые есть на этом сервере, — только их показываем в квотах и тарифах. */
 export const availableFeatures = computed(() =>
   (['analyze', 'shelf', 'expert', 'choice', 'improve', 'competitors'] as const).filter((f) =>
