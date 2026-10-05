@@ -59,7 +59,11 @@
 | `VK_CLIENT_ID` | — | ID приложения VK ID (id.vk.ru, платформа «Веб»; Redirect URL — `PUBLIC_URL/auth/vk/callback`, доступ `email`) — включает кнопку «Войти с VK ID» |
 | `YANDEX_CLIENT_ID` | — | ClientID приложения на oauth.yandex.ru (Redirect URI — `PUBLIC_URL/auth/yandex/callback`, доступ к почте) |
 | `YANDEX_CLIENT_SECRET` | — | секрет приложения Яндекс ID; без него кнопка Яндекса не показывается |
-| `LEGAL_OPERATOR` | — | оператор персональных данных для страницы `/legal`: «ИП Иванов Иван Иванович, ИНН …, ОГРНИП …, адрес …» |
+| `LEGAL_NAME` | — | исполнитель и оператор данных: «ИП Иванов Иван Иванович» или «ООО «…»» — в документах и подвале |
+| `LEGAL_INN` | — | ИНН |
+| `LEGAL_OGRN` | — | ОГРНИП (у ИП) или ОГРН |
+| `LEGAL_ADDRESS` | — | адрес для документов (необязательно) |
+| `LEGAL_OPERATOR` | — | прежняя одна строка с реквизитами — используется, только если не задан `LEGAL_NAME` |
 | `LEGAL_EMAIL` | `MAIL_FROM` | адрес для обращений по данным: отзыв согласия, удаление аккаунта |
 
 Изменили `.env` — перезапустите: `docker compose up -d`. `NEURAL` и `MARKETPLACE` влияют на сборку образа,

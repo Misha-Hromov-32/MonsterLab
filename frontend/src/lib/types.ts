@@ -209,7 +209,13 @@ export interface Consent {
 
 /** Реквизиты оператора и редакция правил для страницы /legal. */
 export interface Legal {
+  /** реквизиты одной строкой: «ИП …, ИНН …, ОГРНИП …» */
   operator: string
+  name?: string
+  inn?: string
+  /** ОГРН или ОГРНИП */
+  ogrn?: string
+  address?: string
   email: string
   /** дата редакции, YYYY-MM-DD */
   version: string

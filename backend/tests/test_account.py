@@ -167,7 +167,8 @@ def test_consent_is_recorded_with_legal_version(anon: TestClient) -> None:
         row = con.execute("SELECT * FROM users WHERE id = ?", (user.id,)).fetchone()
     assert row["terms_accepted_at"] and row["pd_consent_at"] and row["legal_version"] == accounts.LEGAL_VERSION
     legal = anon.get("/api/public/legal").json()
-    assert legal["version"] == accounts.LEGAL_VERSION and "operator" in legal
+    assert legal["version"] == accounts.LEGAL_VERSION
+    assert {"operator", "name", "inn", "ogrn", "address", "email"} <= set(legal)
 
 
 def _upload(client: TestClient) -> str:

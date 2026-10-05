@@ -110,9 +110,26 @@ YANDEX_CLIENT_SECRET = os.getenv("YANDEX_CLIENT_SECRET", "").strip()
 
 # ---------------------------------------------------------------- правила сервиса (страница /legal)
 
-# Оператор персональных данных — как в документах: «ИП Иванов Иван Иванович, ИНН …, ОГРНИП …, адрес …»
-# или «Иванов Иван Иванович (самозанятый), ИНН …, адрес …»
-LEGAL_OPERATOR = os.getenv("LEGAL_OPERATOR", "").strip()
+# Исполнитель по соглашению и оператор персональных данных — реквизиты для документов и подвала сайта
+LEGAL_NAME = os.getenv("LEGAL_NAME", "").strip()  # «ИП Иванов Иван Иванович» или «ООО «Ромашка»»
+LEGAL_INN = os.getenv("LEGAL_INN", "").strip()
+LEGAL_OGRN = os.getenv("LEGAL_OGRN", "").strip()  # ОГРН или ОГРНИП
+LEGAL_ADDRESS = os.getenv("LEGAL_ADDRESS", "").strip()  # адрес для документов (для ИП — город достаточно)
+# Прежняя одна строка «ИП …, ИНН …, ОГРНИП …» — для старых .env; если задан LEGAL_NAME, собирается из полей
+LEGAL_OPERATOR = (
+    ", ".join(
+        p
+        for p in (
+            LEGAL_NAME,
+            LEGAL_INN and f"ИНН {LEGAL_INN}",
+            LEGAL_OGRN and f"{'ОГРНИП' if LEGAL_NAME.startswith('ИП') else 'ОГРН'} {LEGAL_OGRN}",
+            LEGAL_ADDRESS,
+        )
+        if p
+    )
+    if LEGAL_NAME
+    else os.getenv("LEGAL_OPERATOR", "").strip()
+)
 # Адрес для обращений: отзыв согласия, удаление аккаунта, вопросы по данным
 LEGAL_EMAIL = os.getenv("LEGAL_EMAIL", "").strip() or MAIL_FROM
 

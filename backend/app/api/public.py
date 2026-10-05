@@ -39,8 +39,16 @@ def get_site(preview: bool = False) -> dict:
 
 @router.get("/legal")
 def get_legal() -> dict:
-    """Реквизиты оператора и редакция правил для страницы /legal."""
-    return {"operator": config.LEGAL_OPERATOR, "email": config.LEGAL_EMAIL, "version": accounts.LEGAL_VERSION}
+    """Реквизиты исполнителя и оператора данных и редакция правил — для страницы /legal и подвала сайта."""
+    return {
+        "operator": config.LEGAL_OPERATOR,
+        "name": config.LEGAL_NAME,
+        "inn": config.LEGAL_INN,
+        "ogrn": config.LEGAL_OGRN,
+        "address": config.LEGAL_ADDRESS,
+        "email": config.LEGAL_EMAIL,
+        "version": accounts.LEGAL_VERSION,
+    }
 
 
 @router.get("/files/{example_id}/{name}")

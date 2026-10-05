@@ -8,6 +8,7 @@ import CompareView from './components/CompareView.vue'
 import ShelfView from './components/ShelfView.vue'
 import ToastMessage from './components/ToastMessage.vue'
 import QueueBadge from './components/QueueBadge.vue'
+import CookieBanner from './components/CookieBanner.vue'
 import LoginDialog from './components/LoginDialog.vue'
 import AccountDialog from './components/AccountDialog.vue'
 import LibraryDialog from './components/LibraryDialog.vue'
@@ -112,6 +113,7 @@ onUnmounted(() => {
 
     <ToastMessage :message="state.toast" />
     <QueueBadge />
+    <CookieBanner />
   </div>
 </template>
 
