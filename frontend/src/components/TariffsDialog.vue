@@ -9,6 +9,9 @@ import type { Feature, FeatureLimits, PlanInfo } from '../lib/types'
 
 const busy = ref('')
 const error = ref('')
+// аккаунт без почты (вход через VK ID): кассовый чек без адреса не отправить — спрашиваем при оплате
+const receiptEmail = ref('')
+const needsEmail = computed(() => !!account.user && !account.user.email)
 
 const billing = computed(() => account.billing)
 const canPay = computed(() => features.value.billing && !!billing.value?.enabled)
@@ -26,7 +29,7 @@ const days = (p: PlanInfo) => `${p.period_days} ${plural(p.period_days, ['ден
 
 async function pay(p: PlanInfo) {
   busy.value = p.id
-  error.value = await checkout(p.id)
+  error.value = await checkout(p.id, receiptEmail.value)
   busy.value = ''
 }
 </script>
@@ -75,6 +78,11 @@ async function pay(p: PlanInfo) {
         </section>
       </div>
 
+      <label v-if="canPay && needsEmail" class="receipt field">
+        <span class="flabel">Почта для чека</span>
+        <input v-model="receiptEmail" class="input" type="email" autocomplete="email" inputmode="email" />
+      </label>
+
       <p v-if="error" class="err" role="alert">{{ error }}</p>
 
       <p class="note">
@@ -92,6 +100,15 @@ async function pay(p: PlanInfo) {
 </template>
 
 <style scoped>
+.receipt {
+  max-width: 340px;
+}
+
+.flabel {
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
 .reason {
   margin: -6px 0 0;
   padding: 10px 12px;

@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { CreditCard, FolderOpen, Loader2, LogOut } from 'lucide-vue-next'
 import ModalDialog from './ModalDialog.vue'
 import UsageList from './UsageList.vue'
-import { account, closeDialog, isPaid, logout, openLibrary, openTariffs } from '../lib/account'
+import { account, closeDialog, isPaid, logout, openLibrary, openTariffs, accountLabel } from '../lib/account'
 import { formatDate } from '../lib/format'
 import { toast } from '../store'
 
@@ -20,7 +20,7 @@ function signOut() {
     <div v-if="!user" class="loading"><Loader2 :size="18" class="spin" /> Загружаем…</div>
     <template v-else>
       <div class="who">
-        <span class="email" :title="user.email">{{ user.email }}</span>
+        <span class="email" :title="accountLabel(user)">{{ accountLabel(user) }}</span>
         <div class="plan">
           <span class="badge" :class="{ pro: isPaid }">{{ user.plan_title }}</span>
           <span v-if="isPaid && user.pro_until" class="until num">до {{ formatDate(user.pro_until) }}</span>

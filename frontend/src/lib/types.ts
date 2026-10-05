@@ -178,7 +178,10 @@ export interface PlanInfo {
 }
 
 export interface User {
+  /** пусто у аккаунта, созданного через VK ID без почты */
   email: string
+  /** через какие сервисы входил: vk, yandex */
+  providers?: OAuthProvider[]
   /** 'demo' или id оплаченного тарифа */
   plan: string
   plan_title: string

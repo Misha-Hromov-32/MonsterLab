@@ -116,9 +116,7 @@ RUSSIAN_EMAIL_DOMAINS = frozenset(
         "ro.ru",
     }
 )
-FOREIGN_EMAIL = (
-    "Иностранную почту по закону использовать нельзя — укажите российскую или войдите через VK ID / Яндекс ID"
-)
+FOREIGN_EMAIL = "Регистрация на эту почту недоступна"
 
 
 def email_allowed(email: str) -> bool:
@@ -169,6 +167,10 @@ class User:
 
 def normalize(email: str) -> str:
     return email.strip().lower()
+
+
+def valid_email(email: str) -> bool:
+    return bool(_EMAIL.match(email))
 
 
 def _index(email: str) -> str:
@@ -312,11 +314,33 @@ def _identity_index(provider: str, subject: str) -> str:
     return crypto.blind_index(f"{provider}:{subject}", "identity")
 
 
+def _create_verified(email_index: str, email: str, now: float) -> int:
+    """Новый покупатель после входа через провайдера: почта (если есть) подтверждена провайдером, пароля нет —
+    задать его можно через «Забыли пароль». Согласия приняты перед входом. Возвращает id."""
+    with db.connect() as con:
+        return con.execute(
+            "INSERT INTO users (email_index, email_enc, password, stamp, verified_at, created_at,"
+            " terms_accepted_at, pd_consent_at, legal_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                email_index,
+                crypto.encrypt(email.encode(), "email"),
+                crypto.hash_password(secrets.token_urlsafe(32)),
+                secrets.token_hex(16),
+                now,
+                now,
+                now,
+                now,
+                LEGAL_VERSION,
+            ),
+        ).lastrowid
+
+
 def oauth_login(provider: str, subject: str, email: str | None, accepted: bool) -> User:
     """Покупатель по входу через провайдера. subject — id у провайдера, email — адрес, подтверждённый провайдером.
 
     Уже входил так — тот же аккаунт. Иначе ищем по email: есть аккаунт — привязываем провайдера к нему
-    (тариф и обложки сохраняются); нет — создаём новый, уже с подтверждённой почтой, если приняты правила.
+    (тариф и обложки сохраняются); нет — создаём новый, если приняты правила. Провайдер не передал почту
+    (у многих аккаунтов VK её нет) — аккаунт создаётся без почты и находится по id у провайдера.
     Неподтверждённый аккаунт с этим email подтверждаем, а пароль сбрасываем: его мог задать не владелец
     почты (захват аккаунта до регистрации), а владелец только что доказал её через провайдера."""
     index = _identity_index(provider, subject)
@@ -324,35 +348,19 @@ def oauth_login(provider: str, subject: str, email: str | None, accepted: bool) 
         row = con.execute("SELECT user_id FROM user_identities WHERE subject_index = ?", (index,)).fetchone()
     if row is not None and (user := get(row["user_id"])) is not None:
         return user
-    if not email:
-        raise AccountError("Провайдер не передал email — войдите по почте или укажите почту в своём аккаунте")
-    email = normalize(email)
-    if not _EMAIL.match(email):
-        raise AccountError("Провайдер передал некорректный email — войдите по почте")
+    email = normalize(email or "")
+    if email and not _EMAIL.match(email):
+        email = ""  # непонятный адрес от провайдера — как будто его нет
     now = time.time()
-    existing = find(email)
+    existing = find(email) if email else None
     if existing is None:
         if not accepted:
             raise ConsentRequired("Чтобы создать аккаунт, примите соглашение и дайте согласие на обработку данных")
-        hashed = crypto.hash_password(secrets.token_urlsafe(32))  # пароля нет — задать можно через «Забыли пароль»
+        # без почты email_index — слепой индекс id у провайдера (своё назначение — с адресами не пересекается)
+        email_index = _index(email) if email else crypto.blind_index(f"{provider}:{subject}", "no-email")
         try:
-            with db.connect() as con:
-                user_id = con.execute(
-                    "INSERT INTO users (email_index, email_enc, password, stamp, verified_at, created_at,"
-                    " terms_accepted_at, pd_consent_at, legal_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        _index(email),
-                        crypto.encrypt(email.encode(), "email"),
-                        hashed,
-                        secrets.token_hex(16),
-                        now,
-                        now,
-                        now,
-                        now,
-                        LEGAL_VERSION,
-                    ),
-                ).lastrowid
-        except sqlite3.IntegrityError:  # тот же email только что зарегистрировали параллельно
+            user_id = _create_verified(email_index, email, now)
+        except sqlite3.IntegrityError:  # тот же аккаунт только что создали параллельно
             return oauth_login(provider, subject, email, accepted)
     else:
         user_id = existing.id
@@ -372,6 +380,13 @@ def oauth_login(provider: str, subject: str, email: str | None, accepted: bool) 
     if user is None:
         raise AccountError("Не удалось войти — попробуйте ещё раз")
     return user
+
+
+def providers(user_id: int) -> list[str]:
+    """Через какие сервисы покупатель входил: vk, yandex."""
+    with db.connect() as con:
+        rows = con.execute("SELECT DISTINCT provider FROM user_identities WHERE user_id = ?", (user_id,)).fetchall()
+    return sorted(r["provider"] for r in rows)
 
 
 # ---------------------------------------------------------------- ссылки из писем

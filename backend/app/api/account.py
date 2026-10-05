@@ -31,6 +31,8 @@ class Registration(Credentials):
 
 class CheckoutRequest(BaseModel):
     plan: str = Field(min_length=1, max_length=40)
+    # почта для кассового чека — только у аккаунтов без почты (вход через VK ID)
+    email: str | None = Field(None, max_length=254)
 
 
 class EmailOnly(BaseModel):
@@ -48,7 +50,8 @@ class NewPassword(LinkToken):
 def _me(user: accounts.User) -> dict:
     plan = accounts.find_plan(user.plan)
     return {
-        "email": user.email,
+        "email": user.email,  # пусто у аккаунта, созданного через VK ID без почты
+        "providers": accounts.providers(user.id),
         "plan": user.plan,
         "plan_title": plan["title"] if plan else ("Демо" if user.plan == accounts.DEMO else "Платный"),
         "pro_until": user.pro_until if user.plan != accounts.DEMO else None,
@@ -224,7 +227,12 @@ async def checkout(body: CheckoutRequest, user: accounts.User | None = Depends(c
     if accounts.find_plan(body.plan) is None:
         raise api_error(422, "bad_plan", "Такого тарифа нет — обновите страницу")
     try:
-        return {"url": await asyncio.to_thread(billing.checkout, user, body.plan)}
+        receipt_email = accounts.normalize(body.email or "")
+        if receipt_email and not accounts.valid_email(receipt_email):
+            raise api_error(422, "bad_email", "Проверьте почту для чека")
+        return {"url": await asyncio.to_thread(billing.checkout, user, body.plan, receipt_email)}
+    except billing.ReceiptEmailRequired as exc:
+        raise api_error(422, "email_required", str(exc)) from exc
     except billing.BillingError as exc:
         raise api_error(503, "billing_unavailable", str(exc)) from exc
 

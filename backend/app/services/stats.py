@@ -34,7 +34,7 @@ def record_visit() -> None:
 
 def _email(row) -> str:
     try:
-        return crypto.decrypt(row["email_enc"], "email").decode()
+        return crypto.decrypt(row["email_enc"], "email").decode() or "— без почты (VK ID) —"
     except crypto.CryptoError:
         return "— не расшифровать —"
 

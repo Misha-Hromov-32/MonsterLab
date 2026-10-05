@@ -207,6 +207,15 @@ export async function handleEmailLink(notify: (msg: string) => void): Promise<bo
   return true
 }
 
+/** Как подписать аккаунт: почта, а у аккаунта без почты — через какой сервис он создан. */
+export function accountLabel(u: User | null): string {
+  if (!u) return 'Аккаунт'
+  if (u.email) return u.email
+  if (u.providers?.includes('vk')) return 'Аккаунт VK ID'
+  if (u.providers?.includes('yandex')) return 'Аккаунт Яндекс ID'
+  return 'Аккаунт'
+}
+
 const OAUTH_KEY = 'ml.oauth'
 const OAUTH_PATH = /^\/auth\/(vk|yandex)\/callback\/?$/
 export const OAUTH_TITLES: Record<OAuthProvider, string> = { vk: 'VK ID', yandex: 'Яндекс ID' }
@@ -261,7 +270,7 @@ export async function handleOAuthCallback(notify: (msg: string) => void): Promis
     const s = await api.oauthFinish(provider, { code, state, device_id: q.get('device_id') })
     setUserToken(s.token)
     account.user = s.user
-    notify(`Вы вошли через ${title}: ${s.user.email}`)
+    notify(s.user.email ? `Вы вошли через ${title}: ${s.user.email}` : `Вы вошли через ${title}`)
   } catch (e) {
     const err = e as ApiError
     if (err.code === 'consent_required')
@@ -304,11 +313,12 @@ export function paidError(e: unknown, retry?: () => void): string | null {
   return null
 }
 
-/** Переход на страницу оплаты ЮKassa. Возвращает текст ошибки, если оплата сейчас невозможна. */
-export async function checkout(planId: string): Promise<string> {
+/** Переход на страницу оплаты. receiptEmail — почта для чека у аккаунта без почты (вход через VK ID).
+ * Возвращает текст ошибки, если оплата сейчас невозможна. */
+export async function checkout(planId: string, receiptEmail = ''): Promise<string> {
   if (!requireLogin('Войдите, чтобы оформить подписку', () => openTariffs())) return ''
   try {
-    const { url } = await api.checkout(planId)
+    const { url } = await api.checkout(planId, receiptEmail.trim())
     location.href = url
     return ''
   } catch (e) {

@@ -177,12 +177,7 @@ async function resend() {
             inputmode="email"
             required
             data-autofocus
-            :aria-describedby="mode === 'register' ? 'email-hint' : undefined"
           />
-          <!-- 406-ФЗ: регистрация по почте — только на российских почтовых сервисах -->
-          <span v-if="mode === 'register'" id="email-hint" class="hint">
-            Российская почта: Яндекс, Mail.ru, Рамблер — или войдите через VK ID / Яндекс ID
-          </span>
         </label>
         <label v-if="needsPassword" class="field">
           <span class="flabel">{{ mode === 'reset' ? 'Новый пароль' : 'Пароль' }}</span>

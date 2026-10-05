@@ -337,6 +337,16 @@ def test_tochka_payment_with_receipt_activates_plan_once(client: TestClient, use
         assert con.execute("SELECT applied, provider FROM payments WHERE id = ?", (oid,)).fetchone()[:] == (1, "tochka")
 
 
+def test_account_without_email_gives_email_for_receipt(client: TestClient, tochka: dict) -> None:
+    user = accounts.oauth_login("vk", "vk-no-mail", None, True)
+    auth = {"Authorization": f"Bearer {accounts.make_token(user)}"}
+    r = client.post("/api/billing/checkout", json={"plan": "start"}, headers=auth)
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "email_required"
+    assert client.post("/api/billing/checkout", json={"plan": "start", "email": "чек"}, headers=auth).status_code == 422
+    r = client.post("/api/billing/checkout", json={"plan": "start", "email": "Buyer@Gmail.com"}, headers=auth)
+    assert r.status_code == 200 and tochka["sent"][-1]["Data"]["Client"]["email"] == "buyer@gmail.com"
+
+
 def test_tochka_underpaid_operation_is_not_applied(client: TestClient, tochka: dict) -> None:
     token = verified_token(client)
     auth = {"Authorization": f"Bearer {token}"}
@@ -387,7 +397,7 @@ def test_demo_quota_is_lifetime_and_counts_analysis(anon: TestClient) -> None:
 def test_foreign_email_is_refused_russian_is_accepted(anon: TestClient) -> None:
     for foreign in ("someone@gmail.com", "someone@outlook.com", "someone@proton.me"):
         r = anon.post("/api/auth/register", json={"email": foreign, "password": PASSWORD, **CONSENT})
-        assert r.status_code == 422 and "Иностранную почту" in r.json()["detail"]["message"]
+        assert r.status_code == 422 and r.json()["detail"]["message"] == "Регистрация на эту почту недоступна"
     for russian in ("Someone@Yandex.ru", "someone@mail.ru", "someone@rambler.ru"):
         r = anon.post("/api/auth/register", json={"email": russian, "password": PASSWORD, **CONSENT})
         assert r.status_code == 200, r.text

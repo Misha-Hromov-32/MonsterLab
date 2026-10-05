@@ -43,6 +43,14 @@ class BillingError(RuntimeError):
     """Понятная пользователю причина: оплата не подключена, платёжный сервис недоступен."""
 
 
+class ReceiptEmailRequired(BillingError):
+    """У аккаунта нет почты, а чек по 54-ФЗ без неё не отправить."""
+
+
+def needs_receipt_email() -> bool:
+    return (config.TOCHKA_RECEIPT if provider() == "tochka" else config.YOOKASSA_RECEIPT) and enabled()
+
+
 def provider() -> str | None:
     """Через кого сейчас принимаем оплату; None — оплата не настроена."""
     if config.PAYMENT_PROVIDER == "tochka":
@@ -94,7 +102,7 @@ def _call(name: str, method: str, path: str, **kw) -> httpx.Response:
 # ---------------------------------------------------------------- создание платежа
 
 
-def checkout(user: accounts.User, plan_id: str) -> str:
+def checkout(user: accounts.User, plan_id: str, receipt_email: str = "") -> str:
     """Создаёт платёж за тариф plan_id и возвращает адрес страницы оплаты."""
     info = accounts.find_plan(plan_id)
     if info is None:
@@ -105,7 +113,11 @@ def checkout(user: accounts.User, plan_id: str) -> str:
     price = float(info["price_rub"])
     description = f"MonStoreLab, тариф «{info['title']}» на {info['period_days']} дней"
     make = _tochka_checkout if name == "tochka" else _yookassa_checkout
-    payment_id, status, url = make(user, info, price, description)
+    # почта для кассового чека: из аккаунта, а у аккаунта без почты (вход через VK ID) — введённая при оплате
+    email = user.email or receipt_email
+    if not email and needs_receipt_email():
+        raise ReceiptEmailRequired("Укажите почту — на неё придёт кассовый чек")
+    payment_id, status, url = make(user, email, info, price, description)
     with db.connect() as con:
         con.execute(
             "INSERT OR IGNORE INTO payments (id, user_id, amount, status, plan, provider, created_at)"
@@ -115,7 +127,9 @@ def checkout(user: accounts.User, plan_id: str) -> str:
     return url
 
 
-def _tochka_checkout(user: accounts.User, info: dict, price: float, description: str) -> tuple[str, str, str]:
+def _tochka_checkout(
+    user: accounts.User, email: str, info: dict, price: float, description: str
+) -> tuple[str, str, str]:
     data: dict = {
         "customerCode": config.TOCHKA_CUSTOMER_CODE,
         "amount": round(price, 2),
@@ -129,7 +143,7 @@ def _tochka_checkout(user: accounts.User, info: dict, price: float, description:
     path = "/acquiring/v1.0/payments"
     if config.TOCHKA_RECEIPT:  # чек по 54-ФЗ: покупатель и одна позиция «услуга»
         path = "/acquiring/v1.0/payments_with_receipt"
-        data["Client"] = {"email": user.email}
+        data["Client"] = {"email": email}
         data["Items"] = [
             {
                 "name": description[:128],
@@ -150,7 +164,9 @@ def _tochka_checkout(user: accounts.User, info: dict, price: float, description:
     return op["operationId"], op.get("status") or "CREATED", op["paymentLink"]
 
 
-def _yookassa_checkout(user: accounts.User, info: dict, price: float, description: str) -> tuple[str, str, str]:
+def _yookassa_checkout(
+    user: accounts.User, email: str, info: dict, price: float, description: str
+) -> tuple[str, str, str]:
     amount = {"value": f"{price:.2f}", "currency": "RUB"}
     body: dict = {
         "amount": amount,
@@ -161,7 +177,7 @@ def _yookassa_checkout(user: accounts.User, info: dict, price: float, descriptio
     }
     if config.YOOKASSA_RECEIPT:  # чек по 54-ФЗ: покупатель и одна позиция «услуга»
         body["receipt"] = {
-            "customer": {"email": user.email},
+            "customer": {"email": email},
             "items": [
                 {
                     "description": description[:128],

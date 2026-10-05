@@ -134,11 +134,24 @@ def test_state_is_single_use_and_bound_to_provider(anon: TestClient, providers: 
     assert again.status_code == 422 and again.json()["detail"]["code"] == "oauth_failed"
 
 
-def test_missing_or_unverified_email_is_refused(anon: TestClient, providers: dict) -> None:
+def test_vk_without_email_gets_account_by_vk_id(anon: TestClient, providers: dict) -> None:
     providers["people"]["ne"] = {"id": "vk-500"}
-    assert _login(anon, "vk", "ne").json()["detail"]["code"] == "oauth_failed"
-    providers["people"]["uv"] = {"id": "vk-501", "email": "victim@example.com", "email_verified": False}
-    assert _login(anon, "vk", "uv").json()["detail"]["code"] == "oauth_failed"
+    assert _login(anon, "vk", "ne", consent=False).json()["detail"]["code"] == "consent_required"
+    first = _login(anon, "vk", "ne")
+    assert first.status_code == 200, first.text
+    me = anon.get("/api/auth/me", headers={"Authorization": f"Bearer {first.json()['token']}"}).json()
+    assert me["email"] == "" and me["providers"] == ["vk"] and me["plan"] == "demo"
+    # следующий вход тем же VK — тот же аккаунт, даже без согласий
+    providers["people"]["ne2"] = {"id": "vk-500"}
+    again = _login(anon, "vk", "ne2", consent=False).json()
+    assert again["token"].split(".")[1] == first.json()["token"].split(".")[1]
+
+
+def test_unverified_provider_email_does_not_open_someone_elses_account(anon: TestClient, providers: dict) -> None:
+    verified_token(anon, "vk-victim@example.com")
+    providers["people"]["uv"] = {"id": "vk-501", "email": "vk-victim@example.com", "email_verified": False}
+    r = _login(anon, "vk", "uv")
+    assert r.status_code == 200 and r.json()["user"]["email"] == ""  # отдельный аккаунт без почты
 
 
 def test_disabled_provider_and_bad_code(anon: TestClient, providers: dict, monkeypatch) -> None:

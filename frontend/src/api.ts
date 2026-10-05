@@ -221,8 +221,10 @@ export const api = {
     request<{ activated: boolean; user: User }>('/api/billing/check', withAuth({ method: 'POST' }), {
       timeoutMs: 30_000,
     }),
-  checkout: (plan: string) =>
-    request<{ url: string }>('/api/billing/checkout', withAuth(jsonBody('POST', { plan })), { timeoutMs: 30_000 }),
+  checkout: (plan: string, email?: string) =>
+    request<{ url: string }>('/api/billing/checkout', withAuth(jsonBody('POST', { plan, email: email || null })), {
+      timeoutMs: 30_000,
+    }),
 
   /** улучшенная обложка рисуется 30–60 секунд */
   improve: (id: string, context: object, issues: string[]) =>
