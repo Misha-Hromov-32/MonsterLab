@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { drawOverlay } from '../../lib/heat'
+import { srcset } from '../../lib/images'
 import type { Showcase } from '../../lib/types'
 
 const props = defineProps<{ card: Showcase['card'] }>()
@@ -101,7 +102,17 @@ watch(() => props.card, redraw)
     @pointermove="move"
     @keydown="key"
   >
-    <img :src="card.url" alt="" draggable="false" />
+    <!-- главный кадр первого экрана: грузим сразу и с высоким приоритетом, размер — под ширину карточки -->
+    <img
+      :src="card.url"
+      :srcset="srcset(card.url)"
+      sizes="(max-width: 760px) 92vw, 480px"
+      :width="card.width"
+      :height="card.height"
+      fetchpriority="high"
+      alt=""
+      draggable="false"
+    />
     <div class="heat-side">
       <canvas ref="canvas" />
       <span

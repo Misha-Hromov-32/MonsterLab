@@ -16,6 +16,8 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path
 
+from PIL import Image
+
 from .. import config
 from ..core.imaging import open_image
 
@@ -24,6 +26,8 @@ log = logging.getLogger(__name__)
 SETTINGS_FILE = config.DATA_DIR / "settings.json"
 EXAMPLES_DIR = config.DATA_DIR / "examples"
 EXAMPLE_MAX_SIDE = 1600
+# ширины уменьшенных копий для главной (srcset); другие не делаем, чтобы нельзя было забить диск
+PREVIEW_WIDTHS = (160, 320, 480, 800)
 
 DESIGNS = ("brand", "editorial", "split", "feed")
 ROLES = {"variants": config.MAX_VARIANTS, "competitors": config.MAX_COMPETITORS}
@@ -241,8 +245,29 @@ def image_url(example_id: str, image_id: str) -> str:
     return f"/api/public/files/{example_id}/{image_id}.jpg"
 
 
+def preview_path(example_id: str, image_id: str, width: int) -> Path | None:
+    """Уменьшенная копия в WebP шириной width (из PREVIEW_WIDTHS): делается при первом запросе и лежит
+    рядом с оригиналом. None — оригинала нет."""
+    src = image_path(example_id, image_id)
+    if not src.is_file():
+        return None
+    out = src.with_name(f"{image_id}-{width}.webp")
+    if not out.is_file():
+        with Image.open(src) as img:
+            img.draft("RGB", (width, width * 4))  # JPEG декодируется сразу в уменьшенном масштабе
+            img = img.convert("RGB")
+            if img.width > width:
+                img = img.resize((width, round(img.height * width / img.width)), Image.LANCZOS)
+            tmp = out.with_name(f"{out.stem}.{new_id()}.tmp")
+            img.save(tmp, "WEBP", quality=78, method=6)
+            tmp.replace(out)
+    return out
+
+
 def delete_image_file(example_id: str, image_id: str) -> None:
     image_path(example_id, image_id).unlink(missing_ok=True)
+    for preview in (EXAMPLES_DIR / example_id).glob(f"{image_id}-*.webp"):
+        preview.unlink(missing_ok=True)
 
 
 def delete_example_files(example_id: str) -> None:

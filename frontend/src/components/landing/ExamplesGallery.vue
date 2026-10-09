@@ -2,6 +2,7 @@
 import { ArrowRight } from 'lucide-vue-next'
 import { loadExample, site } from '../../store'
 import { plural } from '../../lib/format'
+import { srcset } from '../../lib/images'
 </script>
 
 <template>
@@ -14,7 +15,18 @@ import { plural } from '../../lib/format'
       <!-- кликабельна вся карточка: кнопка «Открыть» растянута псевдоэлементом на всю площадь -->
       <article v-for="ex in site.data.examples" :key="ex.id" class="ex">
         <div class="covers">
-          <img v-for="v in ex.variants.slice(0, 4)" :key="v.id" :src="v.url" alt="" loading="lazy" />
+          <img
+            v-for="v in ex.variants.slice(0, 4)"
+            :key="v.id"
+            :src="v.url"
+            :srcset="srcset(v.url)"
+            sizes="(max-width: 560px) 24vw, 130px"
+            :width="v.width"
+            :height="v.height"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
         </div>
         <div class="body">
           <h3>{{ ex.title }}</h3>

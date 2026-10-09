@@ -5,6 +5,7 @@ import ExamplesGallery from './ExamplesGallery.vue'
 import Steps from './Steps.vue'
 import Features from './Features.vue'
 import { bgRgb, drawOverlay } from '../../lib/heat'
+import { srcset } from '../../lib/images'
 import { pct } from '../../lib/format'
 import { site } from '../../store'
 import type { Landing, Showcase } from '../../lib/types'
@@ -76,7 +77,16 @@ const targetTile = computed(() => {
         @pointermove="move"
         @pointerleave="light.on = false"
       >
-        <img v-for="(t, i) in site.showcase.feed.tiles" :key="i" :src="t.url" alt="" class="tile" :style="box(t)" />
+        <img
+          v-for="(t, i) in site.showcase.feed.tiles"
+          :key="i"
+          :src="t.url"
+          :srcset="srcset(t.url)"
+          sizes="(max-width: 760px) 30vw, 260px"
+          alt=""
+          class="tile"
+          :style="box(t)"
+        />
         <canvas ref="fog" class="fog" :class="{ lit: light.on }" />
         <div v-if="targetTile" class="target" :style="box(targetTile)">
           <span class="num"> Ваша карточка · {{ pct(site.showcase.feed.share) }} внимания ленты </span>

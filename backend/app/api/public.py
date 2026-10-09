@@ -51,16 +51,27 @@ def get_legal() -> dict:
     }
 
 
+# id картинки меняется при каждой замене, поэтому кэш можно держать долго
+_FOREVER = {"Cache-Control": "public, max-age=31536000, immutable"}
+
+
 @router.get("/files/{example_id}/{name}")
-def get_file(example_id: str, name: str) -> FileResponse:
+def get_file(example_id: str, name: str, w: int | None = None) -> FileResponse:
+    """Картинка примера. ?w= — уменьшенная копия в WebP для главной (только ширины из PREVIEW_WIDTHS)."""
     image_id = name.removesuffix(".jpg")
     if not (_ID.match(example_id) and _ID.match(image_id)):
         raise HTTPException(404)
+    if w is not None:
+        if w not in site.PREVIEW_WIDTHS:
+            raise HTTPException(404)
+        preview = site.preview_path(example_id, image_id, w)
+        if preview is None:
+            raise HTTPException(404)
+        return FileResponse(preview, media_type="image/webp", headers=_FOREVER)
     path = site.image_path(example_id, image_id)
     if not path.is_file():
         raise HTTPException(404)
-    # id картинки меняется при каждой замене, поэтому кэш можно держать долго
-    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800, immutable"})
+    return FileResponse(path, media_type="image/jpeg", headers=_FOREVER)
 
 
 @router.get("/showcase")

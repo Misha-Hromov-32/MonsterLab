@@ -14,8 +14,17 @@ server {
   # По умолчанию запрос к API — небольшой JSON. Большие тела разрешены только там, где грузят картинки
   # (локации ниже); поднимете MAX_UPLOAD_MB — поднимите и их.
   client_max_body_size 2m;
+  # Сжатие. Внешний nginx на хосте ходит сюда по HTTP/1.0 — без gzip_http_version 1.0 ответы
+  # уходили несжатыми. Собранные JS/CSS/SVG уже лежат рядом в .gz (Dockerfile) — их отдаёт gzip_static,
+  # остальное (JSON API) сжимается на лету.
   gzip on;
-  gzip_types text/css application/javascript application/json image/svg+xml;
+  gzip_static on;
+  gzip_http_version 1.0;
+  gzip_proxied any;
+  gzip_vary on;
+  gzip_comp_level 5;
+  gzip_min_length 1024;
+  gzip_types text/plain text/css application/javascript application/json image/svg+xml;
 
   include /etc/nginx/snippets/security-headers.conf;
 

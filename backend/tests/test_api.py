@@ -77,6 +77,22 @@ def test_seeded_examples_are_public(client: TestClient) -> None:
     assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
 
 
+def test_example_previews_are_small_webp(client: TestClient) -> None:
+    from PIL import Image
+    import io
+
+    url = client.get("/api/public/site").json()["examples"][0]["variants"][0]["url"]
+    full = client.get(url).content
+    r = client.get(f"{url}?w=320")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/webp"
+    assert "immutable" in r.headers["cache-control"]
+    assert Image.open(io.BytesIO(r.content)).width == 320
+    assert len(r.content) < len(full) / 4
+    assert client.get(f"{url}?w=320").content == r.content  # второй раз — готовый файл
+    # произвольные ширины не делаем: иначе можно забить диск копиями
+    assert client.get(f"{url}?w=321").status_code == 404
+
+
 def test_file_route_accepts_only_hex_ids(client: TestClient) -> None:
     # один сегмент пути, но не id: до файловой системы запрос дойти не должен
     for url in ("/api/public/files/ABC/x.jpg", "/api/public/files/0a/..jpg", "/api/public/files/0a/.env"):
