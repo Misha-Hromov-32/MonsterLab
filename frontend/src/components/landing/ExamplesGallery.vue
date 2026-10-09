@@ -15,17 +15,18 @@ import { srcset } from '../../lib/images'
       <!-- кликабельна вся карточка: кнопка «Открыть» растянута псевдоэлементом на всю площадь -->
       <article v-for="ex in site.data.examples" :key="ex.id" class="ex">
         <div class="covers">
+          <!-- src — последним: Vue ставит атрибуты по порядку, и с src впереди браузер успевает начать грузить оригинал -->
           <img
             v-for="v in ex.variants.slice(0, 4)"
             :key="v.id"
-            :src="v.url"
-            :srcset="srcset(v.url)"
-            sizes="(max-width: 560px) 24vw, 130px"
-            :width="v.width"
-            :height="v.height"
-            alt=""
             loading="lazy"
             decoding="async"
+            alt=""
+            :width="v.width"
+            :height="v.height"
+            sizes="(max-width: 560px) 24vw, 130px"
+            :srcset="srcset(v.url)"
+            :src="v.url"
           />
         </div>
         <div class="body">

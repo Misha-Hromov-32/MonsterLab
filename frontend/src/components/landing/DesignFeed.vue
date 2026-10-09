@@ -80,12 +80,12 @@ const targetTile = computed(() => {
         <img
           v-for="(t, i) in site.showcase.feed.tiles"
           :key="i"
-          :src="t.url"
-          :srcset="srcset(t.url)"
-          sizes="(max-width: 760px) 30vw, 260px"
           alt=""
           class="tile"
           :style="box(t)"
+          sizes="(max-width: 760px) 30vw, 260px"
+          :srcset="srcset(t.url)"
+          :src="t.url"
         />
         <canvas ref="fog" class="fog" :class="{ lit: light.on }" />
         <div v-if="targetTile" class="target" :style="box(targetTile)">

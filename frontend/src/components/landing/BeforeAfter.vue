@@ -104,14 +104,14 @@ watch(() => props.card, redraw)
   >
     <!-- главный кадр первого экрана: грузим сразу и с высоким приоритетом, размер — под ширину карточки -->
     <img
-      :src="card.url"
-      :srcset="srcset(card.url)"
-      sizes="(max-width: 760px) 92vw, 480px"
-      :width="card.width"
-      :height="card.height"
       fetchpriority="high"
       alt=""
       draggable="false"
+      :width="card.width"
+      :height="card.height"
+      sizes="(max-width: 760px) 92vw, 480px"
+      :srcset="srcset(card.url)"
+      :src="card.url"
     />
     <div class="heat-side">
       <canvas ref="canvas" />
