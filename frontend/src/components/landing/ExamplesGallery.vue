@@ -110,6 +110,7 @@ import { srcset } from '../../lib/images'
 
 .covers img {
   width: 100%;
+  height: auto; /* атрибут height у img — только для резерва места, размер задаёт aspect-ratio */
   aspect-ratio: 3 / 4;
   object-fit: cover;
   border-radius: 7px;
