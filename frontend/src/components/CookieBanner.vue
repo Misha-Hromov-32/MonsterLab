@@ -1,41 +1,24 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { Cookie } from 'lucide-vue-next'
+import { consent, setConsent } from '../lib/consent'
 
-// Плашка о cookie и хранилище браузера. Рекламы и аналитики на сайте нет, поэтому выбирать нечего —
-// пользователь только подтверждает, что ознакомлен; отметка хранится в localStorage.
-const KEY = 'ml.cookies'
-
-function seen(): boolean {
-  try {
-    return !!localStorage.getItem(KEY)
-  } catch {
-    return false
-  }
-}
-
-const open = ref(!seen())
-
-function accept() {
-  open.value = false
-  try {
-    localStorage.setItem(KEY, new Date().toISOString())
-  } catch {
-    /* приватный режим — плашка появится снова при следующем визите */
-  }
-}
+// Плашка о cookie: необходимые работают всегда (вход, настройки), аналитические (Яндекс Метрика) — только
+// после «Принять». Выбор можно изменить ссылкой «Настройки cookie» в подвале.
 </script>
 
 <template>
   <Transition name="cookie">
-    <section v-if="open" class="cookie" role="region" aria-label="Использование cookie">
+    <section v-if="consent.open" class="cookie" role="region" aria-label="Настройки cookie">
       <span class="ic" aria-hidden="true"><Cookie :size="18" /></span>
       <p>
-        Мы используем cookie и хранилище браузера только для работы сайта: вход в аккаунт и настройки. Рекламных и
-        аналитических cookie нет.
+        Мы используем необходимые cookie для работы сайта, а с вашего согласия — аналитические (Яндекс Метрика), чтобы
+        делать сервис удобнее.
         <a href="/legal#cookies">Подробнее</a>
       </p>
-      <button type="button" class="btn primary sm" @click="accept">Понятно</button>
+      <div class="btns">
+        <button type="button" class="btn ghost sm" @click="setConsent('necessary')">Только необходимые</button>
+        <button type="button" class="btn primary sm" @click="setConsent('all')">Принять</button>
+      </div>
     </section>
   </Transition>
 </template>
@@ -47,11 +30,10 @@ function accept() {
   bottom: 16px;
   z-index: 60;
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 12px;
-  max-width: 520px;
-  padding: 12px 14px;
+  grid-template-columns: auto 1fr;
+  gap: 10px 12px;
+  max-width: 460px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--panel);
@@ -80,6 +62,14 @@ a {
   text-underline-offset: 3px;
 }
 
+.btns {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .cookie-enter-active,
 .cookie-leave-active {
   transition:
@@ -98,10 +88,17 @@ a {
     left: 8px;
     right: 8px;
     bottom: 8px;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
   }
   .ic {
     display: none;
+  }
+  .btns {
+    grid-column: 1;
+  }
+  .btns .btn {
+    flex: 1;
+    justify-content: center;
   }
 }
 </style>

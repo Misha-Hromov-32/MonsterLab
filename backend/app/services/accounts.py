@@ -30,7 +30,7 @@ from . import crypto, db, mail, site
 log = logging.getLogger(__name__)
 
 # Редакция правил сервиса (страница /legal). Новая редакция — новая дата здесь и в документах.
-LEGAL_VERSION = "2026-10-05"
+LEGAL_VERSION = "2026-10-10"
 TOKEN_TTL = 30 * 24 * 3600
 TOKEN_PREFIX = "u2"
 MIN_PASSWORD = 8

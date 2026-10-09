@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { legal, loadLegal, ogrnLabel } from '../lib/legal'
+import { reopenConsent } from '../lib/consent'
 
 // Подвал: документы и реквизиты исполнителя — продавец услуг обязан раскрыть их на сайте.
 onMounted(loadLegal)
@@ -14,6 +15,7 @@ const year = new Date().getFullYear()
       <a href="/legal#privacy">Политика обработки персональных данных</a>
       <a href="/legal#consent">Согласие на обработку данных</a>
       <a href="/legal#cookies">Cookie</a>
+      <button type="button" class="linkbtn" @click="reopenConsent">Настройки cookie</button>
     </nav>
     <p v-if="legal.data?.name || legal.data?.operator" class="req">
       <template v-if="legal.data.name">
@@ -56,6 +58,21 @@ const year = new Date().getFullYear()
   margin-right: 18px;
   margin-left: -10px;
   color: var(--line-strong);
+}
+
+.linkbtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.linkbtn:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 a {

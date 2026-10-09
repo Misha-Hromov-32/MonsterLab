@@ -2,6 +2,7 @@ import { computed, reactive } from 'vue'
 import { api, ApiError } from '../api'
 import { session, setUserToken } from './session'
 import { formatDate, promoSummary } from './format'
+import { goal } from './metrika'
 import type { Billing, Consent, OAuthProvider, Session, User } from './types'
 
 export type AccountDialog = '' | 'login' | 'account' | 'tariffs' | 'library'
@@ -56,6 +57,7 @@ export function openLibrary() {
 export function openTariffs(reason = '') {
   account.reason = reason
   account.dialog = 'tariffs'
+  goal('tariffs_open')
   loadPlans()
 }
 
@@ -124,6 +126,7 @@ export async function signIn(
   try {
     if (mode === 'register') {
       showSent((await api.register(email, password, consent)).email, 'verify')
+      goal('register')
       return ''
     }
     finishLogin(await api.login(email, password))
@@ -200,6 +203,7 @@ export async function handleEmailLink(notify: (msg: string) => void): Promise<bo
     }
     setUserToken(s.token)
     account.user = s.user
+    goal('email_verified')
     notify(`Почта подтверждена: ${s.user.email}`)
   } catch (e) {
     openLogin((e as Error).message)
@@ -214,6 +218,7 @@ export async function redeemPromo(code: string): Promise<{ error?: string; messa
     account.user = r.user
     const title = (id: string) => account.billing?.plans.find((p) => p.id === id)?.title ?? id
     const got = promoSummary(r.applied, title)
+    goal('promo')
     return { message: got.length ? `Промокод активирован: ${got.join(', ')}` : 'Промокод активирован' }
   } catch (e) {
     return { error: (e as Error).message }
@@ -283,6 +288,7 @@ export async function handleOAuthCallback(notify: (msg: string) => void): Promis
     const s = await api.oauthFinish(provider, { code, state, device_id: q.get('device_id') })
     setUserToken(s.token)
     account.user = s.user
+    goal('oauth_login', { provider })
     notify(s.user.email ? `Вы вошли через ${title}: ${s.user.email}` : `Вы вошли через ${title}`)
   } catch (e) {
     const err = e as ApiError
@@ -332,6 +338,8 @@ export async function checkout(planId: string, receiptEmail = ''): Promise<strin
   if (!requireLogin('Войдите, чтобы оформить подписку', () => openTariffs())) return ''
   try {
     const { url } = await api.checkout(planId, receiptEmail.trim())
+    const price = account.billing?.plans.find((p) => p.id === planId)?.price_rub
+    goal('checkout', { plan: planId, order_price: price, currency: 'RUB' })
     location.href = url
     return ''
   } catch (e) {
@@ -352,6 +360,8 @@ export async function checkPaymentReturn(
 ) {
   const url = new URL(location.href)
   const result = url.searchParams.get('payment')
+  // срок тарифа до возврата с оплаты: вырос — значит, оплата прошла сейчас (цель «payment» с суммой)
+  const paidBefore = account.user?.pro_until ?? 0
   if (result !== 'return' && result !== 'fail') return
   try {
     if (result === 'fail') {
@@ -365,6 +375,11 @@ export async function checkPaymentReturn(
       await refreshMe()
       const u = account.user
       if (u && u.plan !== 'demo') {
+        if ((u.pro_until ?? 0) > paidBefore) {
+          if (!account.billing) await loadPlans()
+          const price = account.billing?.plans.find((p) => p.id === u.plan)?.price_rub
+          goal('payment', { plan: u.plan, order_price: price, currency: 'RUB' })
+        }
         notify(
           u.pro_until
             ? `Тариф «${u.plan_title}» активен до ${formatDate(u.pro_until)}`

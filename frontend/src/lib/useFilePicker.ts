@@ -1,4 +1,5 @@
 import { IMAGE_ACCEPT } from './files'
+import { goal } from './metrika'
 
 /**
  * Системный диалог выбора файлов без скрытого <input> в разметке: у каждого вызова свой
@@ -17,6 +18,7 @@ export function useFilePicker(onFiles: (files: File[]) => void, accept = IMAGE_A
     input.addEventListener('change', () => {
       if (input.files?.length) onFiles(Array.from(input.files))
     })
+    goal('upload_click')
     input.click()
   }
 }

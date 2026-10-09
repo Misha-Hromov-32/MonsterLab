@@ -154,7 +154,14 @@ export interface Health {
   neural: boolean
   expert: { enabled: boolean; models: string[] }
   /** какие платные функции доступны на сервере: выключенные интерфейс прячет */
-  features?: { improve: boolean; competitors: boolean; billing: boolean; oauth?: OAuthProvider[] }
+  features?: {
+    improve: boolean
+    competitors: boolean
+    billing: boolean
+    oauth?: OAuthProvider[]
+    /** номер счётчика Яндекс Метрики или null */
+    metrika?: number | null
+  }
 }
 
 /** Вход через внешний аккаунт: VK ID или Яндекс ID */

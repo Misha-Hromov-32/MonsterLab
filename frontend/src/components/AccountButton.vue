@@ -14,7 +14,7 @@ import { account, isPaid, openAccount, openLogin, signedIn, accountLabel } from 
     @click="openAccount"
   >
     <UserRound :size="15" aria-hidden="true" />
-    <span class="email">{{ accountLabel(account.user) }}</span>
+    <span class="email ym-hide-content">{{ accountLabel(account.user) }}</span>
     <span v-if="account.user" class="badge" :class="{ pro: isPaid, free: !isPaid }">{{ account.user.plan_title }}</span>
   </button>
   <button v-else type="button" class="btn pill login" aria-label="Войти" aria-haspopup="dialog" @click="openLogin()">

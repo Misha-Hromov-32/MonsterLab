@@ -132,7 +132,7 @@ async function resend() {
     <!-- письмо отправлено -->
     <div v-if="mode === 'sent'" class="sent">
       <span class="sent-icon" aria-hidden="true"><MailCheck :size="22" /></span>
-      <p class="sent-text">
+      <p class="sent-text ym-hide-content">
         <template v-if="account.letter === 'verify'">
           Мы отправили ссылку на <strong>{{ account.pendingEmail }}</strong
           >. Нажмите «Подтвердить почту» в письме.
@@ -170,7 +170,7 @@ async function resend() {
           <span class="flabel">Email</span>
           <input
             v-model="email"
-            class="input"
+            class="input ym-disable-keys"
             type="email"
             name="email"
             autocomplete="email"

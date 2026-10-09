@@ -16,6 +16,8 @@ import TariffsDialog from './components/TariffsDialog.vue'
 import { addFiles, loadHealth, loadSite, resetAll, state, toast } from './store'
 import { session } from './lib/session'
 import { account, checkPaymentReturn, handleEmailLink, handleOAuthCallback, refreshMe } from './lib/account'
+import { consent } from './lib/consent'
+import { hit, initMetrika } from './lib/metrika'
 
 // ?preview=1 — главная внутри iframe админки: только витрина, без опроса сервиса
 // и без перехвата перетаскивания файлов (иначе он мешал бы самой админке).
@@ -56,6 +58,20 @@ function onDrop(e: DragEvent) {
   if ((e.target as HTMLElement)?.closest?.('[data-own-drop]')) return
   if (e.dataTransfer?.files.length) addFiles(e.dataTransfer.files)
 }
+
+// Яндекс Метрика: только с согласия на аналитические cookie и если на сервере задан номер счётчика
+watch(
+  () => [state.health?.features?.metrika, consent.choice] as const,
+  ([id]) => initMetrika(id),
+  { immediate: true },
+)
+// одностраничное приложение: разбор, сравнение и полка — отдельные «страницы» в отчётах Метрики
+watch(
+  () => (state.variants.length ? state.view : 'landing'),
+  (view, prev) => {
+    if (prev !== undefined) hit(view === 'landing' ? '/' : `/#${view}`)
+  },
+)
 
 onMounted(() => {
   loadSite(preview)

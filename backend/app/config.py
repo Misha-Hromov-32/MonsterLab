@@ -100,6 +100,9 @@ ALLOWED_EMAIL_DOMAINS = frozenset(
     d.strip().lower().lstrip("@") for d in os.getenv("ALLOWED_EMAIL_DOMAINS", "").split(",") if d.strip()
 )
 
+# Яндекс Метрика: номер счётчика. Загружается на сайте только с согласия посетителя на аналитические cookie
+METRIKA_ID = _int("METRIKA_ID", 0) or None
+
 # ---------------------------------------------------------------- вход через VK ID и Яндекс ID (OAuth + PKCE)
 
 # Приложение в кабинете VK ID для бизнеса (id.vk.ru): ID приложения; Redirect URL — PUBLIC_URL/auth/vk/callback

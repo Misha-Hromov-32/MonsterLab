@@ -35,6 +35,8 @@ def health() -> dict:
             "billing": billing.enabled(),
             # вход через провайдеров: vk, yandex — для каких заданы ключи
             "oauth": oauth.enabled(),
+            # номер счётчика Яндекс Метрики — сайт подключает её только после согласия на cookie
+            "metrika": config.METRIKA_ID,
         },
     }
 

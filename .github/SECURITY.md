@@ -41,7 +41,7 @@
 - nginx ограничивает частоту запросов к API (20 в секунду с адреса, всплеск до 100) и число соединений (40),
   большие тела принимает только на адресах загрузки картинок, остальное API — до 2 МБ.
 - Заголовки: Content-Security-Policy (только свои скрипты и запросы к своему сайту), HSTS, запрет встраивания
-  в чужие сайты (`frame-ancestors`, `X-Frame-Options`), `nosniff`, Permissions-Policy
+  в чужие сайты (`frame-ancestors`: свой сайт и плеер Вебвизора Метрики), `nosniff`, Permissions-Policy
   (`frontend/nginx/security-headers.conf`).
 
 ## Рекомендации для своего сервера

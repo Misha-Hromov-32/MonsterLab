@@ -11,6 +11,7 @@ import {
 import { dataUrlToFile, IMAGE_HINT, isImage } from './lib/files'
 import { baseName, plural } from './lib/format'
 import { paidError, refreshMe, requireLogin } from './lib/account'
+import { goal } from './lib/metrika'
 import { KEYS } from './lib/types'
 import type {
   ExampleResults,
@@ -291,6 +292,7 @@ export async function analyze(v: Variant) {
     if (v.file !== file) return // пока считали, картинку заменили
     v.analysis = applyGeneratedBonus(v, analysis)
     v.status = 'ready'
+    goal('analysis')
   } catch (e) {
     if (ctrl.signal.aborted || v.file !== file) return
     v.status = 'error'

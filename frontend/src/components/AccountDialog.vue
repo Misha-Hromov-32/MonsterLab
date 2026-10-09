@@ -46,7 +46,7 @@ function signOut() {
     <div v-if="!user" class="loading"><Loader2 :size="18" class="spin" /> Загружаем…</div>
     <template v-else>
       <div class="who">
-        <span class="email" :title="accountLabel(user)">{{ accountLabel(user) }}</span>
+        <span class="email ym-hide-content" :title="accountLabel(user)">{{ accountLabel(user) }}</span>
         <div class="plan">
           <span class="badge" :class="{ pro: isPaid }">{{ user.plan_title }}</span>
           <span v-if="isPaid && user.pro_until" class="until num">до {{ formatDate(user.pro_until) }}</span>
