@@ -14,7 +14,7 @@ from ..core.imaging import BadImage
 from ..errors import api_error
 from ..ratelimit import client_ip, login_limit
 from ..schemas import ProductContext
-from ..services import accounts, auth, billing, expert, jobs, site, stats
+from ..services import accounts, auth, billing, expert, jobs, promo, site, stats
 from .deps import read_upload, require_admin
 
 router = APIRouter(prefix="/api/admin")
@@ -328,3 +328,46 @@ def order_images(example_id: str, body: ImagesOrder) -> dict:
         _get_example(d, example_id)[body.role].sort(key=lambda i: pos.get(i["id"], len(pos)))
 
     return site.example_out(_get_example(site.update(apply), example_id))
+
+
+# ---------------------------------------------------------------- промокоды
+
+
+class PromoIn(BaseModel):
+    code: str = Field(min_length=3, max_length=32)
+    note: str = Field("", max_length=200)
+    # {функция: сколько прибавить (+) или убавить (−)} — бонусные запуски сверх квоты тарифа
+    bonus: dict[str, int] = Field(default_factory=dict)
+    plan_id: str | None = Field(None, max_length=40)
+    plan_days: int = Field(0, ge=0, le=366)
+    max_uses: int = Field(0, ge=0, le=1_000_000)  # 0 — без ограничения
+    expires_at: float | None = None  # unix-время; None — бессрочно
+    active: bool = True
+
+
+def _promo_call(fn, *args) -> dict:
+    try:
+        fn(*args)
+    except promo.PromoError as exc:
+        raise api_error(422, "bad_promo", str(exc)) from exc
+    return {"items": promo.listing()}
+
+
+@guarded.get("/promo")
+def list_promo() -> dict:
+    return {"items": promo.listing()}
+
+
+@guarded.post("/promo")
+def create_promo(body: PromoIn) -> dict:
+    return _promo_call(promo.save, body.model_dump())
+
+
+@guarded.put("/promo/{promo_id}")
+def update_promo(promo_id: int, body: PromoIn) -> dict:
+    return _promo_call(promo.save, body.model_dump(), promo_id)
+
+
+@guarded.delete("/promo/{promo_id}")
+def delete_promo(promo_id: int) -> dict:
+    return _promo_call(promo.delete, promo_id)

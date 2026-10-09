@@ -86,7 +86,13 @@ def anon(client: TestClient) -> TestClient:
 @pytest.fixture(autouse=True)
 def _fresh_limits() -> None:
     """Лимиты частоты общие на процесс — сбрасываем, чтобы тесты не влияли друг на друга."""
-    for limiter in (ratelimit.analysis_limit, ratelimit.expert_limit, ratelimit.login_limit, ratelimit.mail_limit):
+    for limiter in (
+        ratelimit.analysis_limit,
+        ratelimit.expert_limit,
+        ratelimit.login_limit,
+        ratelimit.mail_limit,
+        ratelimit.promo_limit,
+    ):
         limiter._hits.clear()
 
 

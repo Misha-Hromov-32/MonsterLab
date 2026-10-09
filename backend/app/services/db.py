@@ -100,6 +100,34 @@ CREATE TABLE IF NOT EXISTS usage (
     count INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, feature, day)
 );
+-- бонусные запуски сверх квоты тарифа (промокоды): тратятся, когда квота тарифа на функцию исчерпана
+CREATE TABLE IF NOT EXISTS user_bonus (
+    user_id INTEGER NOT NULL,
+    feature TEXT NOT NULL,
+    balance INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, feature)
+);
+-- промокоды: bonus — JSON {функция: сколько прибавить или убавить}, тариф plan_id на plan_days дней,
+-- max_uses — всего активаций (0 — без ограничения), expires_at — до какого момента действует
+CREATE TABLE IF NOT EXISTS promo_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL UNIQUE,
+    note TEXT NOT NULL DEFAULT '',
+    bonus TEXT NOT NULL DEFAULT '{}',
+    plan_id TEXT,
+    plan_days INTEGER NOT NULL DEFAULT 0,
+    max_uses INTEGER NOT NULL DEFAULT 0,
+    expires_at REAL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at REAL NOT NULL
+);
+-- кто какой промокод активировал: один покупатель — один раз
+CREATE TABLE IF NOT EXISTS promo_redemptions (
+    code_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    at REAL NOT NULL,
+    PRIMARY KEY (code_id, user_id)
+);
 CREATE TABLE IF NOT EXISTS competitor_cache (
     query TEXT PRIMARY KEY,
     payload TEXT NOT NULL,

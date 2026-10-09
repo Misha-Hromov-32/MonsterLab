@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from ..errors import api_error
-from ..ratelimit import analysis_limit, client_ip, login_limit, mail_limit
-from ..services import accounts, billing, mail, oauth
+from ..ratelimit import analysis_limit, client_ip, login_limit, mail_limit, promo_limit
+from ..services import accounts, billing, mail, oauth, promo
 from .deps import current_user
 
 log = logging.getLogger(__name__)
@@ -57,6 +57,8 @@ def _me(user: accounts.User) -> dict:
         "pro_until": user.pro_until if user.plan != accounts.DEMO else None,
         "usage": accounts.usage(user),
         "limits": accounts.limits(user),
+        # бонусные запуски по промокодам — сверх квоты тарифа
+        "bonus": accounts.bonus(user),
     }
 
 
@@ -154,6 +156,26 @@ async def oauth_finish(provider: str, body: OAuthFinish, request: Request) -> di
     except accounts.AccountError as exc:
         raise api_error(422, "oauth_failed", str(exc)) from exc
     return await asyncio.to_thread(_session, user)
+
+
+class PromoRedeem(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+
+
+@router.post("/promo/redeem")
+async def redeem_promo(body: PromoRedeem, request: Request, user: accounts.User | None = Depends(current_user)) -> dict:
+    """Активация промокода в аккаунте: бонусные запуски и/или тариф."""
+    if user is None:
+        raise api_error(401, "login_required", "Войдите, чтобы активировать промокод")
+    ip = client_ip(request)
+    promo_limit.check(ip)
+    try:
+        applied = await asyncio.to_thread(promo.redeem, user, body.code)
+    except promo.PromoError as exc:
+        promo_limit.hit(ip)  # перебор кодов притормаживаем
+        raise api_error(422, "bad_promo", str(exc)) from exc
+    fresh = await asyncio.to_thread(accounts.get, user.id)
+    return {"applied": applied, "user": await asyncio.to_thread(_me, fresh or user)}
 
 
 @router.post("/auth/resend")

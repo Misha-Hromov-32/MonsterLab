@@ -5,22 +5,26 @@ import { availableFeatures } from '../store'
 import type { FeatureLimits } from '../lib/types'
 
 // Расход квот по функциям: «2 из 3» и полоска. У демо — на всё время, у тарифа — на период оплаты.
-const props = defineProps<{ usage: FeatureLimits; limits: FeatureLimits }>()
+const props = defineProps<{ usage: FeatureLimits; limits: FeatureLimits; bonus?: FeatureLimits }>()
 
 const rows = computed(() =>
   availableFeatures.value.map((f) => {
     const used = props.usage[f] ?? 0
     const limit = props.limits[f] ?? 0
-    return { f, title: FEATURE_TITLES[f], used, limit, share: limit ? Math.min(1, used / limit) : 1 }
+    const bonus = props.bonus?.[f] ?? 0
+    return { f, title: FEATURE_TITLES[f], used, limit, bonus, share: limit ? Math.min(1, used / limit) : 1 }
   }),
 )
 </script>
 
 <template>
   <ul class="usage">
-    <li v-for="r in rows" :key="r.f" :class="{ out: r.used >= r.limit }">
+    <li v-for="r in rows" :key="r.f" :class="{ out: r.used >= r.limit && !r.bonus }">
       <span class="t">{{ r.title }}</span>
-      <span class="v num">{{ r.used }} из {{ r.limit }}</span>
+      <span class="v num"
+        >{{ r.used }} из {{ r.limit
+        }}<b v-if="r.bonus" class="bonus" title="Бонусные запуски по промокоду">+{{ r.bonus }}</b></span
+      >
       <span class="bar"><i :style="{ width: `${r.share * 100}%` }" /></span>
     </li>
   </ul>
@@ -44,6 +48,16 @@ li {
 
 .v {
   color: var(--ink-2);
+}
+
+.bonus {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+  font-size: 11.5px;
+  font-weight: 600;
 }
 
 .out .v {

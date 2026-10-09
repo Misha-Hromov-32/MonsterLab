@@ -9,6 +9,7 @@ import {
   LayoutTemplate,
   LogOut,
   Sparkles,
+  Ticket,
 } from 'lucide-vue-next'
 import Logo from '../components/Logo.vue'
 import ThemeToggle from '../components/ThemeToggle.vue'
@@ -20,11 +21,12 @@ import ExpertPanel from './ExpertPanel.vue'
 import BillingPanel from './BillingPanel.vue'
 import StatsPanel from './StatsPanel.vue'
 import QueuePanel from './QueuePanel.vue'
+import PromoPanel from './PromoPanel.vue'
 import { adminApi, auth, setToken } from './adminApi'
 import { TOAST_MS } from '../lib/constants'
 import type { AdminSettings } from '../lib/types'
 
-type Tab = 'stats' | 'queue' | 'landing' | 'examples' | 'expert' | 'billing'
+type Tab = 'stats' | 'queue' | 'landing' | 'examples' | 'expert' | 'billing' | 'promo'
 const tabs: { id: Tab; title: string; icon: Component }[] = [
   { id: 'stats', title: 'Статистика', icon: BarChart3 },
   { id: 'queue', title: 'Очередь', icon: ListOrdered },
@@ -32,6 +34,7 @@ const tabs: { id: Tab; title: string; icon: Component }[] = [
   { id: 'examples', title: 'Примеры', icon: ImageIcon },
   { id: 'expert', title: 'Нейросети', icon: Sparkles },
   { id: 'billing', title: 'Тарифы', icon: CreditCard },
+  { id: 'promo', title: 'Промокоды', icon: Ticket },
 ]
 
 function tabFromHash(): Tab {
@@ -120,7 +123,8 @@ onUnmounted(() => {
         <LandingPanel v-else-if="tab === 'landing'" :data="data" @saved="notify" />
         <ExamplesPanel v-else-if="tab === 'examples'" :data="data" @changed="reload" @notify="notify" />
         <ExpertPanel v-else-if="tab === 'expert'" :data="data" @notify="notify" @changed="reload" />
-        <BillingPanel v-else :data="data" @notify="notify" @changed="reload" />
+        <BillingPanel v-else-if="tab === 'billing'" :data="data" @notify="notify" @changed="reload" />
+        <PromoPanel v-else :data="data" @notify="notify" />
       </template>
     </main>
 

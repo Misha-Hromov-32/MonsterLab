@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SCORE_GOOD, SCORE_WARN } from './constants'
-import { modelName, pct, plural, silentExperts, tone } from './format'
+import { modelName, pct, plural, silentExperts, tone, promoSummary } from './format'
 
 describe('pct', () => {
   it('переводит долю в проценты', () => {
@@ -54,5 +54,15 @@ describe('modelName', () => {
     ['openai/gpt-5.4', 'GPT-5.4'],
   ])('%s → %s', (id, name) => {
     expect(modelName(id)).toBe(name)
+  })
+})
+
+describe('promoSummary', () => {
+  it('плюсы, минусы и тариф — по строкам', () => {
+    const lines = promoSummary(
+      { bonus: { analyze: 10, shelf: -2, expert: 0 }, plan_id: 'start', plan_days: 7 },
+      (id) => (id === 'start' ? 'Старт' : id),
+    )
+    expect(lines).toEqual(['+10 проверок обложек', '−2 теста полки', 'тариф «Старт» на 7 дней'])
   })
 })

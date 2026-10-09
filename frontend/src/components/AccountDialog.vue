@@ -1,13 +1,39 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { CreditCard, FolderOpen, Loader2, LogOut } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
+import { CreditCard, FolderOpen, Loader2, LogOut, Ticket } from 'lucide-vue-next'
 import ModalDialog from './ModalDialog.vue'
 import UsageList from './UsageList.vue'
-import { account, closeDialog, isPaid, logout, openLibrary, openTariffs, accountLabel } from '../lib/account'
+import {
+  account,
+  accountLabel,
+  closeDialog,
+  isPaid,
+  logout,
+  openLibrary,
+  openTariffs,
+  redeemPromo,
+} from '../lib/account'
 import { formatDate } from '../lib/format'
 import { toast } from '../store'
 
 const user = computed(() => account.user)
+
+const promo = ref('')
+const promoBusy = ref(false)
+const promoError = ref('')
+
+async function applyPromo() {
+  if (!promo.value.trim() || promoBusy.value) return
+  promoBusy.value = true
+  promoError.value = ''
+  const r = await redeemPromo(promo.value)
+  promoBusy.value = false
+  if (r.error) promoError.value = r.error
+  else {
+    promo.value = ''
+    toast(r.message ?? 'Промокод активирован')
+  }
+}
 
 function signOut() {
   logout()
@@ -29,13 +55,32 @@ function signOut() {
 
       <section>
         <span class="label">{{ isPaid ? 'Использовано за период' : 'Демо-доступ' }}</span>
-        <UsageList :usage="user.usage" :limits="user.limits" />
+        <UsageList :usage="user.usage" :limits="user.limits" :bonus="user.bonus" />
         <p class="note">
           {{
             isPaid ? 'Квоты обновятся при продлении тарифа.' : 'Демо-доступ разовый. Для продолжения выберите тариф.'
           }}
         </p>
       </section>
+
+      <form class="promo" @submit.prevent="applyPromo">
+        <label class="label" for="promo-code">Промокод</label>
+        <div class="promo-row">
+          <input
+            id="promo-code"
+            v-model="promo"
+            class="input"
+            maxlength="40"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+          />
+          <button class="btn pill" type="submit" :disabled="!promo.trim() || promoBusy">
+            <Loader2 v-if="promoBusy" :size="15" class="spin" /><Ticket v-else :size="15" /> Активировать
+          </button>
+        </div>
+        <p v-if="promoError" class="err" role="alert">{{ promoError }}</p>
+      </form>
 
       <div class="actions">
         <button class="btn cabinet" @click="openLibrary"><FolderOpen :size="15" /> Личный кабинет</button>
@@ -114,6 +159,24 @@ section {
   margin: 0;
   color: var(--bad);
   font-size: 13px;
+}
+
+.promo {
+  display: grid;
+  gap: 8px;
+}
+
+.promo-row {
+  display: flex;
+  gap: 8px;
+}
+
+.promo-row .input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  font-size: 16px;
+  text-transform: uppercase;
 }
 
 .actions {

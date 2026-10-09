@@ -1,7 +1,7 @@
 import { computed, reactive } from 'vue'
 import { api, ApiError } from '../api'
 import { session, setUserToken } from './session'
-import { formatDate } from './format'
+import { formatDate, promoSummary } from './format'
 import type { Billing, Consent, OAuthProvider, Session, User } from './types'
 
 export type AccountDialog = '' | 'login' | 'account' | 'tariffs' | 'library'
@@ -205,6 +205,19 @@ export async function handleEmailLink(notify: (msg: string) => void): Promise<bo
     openLogin((e as Error).message)
   }
   return true
+}
+
+/** Активация промокода. Возвращает { error } или { message } — что начислено. */
+export async function redeemPromo(code: string): Promise<{ error?: string; message?: string }> {
+  try {
+    const r = await api.redeemPromo(code.trim())
+    account.user = r.user
+    const title = (id: string) => account.billing?.plans.find((p) => p.id === id)?.title ?? id
+    const got = promoSummary(r.applied, title)
+    return { message: got.length ? `Промокод активирован: ${got.join(', ')}` : 'Промокод активирован' }
+  } catch (e) {
+    return { error: (e as Error).message }
+  }
 }
 
 /** Как подписать аккаунт: почта, а у аккаунта без почты — через какой сервис он создан. */

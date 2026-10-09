@@ -19,6 +19,7 @@ import type {
   Site,
   Registered,
   Session,
+  PromoApplied,
   OAuthProvider,
   SetPassword,
   User,
@@ -216,6 +217,10 @@ export const api = {
     ),
   oauthFinish: (provider: OAuthProvider, body: { code: string; state: string; device_id: string | null }) =>
     request<Session>(`/api/auth/oauth/${provider}/finish`, jsonBody('POST', body), { timeoutMs: 30_000 }),
+  redeemPromo: (code: string) =>
+    request<{ applied: PromoApplied; user: User }>('/api/promo/redeem', withAuth(jsonBody('POST', { code })), {
+      timeoutMs: 20_000,
+    }),
   /** вернулись со страницы оплаты: сервер перепроверит недавние платежи, не дожидаясь уведомления банка */
   checkPayment: () =>
     request<{ activated: boolean; user: User }>('/api/billing/check', withAuth({ method: 'POST' }), {

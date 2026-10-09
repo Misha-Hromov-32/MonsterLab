@@ -531,19 +531,49 @@ def usage(user: User) -> dict[str, int]:
     return {f: used.get(f, 0) for f in FEATURES}
 
 
+def bonus(user: User) -> dict[str, int]:
+    """Бонусные запуски по промокодам — сверх квоты тарифа, не сгорают при продлении."""
+    with db.connect() as con:
+        rows = con.execute("SELECT feature, balance FROM user_bonus WHERE user_id = ?", (user.id,))
+        got = {r["feature"]: r["balance"] for r in rows}
+    return {f: max(0, got.get(f, 0)) for f in FEATURES}
+
+
 def check(user: User, feature: str) -> None:
-    """До запуска функции: остались ли запуски в квоте."""
+    """До запуска функции: остались ли запуски в квоте тарифа или бонусные."""
     limit = limits(user).get(feature, 0)
-    if usage(user)[feature] >= limit:
+    if usage(user)[feature] >= limit and bonus(user)[feature] <= 0:
         raise LimitReached(feature, limit, user.plan)
 
 
 def spend(user: User, feature: str) -> None:
-    """После успешного запуска: списать один запуск. Сбой модели запуск не тратит."""
+    """После успешного запуска: списать один запуск — из квоты тарифа, а когда она кончилась, из бонусных.
+    Сбой модели запуск не тратит."""
+    limit = limits(user).get(feature, 0)
+    period = _period(user)
     with db.connect() as con:
-        con.execute(
-            "INSERT INTO usage (user_id, feature, day, count) VALUES (?, ?, ?, 1) "
-            "ON CONFLICT (user_id, feature, day) DO UPDATE SET count = count + 1",
-            (user.id, feature, _period(user)),
+        row = con.execute(
+            "SELECT count FROM usage WHERE user_id = ? AND feature = ? AND day = ?", (user.id, feature, period)
+        ).fetchone()
+        used = row["count"] if row else 0
+        from_bonus = (
+            used >= limit
+            and con.execute(
+                "UPDATE user_bonus SET balance = balance - 1 WHERE user_id = ? AND feature = ? AND balance > 0",
+                (user.id, feature),
+            ).rowcount
+            == 1
         )
+        if not from_bonus:
+            con.execute(
+                "INSERT INTO usage (user_id, feature, day, count) VALUES (?, ?, ?, 1) "
+                "ON CONFLICT (user_id, feature, day) DO UPDATE SET count = count + 1",
+                (user.id, feature, period),
+            )
         con.execute("INSERT INTO events (ts, user_id, feature) VALUES (?, ?, ?)", (time.time(), user.id, feature))
+
+
+def extend(user_id: int, days: int) -> None:
+    """Продлить действующий тариф на days дней, не меняя сам тариф и не обнуляя квоты (промокод)."""
+    with db.connect() as con:
+        con.execute("UPDATE users SET pro_until = pro_until + ? WHERE id = ?", (days * 86400, user_id))

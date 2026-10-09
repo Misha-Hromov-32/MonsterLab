@@ -190,6 +190,34 @@ export interface User {
   /** расход и квоты: у демо — на всё время, у тарифа — на период оплаты */
   usage: FeatureLimits
   limits: FeatureLimits
+  /** бонусные запуски по промокодам — сверх квоты тарифа */
+  bonus?: FeatureLimits
+}
+
+/** Промокод в админке: bonus — сколько запусков прибавить (+) или убавить (−) по функциям. */
+export interface PromoCode {
+  id: number
+  code: string
+  note: string
+  bonus: Partial<Record<Feature, number>>
+  plan_id: string | null
+  plan_days: number
+  /** всего активаций; 0 — без ограничения */
+  max_uses: number
+  /** unix-секунды; null — бессрочно */
+  expires_at: number | null
+  active: boolean
+  created_at: number
+  uses: number
+}
+
+export type PromoInput = Omit<PromoCode, 'id' | 'created_at' | 'uses'>
+
+/** Что начислил промокод при активации. */
+export interface PromoApplied {
+  bonus: Partial<Record<Feature, number>>
+  plan_id: string | null
+  plan_days: number
 }
 
 export interface Session {

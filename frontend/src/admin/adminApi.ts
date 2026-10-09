@@ -1,6 +1,16 @@
 import { reactive } from 'vue'
 import { ApiError, jsonBody, request } from '../api'
-import type { AdminQueue, AdminSettings, AdminStats, Billing, Example, ExpertSettings, Landing } from '../lib/types'
+import type {
+  AdminQueue,
+  AdminSettings,
+  AdminStats,
+  Billing,
+  Example,
+  ExpertSettings,
+  Landing,
+  PromoCode,
+  PromoInput,
+} from '../lib/types'
 
 // Токен в localStorage: сайт не встраивает чужих скриптов, а токен живёт неделю и
 // обнуляется сменой пароля. Для httpOnly-cookie понадобился бы CSRF-токен — не стоит того.
@@ -48,6 +58,11 @@ export const adminApi = {
   queue: () => call<AdminQueue>('/api/admin/queue', {}, 10_000),
   /** демо-квоты и тарифы; в ответе — ещё и подключена ли оплата */
   saveBilling: (body: Omit<Billing, 'enabled'>) => call<Billing>('/api/admin/billing', jsonBody('PUT', body)),
+  promos: () => call<{ items: PromoCode[] }>('/api/admin/promo'),
+  createPromo: (body: PromoInput) => call<{ items: PromoCode[] }>('/api/admin/promo', jsonBody('POST', body)),
+  savePromo: (id: number, body: PromoInput) =>
+    call<{ items: PromoCode[] }>(`/api/admin/promo/${id}`, jsonBody('PUT', body)),
+  deletePromo: (id: number) => call<{ items: PromoCode[] }>(`/api/admin/promo/${id}`, { method: 'DELETE' }),
   checkExpert: () => call<{ results: CheckResult[] }>('/api/admin/expert/check', { method: 'POST' }, 90_000),
 
   createExample: (title: string) => call<Example>('/api/admin/examples', jsonBody('POST', { title })),
