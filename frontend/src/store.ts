@@ -545,6 +545,8 @@ export const featuredExample = computed<Example | null>(() => {
 })
 
 export async function loadSite(preview = false) {
+  // витрину запрашиваем сразу, параллельно с текстами — картинка первого экрана не ждёт лишний круг
+  const showcase = fetchShowcase()
   try {
     site.data = await api.site(preview)
   } catch {
@@ -552,22 +554,23 @@ export async function loadSite(preview = false) {
   } finally {
     site.loaded = true
   }
-  loadShowcase()
+  loadShowcase(0, showcase)
 }
 
 // Витрину сервер считает в фоне после старта; пока её нет — заглядываем ещё несколько раз.
 const SHOWCASE_RETRIES = 10
 const SHOWCASE_RETRY_MS = 20_000
 
-function loadShowcase(attempt = 0) {
-  api
-    .showcase()
-    .then((s) => {
-      site.showcase = s
-      if (!s && site.data?.examples.length && attempt < SHOWCASE_RETRIES)
-        setTimeout(() => loadShowcase(attempt + 1), SHOWCASE_RETRY_MS)
-    })
-    .catch(() => {})
+/** undefined — запрос не удался (тогда не повторяем), null — витрина ещё считается. */
+const fetchShowcase = () => api.showcase().catch(() => undefined)
+
+function loadShowcase(attempt = 0, pending = fetchShowcase()) {
+  pending.then((s) => {
+    if (s === undefined) return
+    site.showcase = s
+    if (!s && site.data?.examples.length && attempt < SHOWCASE_RETRIES)
+      setTimeout(() => loadShowcase(attempt + 1), SHOWCASE_RETRY_MS)
+  })
 }
 
 async function exampleFile(url: string, name: string) {
