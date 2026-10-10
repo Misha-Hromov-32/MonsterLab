@@ -32,9 +32,12 @@ def record_visit() -> None:
         )
 
 
+NO_EMAIL = "— без почты (VK ID) —"
+
+
 def _email(row) -> str:
     try:
-        return crypto.decrypt(row["email_enc"], "email").decode() or "— без почты (VK ID) —"
+        return crypto.decrypt(row["email_enc"], "email").decode() or NO_EMAIL
     except crypto.CryptoError:
         return "— не расшифровать —"
 
@@ -147,4 +150,98 @@ def overview() -> dict:
             }
             for u in users[:200]
         ],
+    }
+
+
+def users() -> dict:
+    """Раздел «Пользователи»: все покупатели и всё, что о них известно. Несколько запросов на всю базу —
+    без запроса на каждого покупателя."""
+    now = time.time()
+    titles = {p["id"]: p["title"] for p in accounts.plans()}
+    with db.connect() as con:
+        rows = con.execute("SELECT * FROM users ORDER BY id DESC").fetchall()
+        identities = con.execute("SELECT user_id, provider, created_at FROM user_identities").fetchall()
+        usage = con.execute("SELECT user_id, feature, day, count FROM usage").fetchall()
+        bonus = con.execute("SELECT user_id, feature, balance FROM user_bonus WHERE balance > 0").fetchall()
+        runs = con.execute(
+            "SELECT user_id, feature, COUNT(*) AS n, MAX(ts) AS last FROM events GROUP BY user_id, feature"
+        ).fetchall()
+        payments = con.execute(
+            "SELECT user_id, amount, status, plan, created_at FROM payments ORDER BY created_at DESC"
+        ).fetchall()
+        promos = con.execute(
+            "SELECT r.user_id, r.at, c.code FROM promo_redemptions r JOIN promo_codes c ON c.id = r.code_id "
+            "ORDER BY r.at DESC"
+        ).fetchall()
+        covers = dict(con.execute("SELECT user_id, COUNT(*) FROM personal_covers GROUP BY user_id").fetchall())
+        ai = dict(con.execute("SELECT user_id, COUNT(*) FROM ai_calls WHERE user_id IS NOT NULL GROUP BY user_id"))
+
+    def group(items, key="user_id") -> dict[int, list]:
+        out: dict[int, list] = {}
+        for r in items:
+            out.setdefault(r[key], []).append(r)
+        return out
+
+    by_identity, by_usage, by_bonus = group(identities), group(usage), group(bonus)
+    by_runs, by_payment, by_promo = group(runs), group(payments), group(promos)
+
+    items = []
+    for row in rows:
+        user = accounts.User(
+            row["id"], "", row["pro_until"], row["verified_at"] is not None, row["stamp"],
+            row["plan_id"] or "", row["period_start"] or 0,
+        )  # fmt: skip
+        period = "demo" if user.plan == accounts.DEMO else f"p{int(user.period_start)}"
+        used = {r["feature"]: r["count"] for r in by_usage.get(user.id, []) if r["day"] == period}
+        user_runs = by_runs.get(user.id, [])
+        paid = [p for p in by_payment.get(user.id, []) if p["status"] == "succeeded"]
+        email = _email(row)
+        items.append(
+            {
+                "id": user.id,
+                "email": "" if email == NO_EMAIL else email,
+                "providers": sorted({i["provider"] for i in by_identity.get(user.id, [])}),
+                "created_at": row["created_at"],
+                "verified": user.verified,
+                "contested": bool(row["contested"]),
+                "legal_version": row["legal_version"] or "",
+                "consent_at": row["pd_consent_at"],
+                "plan": user.plan,
+                "plan_title": titles.get(user.plan, "Платный") if user.plan != accounts.DEMO else "Демо",
+                "pro_until": user.pro_until if user.plan != accounts.DEMO else None,
+                "period_start": user.period_start if user.plan != accounts.DEMO else None,
+                "usage": {f: used.get(f, 0) for f in accounts.FEATURES},
+                "limits": accounts.limits(user),
+                "bonus": {r["feature"]: r["balance"] for r in by_bonus.get(user.id, [])},
+                "runs": {r["feature"]: r["n"] for r in user_runs},
+                "runs_total": sum(r["n"] for r in user_runs),
+                "last_active": max((r["last"] for r in user_runs), default=None),
+                "paid_total": round(sum(float(p["amount"]) for p in paid), 2),
+                "payments": [
+                    {
+                        "created_at": p["created_at"],
+                        "amount": float(p["amount"]),
+                        "status": p["status"],
+                        "plan": titles.get(p["plan"] or "", p["plan"] or "—"),
+                    }
+                    for p in by_payment.get(user.id, [])[:20]
+                ],
+                "promos": [{"code": p["code"], "at": p["at"]} for p in by_promo.get(user.id, [])],
+                "covers": covers.get(user.id, 0),
+                "ai_calls": ai.get(user.id, 0),
+            }
+        )
+
+    return {
+        "generated_at": now,
+        "summary": {
+            "total": len(items),
+            "verified": sum(1 for u in items if u["verified"]),
+            "paying": sum(1 for u in items if u["plan"] != accounts.DEMO),
+            "vk": sum(1 for u in items if "vk" in u["providers"]),
+            "yandex": sum(1 for u in items if "yandex" in u["providers"]),
+            "no_email": sum(1 for u in items if not u["email"]),
+            "active_30": sum(1 for u in items if u["last_active"] and u["last_active"] >= now - DAYS * DAY),
+        },
+        "items": items,
     }

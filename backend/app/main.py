@@ -16,7 +16,7 @@ from . import __version__, config
 from .api import account, admin, analysis, expert, jobs, library, public, tools
 from .core import saliency
 from .errors import install_handlers
-from .services import auth, crypto, precompute, site
+from .services import aicost, auth, crypto, precompute, site
 from .services.jobs import queue
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -30,7 +30,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     auth.admin_password()  # если пароль не задан — сгенерировать и показать в логе
     await queue.start()  # очередь тяжёлых задач: нейросеть, модели, генерация, браузер
     precompute.start()  # примеры считаются в фоне через ту же очередь, с низшим приоритетом
+    balance_watch = asyncio.create_task(aicost.watch(), name="proxyapi-balance")  # замеры баланса ProxyAPI
     yield
+    balance_watch.cancel()
     await queue.stop()
 
 

@@ -457,3 +457,82 @@ export interface AdminQueue {
     running_s: number
   }[]
 }
+
+/** Раздел «Пользователи» админки: GET /api/admin/users (services/stats.py → users). */
+export interface AdminUser {
+  id: number
+  /** пусто — аккаунт создан через VK ID без почты */
+  email: string
+  providers: string[]
+  created_at: number
+  verified: boolean
+  /** на неподтверждённую почту регистрировались повторно */
+  contested: boolean
+  legal_version: string
+  consent_at: number | null
+  plan: string
+  plan_title: string
+  pro_until: number | null
+  period_start: number | null
+  /** запуски в текущем периоде тарифа и квоты на период */
+  usage: Record<Feature, number>
+  limits: Record<Feature, number>
+  bonus: Partial<Record<Feature, number>>
+  /** запуски за всё время */
+  runs: Partial<Record<Feature, number>>
+  runs_total: number
+  last_active: number | null
+  paid_total: number
+  payments: { created_at: number; amount: number; status: string; plan: string }[]
+  promos: { code: string; at: number }[]
+  covers: number
+  ai_calls: number
+}
+
+export interface AdminUsers {
+  generated_at: number
+  summary: {
+    total: number
+    verified: number
+    paying: number
+    vk: number
+    yandex: number
+    no_email: number
+    active_30: number
+  }
+  items: AdminUser[]
+}
+
+/** Расходы на нейросети: GET /api/admin/ai (services/aicost.py). Рубли, unix-секунды. */
+export interface AdminAi {
+  generated_at: number
+  current:
+    | { balance: number; budget: { limit?: number; used?: number } | null; checked_at: number; error?: undefined }
+    | { error: { code: string; message: string }; balance?: undefined }
+  spent: { today: number; week: number; month: number }
+  topups_30: number
+  tracking_since: number | null
+  features: { feature: string; calls: number; failed: number; tokens: number; rub: number }[]
+  models: { model: string; calls: number; tokens: number }[]
+  daily: { day: string; spent: number; calls: number }[]
+  /** изменения баланса, новые сверху: delta < 0 — списание, > 0 — пополнение */
+  changes: {
+    ts: number
+    from_ts: number
+    delta: number
+    balance: number
+    calls: number
+    by_feature: { feature: string; calls: number; rub: number }[]
+  }[]
+  calls: {
+    ts: number
+    email: string
+    feature: string
+    model: string
+    prompt_tokens: number
+    completion_tokens: number
+    ok: boolean
+    /** доля списания, ₽; null — ещё не было замера баланса после запроса или запрос с ошибкой */
+    rub: number | null
+  }[]
+}

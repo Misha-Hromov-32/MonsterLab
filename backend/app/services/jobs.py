@@ -32,7 +32,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from .. import config
-from . import accounts
+from . import accounts, aicost
 from .uploads import ImageExpired
 
 log = logging.getLogger(__name__)
@@ -291,6 +291,8 @@ class JobQueue:
                 )
             if job.user is not None and job.feature:
                 await asyncio.to_thread(accounts.check, job.user, job.feature)
+            # журнал расходов на нейросети: чей запрос и какая функция (наследуется задачами и потоками)
+            aicost.CALLER.set((job.user.id if job.user else None, job.feature or "background"))
             job.result = await asyncio.wait_for(job.work(), timeout=config.QUEUE_JOB_TIMEOUT_S)
             if job.user is not None and job.feature:
                 await asyncio.to_thread(accounts.spend, job.user, job.feature)

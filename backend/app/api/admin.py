@@ -14,7 +14,7 @@ from ..core.imaging import BadImage
 from ..errors import api_error
 from ..ratelimit import client_ip, login_limit
 from ..schemas import ProductContext
-from ..services import accounts, auth, billing, expert, jobs, promo, site, stats
+from ..services import accounts, aicost, auth, billing, expert, jobs, promo, site, stats
 from .deps import read_upload, require_admin
 
 router = APIRouter(prefix="/api/admin")
@@ -179,8 +179,21 @@ def get_stats() -> dict:
     return stats.overview()
 
 
+@guarded.get("/users")
+def get_users() -> dict:
+    """Все покупатели со всем, что о них известно: вход, тариф, квоты и бонусы, запуски, оплаты, промокоды."""
+    return stats.users()
+
+
+@guarded.get("/ai")
+def get_ai() -> dict:
+    """ProxyAPI: баланс, списания и пополнения, на что ушли деньги, журнал запросов к моделям."""
+    return aicost.overview()
+
+
 @guarded.post("/expert/check")
 async def check_expert() -> dict:
+    aicost.CALLER.set((None, "check"))
     try:
         return {"results": await expert.check()}
     except expert.ExpertError as exc:

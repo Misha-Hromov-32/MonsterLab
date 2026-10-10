@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import httpx
 
 from .. import config
-from . import site
+from . import aicost, site
 
 log = logging.getLogger(__name__)
 
@@ -126,6 +126,15 @@ def _api_error(r: httpx.Response) -> str:
     return hints.get(r.status_code, f"HTTP {r.status_code}") + (f" ({msg})" if msg else "")
 
 
+def _usage(r: httpx.Response) -> dict | None:
+    """Токены из ответа модели — для журнала расходов (aicost)."""
+    try:
+        data = r.json()
+    except ValueError:
+        return None
+    return data.get("usage") if isinstance(data, dict) else None
+
+
 async def _ask(
     client: httpx.AsyncClient, model: str, prompt: str, images: list[str], max_tokens: int = 1200, fast: bool = False
 ) -> dict:
@@ -156,6 +165,7 @@ async def _ask(
                 raise ExpertError(f"{model}: сеть недоступна ({type(exc).__name__})") from exc
             await asyncio.sleep(1.5 * attempt)
             continue
+        await asyncio.to_thread(aicost.record, model, _usage(r), r.status_code < 400)
         if r.status_code in RETRY_STATUSES and not last:
             await asyncio.sleep(2 * attempt)
             continue
@@ -461,6 +471,7 @@ async def check() -> list[dict]:
             r = await client.post("/chat/completions", json=body)
         except httpx.HTTPError as exc:
             return {"model": model, "ok": False, "message": f"сеть недоступна ({type(exc).__name__})"}
+        await asyncio.to_thread(aicost.record, model, _usage(r), r.status_code < 400)
         if r.status_code >= 400:
             return {"model": model, "ok": False, "message": _api_error(r)}
         return {"model": model, "ok": True, "message": "работает"}

@@ -1,9 +1,11 @@
 import { reactive } from 'vue'
 import { ApiError, jsonBody, request } from '../api'
 import type {
+  AdminAi,
   AdminQueue,
   AdminSettings,
   AdminStats,
+  AdminUsers,
   Billing,
   Example,
   ExpertSettings,
@@ -56,6 +58,8 @@ export const adminApi = {
     call<ExpertSettings>('/api/admin/expert', jsonBody('PUT', body)),
   stats: () => call<AdminStats>('/api/admin/stats', {}, 30_000),
   queue: () => call<AdminQueue>('/api/admin/queue', {}, 10_000),
+  users: () => call<AdminUsers>('/api/admin/users', {}, 30_000),
+  ai: () => call<AdminAi>('/api/admin/ai', {}, 30_000),
   /** демо-квоты и тарифы; в ответе — ещё и подключена ли оплата */
   saveBilling: (body: Omit<Billing, 'enabled'>) => call<Billing>('/api/admin/billing', jsonBody('PUT', body)),
   promos: () => call<{ items: PromoCode[] }>('/api/admin/promo'),

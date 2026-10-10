@@ -128,6 +128,22 @@ CREATE TABLE IF NOT EXISTS promo_redemptions (
     at REAL NOT NULL,
     PRIMARY KEY (code_id, user_id)
 );
+-- каждый запрос к ProxyAPI: кто (user_id, NULL — админка или фон), какая функция, модель, токены, успех
+CREATE TABLE IF NOT EXISTS ai_calls (
+    ts REAL NOT NULL,
+    user_id INTEGER,
+    feature TEXT NOT NULL,
+    model TEXT NOT NULL,
+    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    ok INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ai_calls_ts ON ai_calls (ts);
+-- баланс ProxyAPI, ₽: новая строка — только когда он изменился; разница соседних строк — списание или пополнение
+CREATE TABLE IF NOT EXISTS ai_balance (
+    ts REAL NOT NULL,
+    balance REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS competitor_cache (
     query TEXT PRIMARY KEY,
     payload TEXT NOT NULL,

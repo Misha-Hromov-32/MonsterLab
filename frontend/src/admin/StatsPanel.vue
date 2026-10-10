@@ -259,63 +259,10 @@ const STATUS: Record<string, string> = { succeeded: 'оплачен', pending: '
 
 <style scoped>
 @import './panel.css';
+@import './report.css';
 
 .panel.wide {
   max-width: 1100px;
-}
-
-.loading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--ink-3);
-}
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-}
-
-.kpi {
-  display: grid;
-  gap: 6px;
-  padding: 16px 18px;
-}
-
-.kpi strong {
-  font-size: 26px;
-  font-weight: 400;
-  letter-spacing: -0.03em;
-}
-
-.sub {
-  font-size: 12px;
-  color: var(--ink-3);
-  line-height: 1.4;
-}
-
-.block {
-  display: grid;
-  gap: 12px;
-  padding: 20px 22px;
-}
-
-.block h2 {
-  margin: 0;
-}
-
-.bh {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.search {
-  max-width: 280px;
-  height: 34px;
 }
 
 .funnel {
@@ -353,109 +300,6 @@ const STATUS: Record<string, string> = { succeeded: 'оплачен', pending: '
 .sc {
   font-size: 12px;
   color: var(--ink-3);
-}
-
-.charts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 12px;
-}
-
-.chart {
-  display: grid;
-  gap: 10px;
-  padding: 16px 18px 12px;
-}
-
-.ch-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.total {
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 80px;
-}
-
-.bars i {
-  flex: 1;
-  border-radius: 2px 2px 0 0;
-  background: var(--ink);
-}
-
-.bars i.zero {
-  background: var(--line);
-}
-
-.axis {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10.5px;
-  color: var(--ink-3);
-}
-
-.note {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--ink-3);
-}
-
-.table-wrap {
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-th,
-td {
-  padding: 8px 10px;
-  text-align: left;
-  border-bottom: 1px solid var(--line);
-  white-space: nowrap;
-}
-
-thead th {
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--ink-3);
-}
-
-tbody th {
-  font-weight: 500;
-}
-
-.r {
-  text-align: right;
-}
-
-.mail {
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pill-status {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--panel-2);
-  font-size: 11.5px;
-}
-
-.pill-status.succeeded {
-  background: var(--good-soft);
-  color: var(--good);
 }
 
 @media (max-width: 640px) {

@@ -14,7 +14,7 @@ import httpx
 from PIL import Image
 
 from .. import config
-from . import expert
+from . import aicost, expert
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +69,7 @@ def generate(jpeg: bytes, prompt: str) -> bytes:
     except httpx.HTTPError as exc:
         log.warning("Генерация обложки: сеть — %s", exc)
         raise ImproveError("Сервис генерации недоступен, попробуйте через минуту") from exc
+    aicost.record(config.IMAGE_MODEL, expert._usage(r), r.status_code < 400)
     if r.status_code >= 400:
         log.warning("Генерация обложки: %s %s", r.status_code, r.text[:300])
         raise ImproveError("Не удалось сгенерировать обложку, попробуйте ещё раз")

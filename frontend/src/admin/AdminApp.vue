@@ -10,6 +10,8 @@ import {
   LogOut,
   Sparkles,
   Ticket,
+  Users,
+  Wallet,
 } from 'lucide-vue-next'
 import Logo from '../components/Logo.vue'
 import ThemeToggle from '../components/ThemeToggle.vue'
@@ -22,13 +24,17 @@ import BillingPanel from './BillingPanel.vue'
 import StatsPanel from './StatsPanel.vue'
 import QueuePanel from './QueuePanel.vue'
 import PromoPanel from './PromoPanel.vue'
+import UsersPanel from './UsersPanel.vue'
+import AiPanel from './AiPanel.vue'
 import { adminApi, auth, setToken } from './adminApi'
 import { TOAST_MS } from '../lib/constants'
 import type { AdminSettings } from '../lib/types'
 
-type Tab = 'stats' | 'queue' | 'landing' | 'examples' | 'expert' | 'billing' | 'promo'
+type Tab = 'stats' | 'users' | 'ai' | 'queue' | 'landing' | 'examples' | 'expert' | 'billing' | 'promo'
 const tabs: { id: Tab; title: string; icon: Component }[] = [
   { id: 'stats', title: 'Статистика', icon: BarChart3 },
+  { id: 'users', title: 'Пользователи', icon: Users },
+  { id: 'ai', title: 'Расходы ProxyAPI', icon: Wallet },
   { id: 'queue', title: 'Очередь', icon: ListOrdered },
   { id: 'landing', title: 'Главная', icon: LayoutTemplate },
   { id: 'examples', title: 'Примеры', icon: ImageIcon },
@@ -119,6 +125,8 @@ onUnmounted(() => {
       <p v-if="error" class="err load-err">{{ error }}</p>
       <template v-if="data">
         <StatsPanel v-if="tab === 'stats'" />
+        <UsersPanel v-else-if="tab === 'users'" />
+        <AiPanel v-else-if="tab === 'ai'" />
         <QueuePanel v-else-if="tab === 'queue'" />
         <LandingPanel v-else-if="tab === 'landing'" :data="data" @saved="notify" />
         <ExamplesPanel v-else-if="tab === 'examples'" :data="data" @changed="reload" @notify="notify" />

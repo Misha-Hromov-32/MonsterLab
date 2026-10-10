@@ -78,8 +78,9 @@ def test_seeded_examples_are_public(client: TestClient) -> None:
 
 
 def test_example_previews_are_small_webp(client: TestClient) -> None:
-    from PIL import Image
     import io
+
+    from PIL import Image
 
     url = client.get("/api/public/site").json()["examples"][0]["variants"][0]["url"]
     full = client.get(url).content
