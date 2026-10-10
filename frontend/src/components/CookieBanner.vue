@@ -11,8 +11,7 @@ import { consent, setConsent } from '../lib/consent'
     <section v-if="consent.open" class="cookie" role="region" aria-label="Настройки cookie">
       <span class="ic" aria-hidden="true"><Cookie :size="18" /></span>
       <p>
-        Мы используем необходимые cookie для работы сайта, а с вашего согласия — аналитические (Яндекс Метрика), чтобы
-        делать сервис удобнее.
+        Мы используем необходимые cookie для работы сайта.
         <a href="/legal#cookies">Подробнее</a>
       </p>
       <div class="btns">
