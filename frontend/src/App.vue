@@ -69,8 +69,13 @@ watch(
 watch(
   () => (state.variants.length ? state.view : 'landing'),
   (view, prev) => {
-    if (prev !== undefined) hit(view === 'landing' ? '/' : `/#${view}`)
+    if (prev === undefined) return
+    hit(view === 'landing' ? '/' : `/#${view}`)
+    // новая «страница» — с самого верха: на телефоне прокручивается весь документ, и пример из галереи
+    // открывался бы на той высоте, где была галерея на главной
+    window.scrollTo({ top: 0 })
   },
+  { flush: 'post' },
 )
 
 onMounted(() => {

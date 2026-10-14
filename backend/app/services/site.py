@@ -76,7 +76,7 @@ DEFAULTS: dict = {
             {
                 "id": "pro",
                 "title": "Про",
-                "price_rub": 2490,
+                "price_rub": 2990,
                 "period_days": 30,
                 "note": "Для селлера с ассортиментом",
                 "featured": True,
