@@ -460,4 +460,130 @@ const details = computed(() =>
   justify-self: start;
   margin-left: -10px;
 }
+
+/* телефон: крупнее и спокойнее — оценка плиткой, шкалы под названиями, текст от 14 px */
+@media (max-width: 900px) {
+  .visual {
+    padding-bottom: 20px;
+  }
+  .tag {
+    display: none;
+  }
+  .pitch {
+    font-size: 16px;
+  }
+  .rivals {
+    font-size: 14px;
+  }
+  .ask .btn {
+    width: 100%;
+    height: 48px;
+    justify-content: center;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .result {
+    gap: 18px;
+  }
+  .top {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .overall {
+    justify-self: start;
+    padding: 12px 18px;
+    border-radius: 18px;
+  }
+  .overall .num {
+    font-size: 52px;
+    font-weight: 300;
+    letter-spacing: -0.05em;
+  }
+  .overall small {
+    font-size: 16px;
+  }
+  .verdict {
+    font-family: var(--display-font);
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+  .chips {
+    margin-bottom: -6px;
+  }
+  .chip {
+    padding: 6px 12px;
+    font-size: 13.5px;
+  }
+  .audience,
+  .impression {
+    font-size: 15px;
+  }
+  .scores {
+    gap: 14px;
+  }
+  .score {
+    grid-template-columns: 1fr auto;
+    row-gap: 6px;
+  }
+  .st {
+    font-size: 14.5px;
+    color: var(--ink);
+  }
+  .sv {
+    font-size: 16px;
+  }
+  .bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    height: 8px;
+    border-radius: 4px;
+  }
+  .block .label {
+    font-size: 12px;
+  }
+  .strengths li {
+    grid-template-columns: 18px 1fr;
+    font-size: 15px;
+  }
+  .improvements li {
+    padding: 16px 16px 16px 48px;
+    border-radius: 16px;
+  }
+  .improvements li::before {
+    left: 14px;
+    top: 15px;
+    width: 24px;
+    height: 24px;
+    font-size: 13px;
+  }
+  .improvements strong {
+    font-size: 16px;
+  }
+  .improvements p {
+    font-size: 14.5px;
+  }
+  .more summary {
+    padding: 4px 0;
+    font-size: 15px;
+    list-style-position: inside; /* треугольник — внутри карточки, а не на её рамке */
+  }
+  .more p,
+  .mt {
+    font-size: 15px;
+  }
+  .mc {
+    font-size: 14px;
+  }
+  .role {
+    font-size: 12.5px;
+  }
+  .again {
+    margin-left: 0;
+    height: 40px;
+    font-size: 14px;
+  }
+}
 </style>

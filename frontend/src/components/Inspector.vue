@@ -78,7 +78,7 @@ function remove(id: string) {
 
 <template>
   <aside class="inspector scroll-y">
-    <section class="hero">
+    <section class="hero" :class="tone(a.index)">
       <span class="label">Индекс заметности</span>
       <div class="big">
         <span class="n num" :class="tone(a.index)">{{ a.index }}</span>
@@ -88,7 +88,7 @@ function remove(id: string) {
       <p v-if="variant.measuredIndex !== undefined" class="lead">
         С бонусом за генерацию · оценка модели без бонуса: {{ variant.measuredIndex }}/100.
       </p>
-      <p class="lead">Оценка внимания и читаемости.</p>
+      <p class="lead about">Оценка внимания и читаемости.</p>
     </section>
 
     <!-- визуальный разбор — сразу под индексом: стиль и смысл важнее технических метрик -->
@@ -388,5 +388,175 @@ function remove(id: string) {
 
 .palette i {
   flex-basis: 0;
+}
+/* ------------------------------------------------------------------ телефон
+   Колонка карточек: индекс — цветной плиткой, метрики — плитками 2×2, заголовки — шрифтом логотипа,
+   текст не мельче 14 px. Вторичные подписи, которые на компьютере видны рядом, здесь убраны. */
+@media (max-width: 900px) {
+  .inspector {
+    gap: 12px;
+    padding: 12px 12px 40px;
+    border-left: 0;
+    background: var(--stage);
+  }
+
+  /* каждая секция (и корневые секции вложенных панелей) — отдельная карточка; у «Улучшить» — своя, цветная */
+  .inspector > section:not(.improve) {
+    margin: 0;
+    padding: 20px 18px;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: var(--panel);
+  }
+
+  .inspector :deep(.sec-head) {
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .inspector :deep(.sec-head > .label:first-child) {
+    font-family: var(--display-font);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+  }
+
+  /* индекс — главная плитка экрана */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 22px 20px 20px !important;
+    border: 0 !important;
+    background: var(--lime) !important;
+    color: var(--on-tile);
+  }
+  .hero.warn {
+    background: var(--sun) !important;
+  }
+  .hero.bad {
+    background: #ffb3b5 !important;
+  }
+  .hero .label {
+    color: color-mix(in srgb, var(--on-tile) 60%, transparent);
+  }
+  .hero .n,
+  .hero .n.good,
+  .hero .n.warn,
+  .hero .n.bad {
+    font-size: 104px;
+    color: var(--on-tile);
+    letter-spacing: -0.06em;
+  }
+  .hero .of {
+    font-size: 18px;
+    color: color-mix(in srgb, var(--on-tile) 55%, transparent);
+  }
+  .hero .verdict {
+    margin: 10px 0 0;
+    font-family: var(--display-font);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+  }
+  .hero .lead {
+    margin-top: 6px;
+    font-size: 14px;
+    color: color-mix(in srgb, var(--on-tile) 65%, transparent);
+  }
+  .hero .about {
+    display: none;
+  }
+
+  /* метрики — плитки 2×2: название, крупное число, шкала */
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .metrics > .metric {
+    align-content: space-between;
+    gap: 12px;
+    min-height: 128px;
+    padding: 14px;
+    border-radius: 16px;
+    background: var(--panel-2);
+  }
+  .metrics :deep(.top) {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .metrics :deep(.title) {
+    font-size: 14px;
+    line-height: 1.25;
+    color: var(--ink-2);
+  }
+  .metrics :deep(.val) {
+    font-size: 42px;
+    line-height: 0.9;
+  }
+  .metrics :deep(.track) {
+    height: 6px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--ink) 9%, transparent);
+  }
+  .metrics :deep(.fill) {
+    border-radius: 3px;
+  }
+  .metrics :deep(.mark),
+  .metrics :deep(.detail) {
+    display: none;
+  }
+
+  .empty-hint {
+    font-size: 15px;
+  }
+
+  .aois li {
+    gap: 10px;
+  }
+  .aoi-name {
+    height: 36px;
+    font-size: 15px;
+  }
+  .share {
+    font-size: 16px;
+  }
+  .lift {
+    font-size: 14px;
+  }
+  .aoi-help {
+    font-size: 13px;
+  }
+
+  /* «что исправить» — карточки с цветной меткой */
+  .notes {
+    gap: 8px;
+  }
+  .notes li {
+    gap: 12px;
+    padding: 14px;
+    border-radius: 16px;
+    background: var(--panel-2);
+  }
+  .notes .dot {
+    width: 10px;
+    height: 10px;
+    margin-top: 6px;
+  }
+  .notes strong {
+    font-size: 16px;
+    line-height: 1.3;
+  }
+  .notes p {
+    margin-top: 4px;
+    font-size: 14.5px;
+  }
+
+  .palette {
+    height: 48px;
+    border-radius: 14px;
+  }
 }
 </style>

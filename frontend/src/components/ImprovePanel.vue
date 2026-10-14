@@ -232,4 +232,41 @@ figure img {
   justify-self: start;
   margin-left: -10px;
 }
+
+/* телефон: та же карточка, что у соседних разделов, но цветная; кнопка — во всю ширину */
+@media (max-width: 900px) {
+  .improve {
+    margin: 0;
+    padding: 20px 18px;
+    border-radius: 22px;
+  }
+  .ask {
+    gap: 10px;
+    justify-items: stretch;
+  }
+  .big {
+    height: 50px;
+    justify-content: center;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .hint,
+  .err {
+    font-size: 14px;
+  }
+  .acts .btn {
+    height: 44px;
+    border-radius: 12px;
+    font-size: 14.5px;
+  }
+  .key {
+    width: 44px;
+  }
+  .again {
+    margin-left: 0;
+    height: 40px;
+    font-size: 14px;
+  }
+}
 </style>

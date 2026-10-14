@@ -3,6 +3,8 @@
    (лайм, сирень, мята, голубой, жёлтый) и почти чёрный текст. */
 :root {
   --font-sans: 'Onest Variable', 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* шрифт логотипа и главной — для крупных заголовков в мобильной версии приложения */
+  --display-font: 'Montserrat Variable', 'Montserrat', var(--font-sans);
 
   --bg: #ffffff;
   --panel: #ffffff;

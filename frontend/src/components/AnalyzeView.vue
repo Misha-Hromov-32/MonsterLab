@@ -122,46 +122,49 @@ function createAoi(rect: { x: number; y: number; w: number; h: number }) {
               :disabled="!hasOpacity(state.mode)"
             />
           </label>
-          <button
-            class="btn sm"
-            :class="{ primary: drawing }"
-            :aria-pressed="drawing"
-            :disabled="!a"
-            title="Нарисуйте рамку вокруг товара или оффера (Z)"
-            @click="drawing = !drawing"
-          >
-            <Crop :size="14" /> Зона
-          </button>
-          <button
-            class="btn sm"
-            :class="{ primary: state.blind }"
-            :aria-pressed="!!state.blind"
-            :disabled="!a"
-            title="Слепые зоны Wildberries: углы, которые закрывают бейджи, сердечко, скидка и корзина"
-            @click="state.blind = state.blind ? '' : 'zones'"
-          >
-            <LayoutPanelTop :size="14" /> Слепые зоны
-          </button>
-          <Segmented v-if="state.blind" v-model="state.blind" :options="BLIND_VIEWS" size="sm" label="Слепые зоны" />
-          <button
-            class="btn sm"
-            :class="{ primary: preview }"
-            :aria-pressed="preview"
-            :disabled="!a"
-            title="Как карточка выглядит в мобильной выдаче"
-            @click="preview = !preview"
-          >
-            <Smartphone :size="14" /> Превью
-          </button>
-          <button
-            class="btn sm icon"
-            :disabled="!a"
-            title="Скачать PNG с картой внимания"
-            aria-label="Скачать PNG"
-            @click="download"
-          >
-            <Download :size="14" />
-          </button>
+          <!-- на телефоне — лента кнопок с прокруткой вбок, на компьютере обёртка не влияет на раскладку -->
+          <div class="acts">
+            <button
+              class="btn sm"
+              :class="{ primary: drawing }"
+              :aria-pressed="drawing"
+              :disabled="!a"
+              title="Нарисуйте рамку вокруг товара или оффера (Z)"
+              @click="drawing = !drawing"
+            >
+              <Crop :size="14" /> Зона
+            </button>
+            <button
+              class="btn sm"
+              :class="{ primary: state.blind }"
+              :aria-pressed="!!state.blind"
+              :disabled="!a"
+              title="Слепые зоны Wildberries: углы, которые закрывают бейджи, сердечко, скидка и корзина"
+              @click="state.blind = state.blind ? '' : 'zones'"
+            >
+              <LayoutPanelTop :size="14" /> Слепые зоны
+            </button>
+            <Segmented v-if="state.blind" v-model="state.blind" :options="BLIND_VIEWS" size="sm" label="Слепые зоны" />
+            <button
+              class="btn sm"
+              :class="{ primary: preview }"
+              :aria-pressed="preview"
+              :disabled="!a"
+              title="Как карточка выглядит в мобильной выдаче"
+              @click="preview = !preview"
+            >
+              <Smartphone :size="14" /> Превью
+            </button>
+            <button
+              class="btn sm icon"
+              :disabled="!a"
+              title="Скачать PNG с картой внимания"
+              aria-label="Скачать PNG"
+              @click="download"
+            >
+              <Download :size="14" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -307,6 +310,10 @@ function createAoi(rect: { x: number; y: number; w: number; h: number }) {
   max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
+}
+
+.acts {
+  display: contents;
 }
 
 .opacity input {
@@ -503,14 +510,93 @@ function createAoi(rect: { x: number; y: number; w: number; h: number }) {
   .analyze {
     grid-template-columns: minmax(0, 1fr);
   }
+  .stage {
+    background: var(--stage);
+    background-image: none;
+  }
+  /* имя варианта уже есть в ленте вариантов сверху — здесь только инструменты, крупнее под палец */
+  .toolbar {
+    gap: 10px;
+    padding: 12px;
+    border-bottom: 0;
+    background: var(--stage);
+  }
+  .caption {
+    display: none;
+  }
+  .controls {
+    gap: 8px;
+  }
+  .controls :deep(.seg) {
+    width: 100%;
+    padding: 4px;
+    border-radius: 14px;
+  }
+  .controls :deep(.seg button) {
+    flex: 1 0 auto;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+  .acts {
+    display: flex;
+    flex: 1 1 100%;
+    gap: 8px;
+    margin: 0 -12px;
+    padding: 0 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .acts > * {
+    flex: none;
+  }
+  .acts :deep(.seg) {
+    width: auto;
+  }
+  .controls .btn.sm {
+    height: 38px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-size: 14px;
+  }
+  .controls .btn.sm.icon {
+    width: 38px;
+    padding: 0;
+  }
+  .opacity {
+    order: 10;
+    flex: 1 1 100%;
+    display: flex;
+  }
+  .opacity input {
+    width: 100%;
+  }
+  .opacity.hidden {
+    display: none;
+  }
   .area {
     min-width: 0;
-    margin: 16px;
-    min-height: 60vh;
+    margin: 4px 12px 12px;
+    min-height: 60vh; /* fit() вписывает картинку и по высоте — без неё область схлопнулась бы */
+  }
+  .frame {
+    overflow: hidden;
+    border-radius: 18px;
+  }
+  .tick {
+    display: none;
   }
   .phone {
     position: static;
     margin-top: 12px;
+    border-radius: 18px;
+  }
+  .legend {
+    justify-content: center;
+    padding: 0 12px 4px;
+    border-top: 0;
+    background: var(--stage);
+    font-size: 12.5px;
   }
 }
 </style>

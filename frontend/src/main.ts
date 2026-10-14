@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import '@fontsource-variable/onest'
+import '@fontsource-variable/montserrat'
 import './styles/base.css'
 import App from './App.vue'
 import { watchSystemTheme } from './lib/theme'

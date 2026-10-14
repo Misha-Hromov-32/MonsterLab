@@ -57,7 +57,9 @@ const summary = computed(() => {
                 >{{ Math.round(c.attention * 100) }}%</span
               >
             </div>
-            <p>{{ c.level === 'busy' ? c.zone.advice : `Здесь WB рисует ${c.zone.covers}.` }}</p>
+            <p :class="{ aside: c.level !== 'busy' }">
+              {{ c.level === 'busy' ? c.zone.advice : `Здесь WB рисует ${c.zone.covers}.` }}
+            </p>
           </div>
         </li>
       </ul>
@@ -171,5 +173,53 @@ const summary = computed(() => {
   margin: 10px 0 0;
   font-size: 10.5px;
   color: var(--ink-3);
+}
+
+/* телефон: углы — плитками, совет — только у занятых, проценты крупно */
+@media (max-width: 900px) {
+  .link {
+    font-size: 14px;
+  }
+  .hint {
+    font-size: 15px;
+  }
+  .zones {
+    gap: 8px;
+  }
+  .zones li {
+    gap: 12px;
+    padding: 14px;
+    border-radius: 16px;
+    background: var(--panel-2);
+  }
+  .sw {
+    width: 14px;
+    height: 14px;
+    margin-top: 4px;
+    border-radius: 4px;
+  }
+  .row {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .row strong {
+    font-size: 16px;
+  }
+  .lvl {
+    font-size: 13.5px;
+  }
+  .att {
+    font-size: 18px;
+    font-weight: 300;
+    color: var(--ink);
+  }
+  .zones p {
+    margin-top: 6px;
+    font-size: 14.5px;
+  }
+  .zones p.aside,
+  .foot {
+    display: none;
+  }
 }
 </style>
