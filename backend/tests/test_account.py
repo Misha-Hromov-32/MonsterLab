@@ -188,13 +188,18 @@ def test_improve_spends_limit_only_on_success(client: TestClient, user_headers: 
 
     monkeypatch.setattr(improve, "generate", fake_generate)
     image_id = _upload(client)
+    # в демо генерации нет; один бонусный запуск по промокоду — есть
+    assert client.post("/api/improve", json={"id": image_id}, headers=user_headers).status_code == 403
+    user = accounts.user_from_token(user_headers["Authorization"].split()[1])
+    with db.connect() as con:
+        con.execute("INSERT INTO user_bonus (user_id, feature, balance) VALUES (?, 'improve', 1)", (user.id,))
     first = client.post("/api/improve", json={"id": image_id}, headers=user_headers)
     assert first.status_code == 502  # сбой модели лимит не тратит
     body = {"id": image_id, "issues": ["мелкий текст — укрупнить"]}
     ok = client.post("/api/improve", json=body, headers=user_headers)
     assert ok.status_code == 200 and ok.json()["image"].startswith("data:image/jpeg;base64,")
     assert "мелкий текст" in calls[-1]
-    # на бесплатном тарифе — одно улучшение в день
+    # бонусный запуск потрачен
     again = client.post("/api/improve", json={"id": image_id}, headers=user_headers)
     assert again.status_code == 403 and again.json()["detail"]["code"] == "limit_reached"
 
@@ -453,3 +458,25 @@ def test_admin_stats_counts_runs_and_visits(client: TestClient, anon: TestClient
     assert len(after["daily"]) == 30 and after["users"]["total"] >= 1
     assert any(u["email"] == "session@example.com" and u["plan"] == "Агентство" for u in after["latest_users"])
     assert anon.get("/api/admin/stats").status_code == 401
+
+
+def test_improved_cover_is_cropped_to_3x4_without_cutting_text() -> None:
+    from PIL import Image, ImageDraw
+
+    # 2:3 от модели: сверху — пустой фон, снизу у самого края — «надпись» (контрастные полосы)
+    img = Image.new("RGB", (1024, 1536), (20, 60, 30))
+    draw = ImageDraw.Draw(img)
+    for y in range(1420, 1520, 8):
+        draw.rectangle((100, y, 900, y + 3), fill=(255, 255, 255))
+    out = improve.to_cover_ratio(img)
+    assert out.size == (1024, 1365)
+    # обрезан пустой верх, полосы снизу сохранились целиком
+    bottom = out.crop((0, 1365 - 160, 1024, 1365)).convert("L")
+    assert max(bottom.getdata()) == 255
+    assert improve.to_cover_ratio(Image.new("RGB", (768, 1024))).size == (768, 1024)  # уже 3:4
+
+
+def test_improve_prompt_asks_for_redesign_not_copy() -> None:
+    prompt = improve.build_prompt([{"level": "bad", "title": "Мелкий текст", "text": "не читается"}], [], {})
+    assert "не копию" in prompt and "бренда сохрани" in prompt and "Мелкий текст" in prompt
+    assert "левый нижний" in prompt  # углы под интерфейс маркетплейса

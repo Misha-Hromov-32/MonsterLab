@@ -63,7 +63,10 @@ def test_service_needs_login(anon: TestClient) -> None:
 
 def test_expert_needs_login_then_key(client: TestClient, anon: TestClient, user_headers: dict) -> None:
     assert anon.post("/api/expert/critique", data={"id": "x"}).json()["detail"]["code"] == "login_required"
-    r = client.post("/api/expert/critique", data={"id": "whatever"}, headers=user_headers)
+    # демо — только бесплатные функции: нейросети открываются в платных тарифах
+    demo = client.post("/api/expert/critique", data={"id": "whatever"}, headers=user_headers).json()["detail"]
+    assert demo["code"] == "limit_reached" and "в платных тарифах" in demo["message"]
+    r = client.post("/api/expert/critique", data={"id": "whatever"})  # сессия client — на тарифе «Агентство»
     assert r.status_code == 503
     assert r.json()["detail"]["code"] == "expert_disabled"
 
@@ -130,9 +133,9 @@ def test_unknown_routes_answer_in_api_format(client: TestClient) -> None:
         assert set(r.json()["detail"]) == {"code", "message"}
 
 
-def test_validation_error_names_field_in_russian(client: TestClient, user_headers: dict) -> None:
+def test_validation_error_names_field_in_russian(client: TestClient) -> None:
     body = {"id": "x", "context": json.dumps({"price": "1" * 50})}
-    r = client.post("/api/expert/critique", data=body, headers=user_headers)
+    r = client.post("/api/expert/critique", data=body)
     detail = r.json()["detail"]
     assert r.status_code == 422 and "цена" in detail["message"]
 

@@ -46,6 +46,15 @@ FEATURE_TITLES = {
     "improve": "улучшенных обложек",
     "competitors": "подборов конкурентов",
 }
+# названия функций для сообщения «доступно в платных тарифах»
+FEATURE_NAMES = {
+    "analyze": "Проверка обложек",
+    "shelf": "Тест полки",
+    "expert": "Визуальный разбор",
+    "choice": "Выбор покупателя",
+    "improve": "Улучшенная обложка",
+    "competitors": "Подбор конкурентов",
+}
 _EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$")
 # Одноразовые ящики: на них регистрируются ради нового демо-доступа
 DISPOSABLE_DOMAINS = frozenset(
@@ -142,7 +151,10 @@ class LimitReached(Exception):
     def __init__(self, feature: str, limit: int, plan: str) -> None:
         self.feature, self.limit, self.plan = feature, limit, plan
         what = FEATURE_TITLES.get(feature, "запусков")
-        if plan == DEMO:
+        if limit == 0:
+            name = FEATURE_NAMES.get(feature, "Эта функция")
+            text = f"{name} — в платных тарифах. Выберите тариф, чтобы открыть."
+        elif plan == DEMO:
             text = f"Демо-доступ: {what} больше нет (было {limit}). Выберите тариф, чтобы продолжить."
         else:
             text = f"В этом периоде закончились {what}: {limit}. Перейдите на тариф выше или дождитесь продления."

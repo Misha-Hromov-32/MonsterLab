@@ -41,6 +41,7 @@ def test_personal_library_owner_access_and_restore(client, anon):
 def test_generated_covers_saved_and_deduplicated(client, monkeypatch):
     token = verified_token(client)
     user = accounts.user_from_token(token)
+    accounts.activate(user.id, "start", 30)  # генерация — только в платных тарифах
     headers = {"Authorization": f"Bearer {token}"}
     original = jpeg_bytes(make_cover(772))
     generated = jpeg_bytes(make_cover(773))
