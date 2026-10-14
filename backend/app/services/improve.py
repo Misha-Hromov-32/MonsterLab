@@ -2,7 +2,7 @@
 
 Исходная обложка уходит в /images/edits ProxyAPI вместе с инструкцией: сделать новый, более сильный дизайн
 (крупный товар, меньше и крупнее текст, свободные углы под интерфейс WB), что мешает по выводам метрик и
-экспертов и чего нельзя трогать (товар, бренд, факты в надписях). Ответ 2:3 обрезается до карточки 3:4.
+экспертов и чего нельзя трогать (товар, бренд, факты в надписях). Ответ 2:3 доводится до карточки 3:4 полями по бокам.
 """
 
 from __future__ import annotations
@@ -12,8 +12,7 @@ import io
 import logging
 
 import httpx
-import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 from .. import config
 from . import aicost, expert
@@ -22,7 +21,7 @@ log = logging.getLogger(__name__)
 
 TIMEOUT_S = 240  # генерация занимает 30–60 с, с запасом на очередь у провайдера
 SIZE = "1024x1536"  # вертикаль 2:3 — ближе всего к карточке 3:4 из доступных размеров
-COVER_RATIO = 3 / 4  # карточки WB и Ozon — 3:4; результат 2:3 обрезаем до него
+COVER_RATIO = 3 / 4  # карточки WB и Ozon — 3:4; результат 2:3 доводим до него полями по бокам
 
 PROMPT = """Ты — сильный дизайнер карточек Wildberries и Ozon. Перед тобой обложка товара. Сделай НОВЫЙ,
 заметно более сильный вариант дизайна этой обложки — не копию.
@@ -40,7 +39,6 @@ PROMPT = """Ты — сильный дизайнер карточек Wildberrie
    левый нижний — около 40% ширины и 20% высоты (скидка и промо), правый нижний (корзина).
    В этих углах только фон: ни текста, ни товара.
 4. Один акцентный цвет для главного, спокойный фон без мелких деталей.
-5. Верхние и нижние 6% кадра будут обрезаны до формата 3:4 — ничего важного у краёв.
 
 Что мешает на исходной обложке:
 {problems}
@@ -95,16 +93,19 @@ def generate(jpeg: bytes, prompt: str) -> bytes:
 
 
 def to_cover_ratio(img: Image.Image) -> Image.Image:
-    """Обрезает вертикаль 2:3 до 3:4. Срезаем сверху и снизу там, где меньше всего деталей (перепадов яркости
-    между строками): у краёв обычно фон, а надписи и товар остаются целыми."""
+    """Доводит вертикаль 2:3 до карточки 3:4, ничего не обрезая: по бокам дорисовываем размытое продолжение
+    краёв фона. Обрезка по высоте срезала бы заголовок — модель часто ставит его у самого края."""
     w, h = img.size
-    want = round(w / COVER_RATIO)
-    if h <= want:
+    want_w = round(h * COVER_RATIO)
+    if w >= want_w:
         return img
-    cut = h - want
-    gray = np.asarray(img.convert("L"), dtype=np.float32)
-    detail = np.concatenate([np.abs(np.diff(gray, axis=0)).sum(axis=1), [0.0]])
-    acc = np.concatenate([[0.0], np.cumsum(detail)])
-    # сверху срезаем top строк, снизу — cut - top; ищем, где потеряем меньше всего деталей
-    top = min(range(cut + 1), key=lambda t: acc[t] + acc[h] - acc[h - (cut - t)])
-    return img.crop((0, top, w, top + want))
+    pad = want_w - w
+    left, right = pad // 2, pad - pad // 2
+    canvas = Image.new("RGB", (want_w, h))
+    edge = max(8, w // 32)  # полоса края, которую растягиваем в поле
+    for x, size, box in ((0, left, (0, 0, edge, h)), (left + w, right, (w - edge, 0, w, h))):
+        if size:
+            strip = img.crop(box).transpose(Image.Transpose.FLIP_LEFT_RIGHT).resize((size, h))
+            canvas.paste(strip.filter(ImageFilter.GaussianBlur(max(4, size // 3))), (x, 0))
+    canvas.paste(img, (left, 0))
+    return canvas

@@ -460,19 +460,17 @@ def test_admin_stats_counts_runs_and_visits(client: TestClient, anon: TestClient
     assert anon.get("/api/admin/stats").status_code == 401
 
 
-def test_improved_cover_is_cropped_to_3x4_without_cutting_text() -> None:
+def test_improved_cover_becomes_3x4_without_losing_content() -> None:
     from PIL import Image, ImageDraw
 
-    # 2:3 от модели: сверху — пустой фон, снизу у самого края — «надпись» (контрастные полосы)
-    img = Image.new("RGB", (1024, 1536), (20, 60, 30))
+    # 2:3 от модели: заголовок у самого верхнего края, «товар» у нижнего — ничего не должно пропасть
+    img = Image.new("RGB", (1024, 1536), (60, 40, 20))
     draw = ImageDraw.Draw(img)
-    for y in range(1420, 1520, 8):
-        draw.rectangle((100, y, 900, y + 3), fill=(255, 255, 255))
+    draw.rectangle((100, 0, 900, 40), fill=(255, 255, 255))
+    draw.rectangle((300, 1490, 700, 1535), fill=(250, 200, 0))
     out = improve.to_cover_ratio(img)
-    assert out.size == (1024, 1365)
-    # обрезан пустой верх, полосы снизу сохранились целиком
-    bottom = out.crop((0, 1365 - 160, 1024, 1365)).convert("L")
-    assert max(bottom.getdata()) == 255
+    assert out.size == (1152, 1536) and abs(out.width / out.height - 3 / 4) < 0.01
+    assert out.crop((64, 0, 64 + 1024, 1536)).tobytes() == img.tobytes()  # исходник целиком, по центру
     assert improve.to_cover_ratio(Image.new("RGB", (768, 1024))).size == (768, 1024)  # уже 3:4
 
 
