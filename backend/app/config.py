@@ -141,7 +141,9 @@ PROXYAPI_BASE_URL = os.getenv("PROXYAPI_BASE_URL", "").strip() or "https://api.p
 if not PROXYAPI_BASE_URL.startswith("https://"):
     raise RuntimeError("PROXYAPI_BASE_URL должен начинаться с https:// — по нему уходит ключ API")
 # JURY_MODELS — прежнее имя переменной, поддерживается для старых .env
-_DEFAULT_MODELS = "google/gemini-2.5-flash,anthropic/claude-haiku-4-5"
+# Выбор покупателя — одна Gemini Flash: вторая модель (Claude Haiku) давала ~90% цены запуска (в 10 раз дороже),
+# а покупатель видит только итоговые проценты. Её же берёт разбор, если основная модель не ответила.
+_DEFAULT_MODELS = "google/gemini-2.5-flash"
 _models = os.getenv("EXPERT_MODELS") or os.getenv("JURY_MODELS") or _DEFAULT_MODELS
 EXPERT_MODELS = [m.strip() for m in _models.split(",") if m.strip()]
 EXPERT_CONCURRENCY = _int("EXPERT_CONCURRENCY", 6)

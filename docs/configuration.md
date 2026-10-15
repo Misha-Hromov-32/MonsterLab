@@ -9,7 +9,7 @@
 | `PORT` | `8080` | порт интерфейса на хосте |
 | `PROXYAPI_KEY` | — | ключ экспертного разбора, если не задан в админке. Чтобы админка показывала остаток на счёте, включите у ключа разрешение «Запрос баланса» (ProxyAPI → Ключи API) |
 | `PROXYAPI_BASE_URL` | `https://api.proxyapi.ru/v1` | OpenAI-совместимый адрес |
-| `EXPERT_MODELS` | `google/gemini-2.5-flash,anthropic/claude-haiku-4-5` | модели через запятую, до 6 |
+| `EXPERT_MODELS` | `google/gemini-2.5-flash` | модели «Выбора покупателя» через запятую, до 6; каждая модель умножает цену запуска |
 | `EXPERT_CONCURRENCY` | `6` | одновременных запросов к моделям |
 | `VISUAL_MODEL` | `anthropic/claude-sonnet-5-5` | модель визуального разбора; если не ответит — первая из `EXPERT_MODELS` |
 | `NEURAL` | `1` | `0` — образ без нейросети |

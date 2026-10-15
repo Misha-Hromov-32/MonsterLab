@@ -474,7 +474,7 @@ def test_improved_cover_becomes_3x4_without_losing_content() -> None:
     assert improve.to_cover_ratio(Image.new("RGB", (768, 1024))).size == (768, 1024)  # уже 3:4
 
 
-def test_improve_prompt_asks_for_redesign_not_copy() -> None:
+def test_improve_prompt_keeps_style_and_names_problems() -> None:
     prompt = improve.build_prompt([{"level": "bad", "title": "Мелкий текст", "text": "не читается"}], [], {})
-    assert "не копию" in prompt and "бренда сохрани" in prompt and "Мелкий текст" in prompt
-    assert "левый нижний" in prompt  # углы под интерфейс маркетплейса
+    assert "сохранив её стиль" in prompt and "фон и сцену" in prompt and "Мелкий текст" in prompt
+    assert "левом нижнем углу" in prompt  # углы под интерфейс маркетплейса
