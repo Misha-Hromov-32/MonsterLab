@@ -460,21 +460,54 @@ def test_admin_stats_counts_runs_and_visits(client: TestClient, anon: TestClient
     assert anon.get("/api/admin/stats").status_code == 401
 
 
-def test_improved_cover_becomes_3x4_without_losing_content() -> None:
-    from PIL import Image, ImageDraw
+def test_cover_is_padded_for_model_and_cropped_back(monkeypatch) -> None:
+    import base64
+    import io
 
-    # 2:3 от модели: заголовок у самого верхнего края, «товар» у нижнего — ничего не должно пропасть
-    img = Image.new("RGB", (1024, 1536), (60, 40, 20))
-    draw = ImageDraw.Draw(img)
-    draw.rectangle((100, 0, 900, 40), fill=(255, 255, 255))
-    draw.rectangle((300, 1490, 700, 1535), fill=(250, 200, 0))
-    out = improve.to_cover_ratio(img)
-    assert out.size == (1152, 1536) and abs(out.width / out.height - 3 / 4) < 0.01
-    assert out.crop((64, 0, 64 + 1024, 1536)).tobytes() == img.tobytes()  # исходник целиком, по центру
-    assert improve.to_cover_ratio(Image.new("RGB", (768, 1024))).size == (768, 1024)  # уже 3:4
+    from PIL import Image
+
+    monkeypatch.setattr(expert, "current_config", lambda: expert.ExpertConfig("key", "https://x.test/v1", ["m"]))
+    sent = {}
+
+    class FakeClient:
+        def __init__(self, *a, **kw):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, url, headers, data, files):
+            src = Image.open(io.BytesIO(files["image"][1]))
+            sent["size"] = src.size
+            # «модель» возвращает 1024×1536: тот же холст, увеличенный
+            buf = io.BytesIO()
+            src.resize((1024, 1536)).save(buf, "PNG")
+            body = {"data": [{"b64_json": base64.b64encode(buf.getvalue()).decode()}]}
+            return httpx.Response(200, json=body)
+
+    monkeypatch.setattr(improve.httpx, "Client", FakeClient)
+    cover = jpeg_bytes(make_cover(11, (768, 1024)))  # 3:4
+    out = Image.open(io.BytesIO(improve.generate(cover, "prompt")))
+    assert abs(sent["size"][0] / sent["size"][1] - 2 / 3) < 0.01  # модели — холст 2:3 с полями
+    assert abs(out.width / out.height - 3 / 4) < 0.01  # покупателю — снова 3:4, без полей
+
+
+def test_pad_keeps_original_in_the_middle() -> None:
+    from PIL import Image
+
+    img = Image.new("RGB", (768, 1024), (200, 30, 30))
+    canvas, box = improve.pad_to_ratio(img, 2 / 3)
+    assert canvas.size == (768, 1152)
+    left, t, r, b = (round(box[0] * 768), round(box[1] * 1152), round(box[2] * 768), round(box[3] * 1152))
+    assert (left, t, r, b) == (0, 64, 768, 1088) and canvas.crop((left, t, r, b)).tobytes() == img.tobytes()
+    tall, _ = improve.pad_to_ratio(Image.new("RGB", (600, 1200)), 2 / 3)  # у́же 2:3 — поля по бокам
+    assert tall.size == (800, 1200)
 
 
 def test_improve_prompt_keeps_style_and_names_problems() -> None:
     prompt = improve.build_prompt([{"level": "bad", "title": "Мелкий текст", "text": "не читается"}], [], {})
     assert "сохранив её стиль" in prompt and "фон и сцену" in prompt and "Мелкий текст" in prompt
-    assert "левом нижнем углу" in prompt  # углы под интерфейс маркетплейса
+    assert "левом нижнем углу" in prompt and "служебные поля" in prompt

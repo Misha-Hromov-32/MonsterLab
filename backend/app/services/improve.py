@@ -4,7 +4,8 @@
 цвета, настроение, товар, бренд и надписи остаются, улучшаются товар (крупнее, отделён от фона), вёрстка
 надписей, углы под интерфейс WB и чистота. Плюс что мешает по выводам метрик и экспертов. Полный редизайн
 («новый дизайн, не копию») пробовали 14.10.2026 — модель выбрасывала фон и атмосферу, обложки становились хуже.
-Ответ 2:3 доводится до карточки 3:4 полями по бокам.
+Исходник дополняется полями до 2:3 (модель рисует только так), после генерации поля срезаются —
+формат и масштаб обложки сохраняются, надписи не мельчают.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ log = logging.getLogger(__name__)
 
 TIMEOUT_S = 240  # генерация занимает 30–60 с, с запасом на очередь у провайдера
 SIZE = "1024x1536"  # вертикаль 2:3 — ближе всего к карточке 3:4 из доступных размеров
-COVER_RATIO = 3 / 4  # карточки WB и Ozon — 3:4; результат 2:3 доводим до него полями по бокам
+CANVAS_RATIO = 2 / 3  # SIZE: исходник дополняем полями до этих пропорций, после генерации поля срезаем
 
 PROMPT = """Ты — ретушёр и верстальщик карточек Wildberries и Ozon. Доработай эту обложку, сохранив её стиль.
 Это доработка, а не новый дизайн: покупатель должен узнать ту же обложку, только аккуратнее и дороже.
@@ -39,6 +40,8 @@ PROMPT = """Ты — ретушёр и верстальщик карточек W
 3. Если важная надпись стоит в левом нижнем углу (там WB ставит плашку скидки) или в правом верхнем
    (сердечко) — сдвинь её ближе к центру, сохранив стиль.
 4. Чистота и качество: резкость, без артефактов и грязи, премиальный вид.
+5. Сверху и снизу (или по бокам) обложка дополнена размытым продолжением фона — это служебные поля, их
+   обрежут. Всё содержимое оставь на тех же местах и в том же масштабе, в поля ничего не переноси.
 
 Что ещё мешает по анализу:
 {problems}
@@ -63,17 +66,20 @@ def build_prompt(notes: list[dict], issues: list[str], ctx: dict) -> str:
 
 
 def generate(jpeg: bytes, prompt: str) -> bytes:
-    """Возвращает улучшенную обложку в JPEG."""
+    """Возвращает улучшенную обложку в JPEG — в пропорциях исходной."""
     cfg = expert.current_config()
     if not cfg.enabled:
         raise ImproveError("Генерация не подключена")
+    canvas, box = pad_to_ratio(Image.open(io.BytesIO(jpeg)).convert("RGB"), CANVAS_RATIO)
+    src = io.BytesIO()
+    canvas.save(src, format="JPEG", quality=92)
     try:
         with httpx.Client(base_url=cfg.base_url, timeout=httpx.Timeout(TIMEOUT_S, connect=15)) as client:
             r = client.post(
                 "/images/edits",
                 headers={"Authorization": f"Bearer {cfg.api_key}"},
                 data={"model": config.IMAGE_MODEL, "prompt": prompt, "size": SIZE, "quality": config.IMAGE_QUALITY},
-                files={"image": ("cover.jpg", jpeg, "image/jpeg")},
+                files={"image": ("cover.jpg", src.getvalue(), "image/jpeg")},
             )
     except httpx.HTTPError as exc:
         log.warning("Генерация обложки: сеть — %s", exc)
@@ -87,25 +93,36 @@ def generate(jpeg: bytes, prompt: str) -> bytes:
         img = Image.open(io.BytesIO(png)).convert("RGB")
     except (KeyError, IndexError, ValueError, OSError) as exc:
         raise ImproveError("Модель вернула пустой ответ, попробуйте ещё раз") from exc
+    w, h = img.size
     out = io.BytesIO()
-    to_cover_ratio(img).save(out, format="JPEG", quality=90, optimize=True)
+    img.crop((round(box[0] * w), round(box[1] * h), round(box[2] * w), round(box[3] * h))).save(
+        out, format="JPEG", quality=90, optimize=True
+    )
     return out.getvalue()
 
 
-def to_cover_ratio(img: Image.Image) -> Image.Image:
-    """Доводит вертикаль 2:3 до карточки 3:4, ничего не обрезая: по бокам дорисовываем размытое продолжение
-    краёв фона. Обрезка по высоте срезала бы заголовок — модель часто ставит его у самого края."""
+def pad_to_ratio(img: Image.Image, ratio: float) -> tuple[Image.Image, tuple[float, float, float, float]]:
+    """Дополняет картинку до пропорций ratio (ширина / высота) размытым продолжением краёв — сверху и снизу
+    или по бокам. Возвращает холст и где на нём исходник (доли: left, top, right, bottom).
+
+    Модель рисует только 2:3: если отдать ей обложку 3:4 как есть, она вписывает всё в высокий холст и
+    содержимое мельчает. С полями масштаб и места надписей сохраняются, а поля потом срезаем."""
     w, h = img.size
-    want_w = round(h * COVER_RATIO)
-    if w >= want_w:
-        return img
-    pad = want_w - w
-    left, right = pad // 2, pad - pad // 2
-    canvas = Image.new("RGB", (want_w, h))
-    edge = max(8, w // 32)  # полоса края, которую растягиваем в поле
-    for x, size, box in ((0, left, (0, 0, edge, h)), (left + w, right, (w - edge, 0, w, h))):
-        if size:
-            strip = img.crop(box).transpose(Image.Transpose.FLIP_LEFT_RIGHT).resize((size, h))
-            canvas.paste(strip.filter(ImageFilter.GaussianBlur(max(4, size // 3))), (x, 0))
-    canvas.paste(img, (left, 0))
-    return canvas
+    if abs(w / h - ratio) < 0.01:
+        return img, (0.0, 0.0, 1.0, 1.0)
+    vertical = w / h > ratio  # шире нужного — добавляем поля сверху и снизу
+    cw, ch = (w, round(w / ratio)) if vertical else (round(h * ratio), h)
+    canvas = Image.new("RGB", (cw, ch))
+    x0, y0 = (cw - w) // 2, (ch - h) // 2
+    if vertical:
+        edge, flip = max(8, h // 32), Image.Transpose.FLIP_TOP_BOTTOM
+        fields = ((0, 0, w, y0, (0, 0, w, edge)), (0, y0 + h, w, ch - y0 - h, (0, h - edge, w, h)))
+    else:
+        edge, flip = max(8, w // 32), Image.Transpose.FLIP_LEFT_RIGHT
+        fields = ((0, 0, x0, h, (0, 0, edge, h)), (x0 + w, 0, cw - x0 - w, h, (w - edge, 0, w, h)))
+    for fx, fy, fw, fh, strip in fields:
+        if fw > 0 and fh > 0:
+            field = img.crop(strip).transpose(flip).resize((fw, fh))
+            canvas.paste(field.filter(ImageFilter.GaussianBlur(max(4, min(fw, fh) // 3))), (fx, fy))
+    canvas.paste(img, (x0, y0))
+    return canvas, (x0 / cw, y0 / ch, (x0 + w) / cw, (y0 + h) / ch)
