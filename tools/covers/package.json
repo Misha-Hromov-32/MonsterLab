@@ -3,6 +3,6 @@
   "private": true,
   "description": "Иконки Lucide для шаблонов обложек",
   "dependencies": {
-    "lucide-static": "^1.47.0"
+    "lucide-static": "^1.48.0"
   }
 }
