@@ -1,202 +1,218 @@
 [
   {
-    "slug": "thermos",
-    "title": "Термос 500 мл",
+    "slug": "jacket",
+    "title": "Женский пуховик NORDA",
     "context": {
-      "query": "термос 500 мл",
-      "category": "посуда, термосы",
+      "query": "пуховик женский зимний",
+      "category": "одежда, верхняя одежда",
       "price": "",
       "audience": ""
     },
-    "rev": 4,
-    "description": "Четыре обложки одного термоса: лес и яркая инфографика, тёмная сцена, светлая композиция и горный пейзаж.",
+    "rev": 1,
+    "description": "Четыре обложки одного пуховика: зимний город, набережная, премиальная подача с крупным брендом и оранжевая стена.",
     "variants": [
       {
-        "file": "thermos/variant-1.jpg",
-        "title": "Лес и лаймовая инфографика"
+        "file": "jacket/variant-1.jpg",
+        "title": "Зимний город, «Хит сезона»"
       },
       {
-        "file": "thermos/variant-2.jpg",
-        "title": "Тёмная сцена с голубым светом"
+        "file": "jacket/variant-2.jpg",
+        "title": "Набережная, «Зима 2027»"
       },
       {
-        "file": "thermos/variant-3.jpg",
-        "title": "Светлая минималистичная подача"
+        "file": "jacket/variant-3.jpg",
+        "title": "Премиум: крупный бренд"
       },
       {
-        "file": "thermos/variant-4.jpg",
-        "title": "Горы на закате"
+        "file": "jacket/variant-4.jpg",
+        "title": "Оранжевая стена"
       }
     ],
     "competitors": [
       {
-        "file": "thermos/competitor-1.jpg"
+        "file": "jacket/competitor-1.jpg"
       },
       {
-        "file": "thermos/competitor-2.jpg"
+        "file": "jacket/competitor-2.jpg"
       },
       {
-        "file": "thermos/competitor-3.jpg"
+        "file": "jacket/competitor-3.jpg"
       },
       {
-        "file": "thermos/competitor-4.jpg"
+        "file": "jacket/competitor-4.jpg"
       },
       {
-        "file": "thermos/competitor-5.jpg"
+        "file": "jacket/competitor-5.jpg"
       },
       {
-        "file": "thermos/competitor-6.jpg"
+        "file": "jacket/competitor-6.jpg"
       }
     ]
+  },
+  {
+    "slug": "powerbank",
+    "title": "Пауэрбанк FLUXA 20 000 мА·ч",
+    "context": {
+      "query": "пауэрбанк 20000",
+      "category": "электроника, аксессуары для телефонов",
+      "price": "",
+      "audience": ""
+    },
+    "rev": 1,
+    "description": "Четыре обложки одного пауэрбанка: терракотовый камень, тёмный графит, светлый минимализм и бирюзовый фон.",
+    "variants": [
+      {
+        "file": "powerbank/variant-1.jpg",
+        "title": "Терракотовый камень и смартфон"
+      },
+      {
+        "file": "powerbank/variant-2.jpg",
+        "title": "Тёмный графит"
+      },
+      {
+        "file": "powerbank/variant-3.jpg",
+        "title": "«Энергия с собой»"
+      },
+      {
+        "file": "powerbank/variant-4.jpg",
+        "title": "Бирюзовый со смартфоном"
+      }
+    ],
+    "competitors": [
+      {
+        "file": "powerbank/competitor-1.jpg"
+      },
+      {
+        "file": "powerbank/competitor-2.jpg"
+      },
+      {
+        "file": "powerbank/competitor-3.jpg"
+      },
+      {
+        "file": "powerbank/competitor-4.jpg"
+      },
+      {
+        "file": "powerbank/competitor-5.jpg"
+      },
+      {
+        "file": "powerbank/competitor-6.jpg"
+      }
+    ]
+  },
+  {
+    "slug": "serum",
+    "title": "Сыворотка для лица NIALAB",
+    "context": {
+      "query": "сыворотка для лица",
+      "category": "косметика, уход за лицом",
+      "price": "",
+      "audience": ""
+    },
+    "rev": 1,
+    "description": "Четыре обложки одной сыворотки: мята и алоэ, флакон в руке, «Сужает поры» на воде и коралловый контраст.",
+    "variants": [
+      {
+        "file": "serum/variant-1.jpg",
+        "title": "Мята, алоэ и стекло"
+      },
+      {
+        "file": "serum/variant-2.jpg",
+        "title": "Флакон в руке у окна"
+      },
+      {
+        "file": "serum/variant-3.jpg",
+        "title": "«Сужает поры» на воде"
+      },
+      {
+        "file": "serum/variant-4.jpg",
+        "title": "Коралловый контраст"
+      }
+    ],
+    "competitors": [
+      {
+        "file": "serum/competitor-1.jpg"
+      },
+      {
+        "file": "serum/competitor-2.jpg"
+      },
+      {
+        "file": "serum/competitor-3.jpg"
+      },
+      {
+        "file": "serum/competitor-4.jpg"
+      },
+      {
+        "file": "serum/competitor-5.jpg"
+      },
+      {
+        "file": "serum/competitor-6.jpg"
+      }
+    ]
+  },
+  {
+    "slug": "dryer",
+    "title": "Фен-стайлер AURELLE 5 в 1",
+    "context": {
+      "query": "фен стайлер для волос",
+      "category": "бытовая техника, красота",
+      "price": "",
+      "audience": ""
+    },
+    "rev": 1,
+    "description": "Четыре обложки одного фена-стайлера: девушка с насадками, укладка у окна, шоколадный премиум и жёлтый фон.",
+    "variants": [
+      {
+        "file": "dryer/variant-1.jpg",
+        "title": "Девушка и насадки"
+      },
+      {
+        "file": "dryer/variant-2.jpg",
+        "title": "Укладка у окна"
+      },
+      {
+        "file": "dryer/variant-3.jpg",
+        "title": "Шоколадный премиум"
+      },
+      {
+        "file": "dryer/variant-4.jpg",
+        "title": "Жёлтый, крупное «5 в 1»"
+      }
+    ],
+    "competitors": [
+      {
+        "file": "dryer/competitor-1.jpg"
+      },
+      {
+        "file": "dryer/competitor-2.jpg"
+      },
+      {
+        "file": "dryer/competitor-3.jpg"
+      },
+      {
+        "file": "dryer/competitor-4.jpg"
+      },
+      {
+        "file": "dryer/competitor-5.jpg"
+      },
+      {
+        "file": "dryer/competitor-6.jpg"
+      }
+    ]
+  },
+  {
+    "slug": "thermos",
+    "retired": true
   },
   {
     "slug": "coffee",
-    "title": "Кофе в зёрнах 1 кг",
-    "context": {
-      "query": "кофе в зёрнах 1 кг",
-      "category": "кофе и чай",
-      "price": "",
-      "audience": ""
-    },
-    "rev": 4,
-    "description": "Кофе в крафт-пакете в четырёх композициях: уютная кофейня, оливковая студия, терракотовые арки и тёмная сцена.",
-    "variants": [
-      {
-        "file": "coffee/variant-1.jpg",
-        "title": "Уютная кофейня"
-      },
-      {
-        "file": "coffee/variant-2.jpg",
-        "title": "Оливковая студийная подача"
-      },
-      {
-        "file": "coffee/variant-3.jpg",
-        "title": "Терракотовая композиция"
-      },
-      {
-        "file": "coffee/variant-4.jpg",
-        "title": "Тёмная кофейная сцена"
-      }
-    ],
-    "competitors": [
-      {
-        "file": "coffee/competitor-1.jpg"
-      },
-      {
-        "file": "coffee/competitor-2.jpg"
-      },
-      {
-        "file": "coffee/competitor-3.jpg"
-      },
-      {
-        "file": "coffee/competitor-4.jpg"
-      },
-      {
-        "file": "coffee/competitor-5.jpg"
-      },
-      {
-        "file": "coffee/competitor-6.jpg"
-      }
-    ]
+    "retired": true
   },
   {
     "slug": "cream",
-    "title": "Крем для лица 50 мл",
-    "context": {
-      "query": "крем для лица",
-      "category": "косметика",
-      "price": "",
-      "audience": ""
-    },
-    "rev": 4,
-    "description": "Четыре оформления крема для лица: голубая студия, розовые арки, тёмно-синяя сцена и светлый камень.",
-    "variants": [
-      {
-        "file": "cream/variant-1.jpg",
-        "title": "Голубая студийная подача"
-      },
-      {
-        "file": "cream/variant-2.jpg",
-        "title": "Розовые арки и мягкий свет"
-      },
-      {
-        "file": "cream/variant-3.jpg",
-        "title": "Тёмно-синяя композиция"
-      },
-      {
-        "file": "cream/variant-4.jpg",
-        "title": "Светлый камень"
-      }
-    ],
-    "competitors": [
-      {
-        "file": "cream/competitor-1.jpg"
-      },
-      {
-        "file": "cream/competitor-2.jpg"
-      },
-      {
-        "file": "cream/competitor-3.jpg"
-      },
-      {
-        "file": "cream/competitor-4.jpg"
-      },
-      {
-        "file": "cream/competitor-5.jpg"
-      },
-      {
-        "file": "cream/competitor-6.jpg"
-      }
-    ]
+    "retired": true
   },
   {
     "slug": "headphones",
-    "title": "Беспроводные наушники",
-    "context": {
-      "query": "беспроводные наушники",
-      "category": "электроника",
-      "price": "",
-      "audience": ""
-    },
-    "rev": 4,
-    "description": "Полноразмерные наушники в четырёх подачах: фиолетовый свет, синяя студия, светлая композиция и лаймовый контраст.",
-    "variants": [
-      {
-        "file": "headphones/variant-1.jpg",
-        "title": "Фиолетовый свет"
-      },
-      {
-        "file": "headphones/variant-2.jpg",
-        "title": "Синяя студийная сцена"
-      },
-      {
-        "file": "headphones/variant-3.jpg",
-        "title": "Светлая минималистичная подача"
-      },
-      {
-        "file": "headphones/variant-4.jpg",
-        "title": "Лаймовый контраст"
-      }
-    ],
-    "competitors": [
-      {
-        "file": "headphones/competitor-1.jpg"
-      },
-      {
-        "file": "headphones/competitor-2.jpg"
-      },
-      {
-        "file": "headphones/competitor-3.jpg"
-      },
-      {
-        "file": "headphones/competitor-4.jpg"
-      },
-      {
-        "file": "headphones/competitor-5.jpg"
-      },
-      {
-        "file": "headphones/competitor-6.jpg"
-      }
-    ]
+    "retired": true
   }
 ]
