@@ -13,6 +13,7 @@ import LoginDialog from './components/LoginDialog.vue'
 import AccountDialog from './components/AccountDialog.vue'
 import LibraryDialog from './components/LibraryDialog.vue'
 import TariffsDialog from './components/TariffsDialog.vue'
+import LeadDialog from './components/LeadDialog.vue'
 import { addFiles, loadHealth, loadSite, resetAll, state, toast } from './store'
 import { session } from './lib/session'
 import { account, checkPaymentReturn, handleEmailLink, handleOAuthCallback, refreshMe } from './lib/account'
@@ -131,6 +132,8 @@ onUnmounted(() => {
     <AccountDialog v-else-if="account.dialog === 'account'" />
     <LibraryDialog v-else-if="account.dialog === 'library'" />
     <TariffsDialog v-else-if="account.dialog === 'tariffs'" />
+
+    <LeadDialog v-if="state.leadOpen" />
 
     <ToastMessage :message="state.toast" />
     <QueueBadge />

@@ -5,10 +5,12 @@ from __future__ import annotations
 import io
 import json
 
+import httpx
 from fastapi.testclient import TestClient
 from PIL import Image
 
 from app import config
+from app.api import lead
 from app.services import site
 
 from .conftest import jpeg_bytes, make_cover
@@ -124,6 +126,43 @@ def test_seed_not_restored_after_delete(client: TestClient) -> None:
 
     site._cache = None  # как после перезапуска сервера
     assert all(e.get("seed") != first["seed"] for e in site.load()["examples"])
+
+
+def test_retired_seed_is_removed(monkeypatch, tmp_path) -> None:
+    (tmp_path / "manifest.json").write_text(json.dumps([{"slug": "old", "retired": True}]), "utf-8")
+    monkeypatch.setattr(site.config, "SEED_DIR", tmp_path)
+    data = {"seeded": {"old": 3}, "examples": [{"id": "abc123", "seed": "old", "title": "Старый"}, {"id": "keep", "title": "Свой"}]}
+
+    assert site._seed(data) is True
+    assert [e["id"] for e in data["examples"]] == ["keep"]
+    assert site._seed(data) is False  # повторный запуск ничего не меняет
+
+
+def test_lead_disabled_without_forward_url(anon: TestClient, monkeypatch) -> None:
+    monkeypatch.setattr(config, "LEAD_FORWARD_URL", "")
+    r = anon.post("/api/lead", json={"name": "Миша", "phone": "+79990001122", "description": ""})
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "lead_disabled"
+
+
+def test_lead_forwards_with_fixed_direction(anon: TestClient, monkeypatch) -> None:
+    sent: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.update(json.loads(request.content))
+        return httpx.Response(200, json={"status": "ok"})
+
+    monkeypatch.setattr(config, "LEAD_FORWARD_URL", "https://collabx.test/lead")
+    monkeypatch.setattr(config, "LEAD_DIRECTION", "MonStoreLab")
+    real = httpx.AsyncClient
+    monkeypatch.setattr(lead.httpx, "AsyncClient", lambda **kw: real(**kw, transport=httpx.MockTransport(handler)))
+
+    r = anon.post("/api/lead", json={"name": "  Миша  ", "phone": " +7 999 ", "description": "наушники"})
+    assert r.status_code == 200 and r.json()["status"] == "ok"
+    # имя/телефон обрезаются, направление ставит сервер, а не клиент
+    assert sent == {"name": "Миша", "phone": "+7 999", "direction": "MonStoreLab", "description": "наушники"}
+
+    # телефон из одних пробелов — заявка не уходит
+    assert anon.post("/api/lead", json={"name": "Миша", "phone": "   ", "description": ""}).status_code == 422
 
 
 def test_unknown_routes_answer_in_api_format(client: TestClient) -> None:

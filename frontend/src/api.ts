@@ -241,4 +241,8 @@ export const api = {
     request<CompetitorSearch>(`/api/competitors?${new URLSearchParams({ query, limit: String(limit) })}`, withAuth(), {
       timeoutMs: 60_000,
     }),
+
+  // заявка «Создать карточку» — вход в аккаунт не нужен, уходит в бот ВК через бэкенд
+  lead: (name: string, phone: string, description: string) =>
+    request<{ status: string }>('/api/lead', jsonBody('POST', { name, phone, description }), { timeoutMs: 20_000 }),
 }

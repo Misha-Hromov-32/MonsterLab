@@ -161,6 +161,8 @@ export interface Health {
     oauth?: OAuthProvider[]
     /** номер счётчика Яндекс Метрики или null */
     metrika?: number | null
+    /** приём заявок «Создать карточку» (пересылка в бот ВК) настроен на сервере */
+    lead?: boolean
   }
 }
 

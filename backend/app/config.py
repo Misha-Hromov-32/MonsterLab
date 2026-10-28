@@ -138,6 +138,14 @@ LEGAL_EMAIL = os.getenv("LEGAL_EMAIL", "").strip() or MAIL_FROM
 
 PROXYAPI_KEY = os.getenv("PROXYAPI_KEY", "").strip()
 PROXYAPI_BASE_URL = os.getenv("PROXYAPI_BASE_URL", "").strip() or "https://api.proxyapi.ru/v1"
+
+# ---------------------------------------------------------------- заявки «Создать карточку»
+
+# Форма «Создать карточку» пересылает заявку во внешний приёмник (бот ВК CollabX на сервере up-point).
+# Пусто — кнопка и форма на сайте не показываются (features.lead = false).
+LEAD_FORWARD_URL = os.getenv("LEAD_FORWARD_URL", "").strip()
+# Поле «направление» в заявке — чтобы в общем чате было видно, что заявка с этого сайта
+LEAD_DIRECTION = os.getenv("LEAD_DIRECTION", "").strip() or "MonStoreLab"
 if not PROXYAPI_BASE_URL.startswith("https://"):
     raise RuntimeError("PROXYAPI_BASE_URL должен начинаться с https:// — по нему уходит ключ API")
 # JURY_MODELS — прежнее имя переменной, поддерживается для старых .env

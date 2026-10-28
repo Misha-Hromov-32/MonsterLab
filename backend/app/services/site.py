@@ -284,7 +284,8 @@ def _seed(data: dict) -> bool:
     - примера ещё нет — добавляем;
     - в сиде вышла новая ревизия — пример пересобирается целиком: картинки, название, описание
       и данные о товаре берутся из сида, правки этого примера в админке теряются;
-    - пример удалён в админке — не возвращаем.
+    - пример удалён в админке — не возвращаем;
+    - пример снят с сида ({"slug": …, "retired": true}) — убираем его с сайта вместе с картинками.
     """
     manifest_file = config.SEED_DIR / "manifest.json"
     if not manifest_file.exists():
@@ -292,6 +293,14 @@ def _seed(data: dict) -> bool:
     seeded: dict = data["seeded"]
     changed = False
     for item in json.loads(manifest_file.read_text("utf-8")):
+        if item.get("retired"):
+            old = next((e for e in data["examples"] if e.get("seed") == item["slug"]), None)
+            if old is not None:
+                delete_example_files(old["id"])
+                data["examples"].remove(old)
+                changed = True
+                log.info("Встроенный пример «%s» снят с сайта", old["title"])
+            continue
         slug, rev = item["slug"], int(item.get("rev", 1))
         prev = seeded.get(slug)
         if prev is not None and prev >= rev:

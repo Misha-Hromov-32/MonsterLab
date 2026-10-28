@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
-import { Columns3, Eye, LayoutGrid, Plus, Upload } from 'lucide-vue-next'
+import { Columns3, Eye, LayoutGrid, Plus, Sparkles, Upload } from 'lucide-vue-next'
 import Logo from './Logo.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import AccountButton from './AccountButton.vue'
 import { openLibrary, signedIn } from '../lib/account'
-import { addFiles, paidAvailable, ready, resetAll, state } from '../store'
+import { addFiles, leadAvailable, openLead, paidAvailable, ready, resetAll, state } from '../store'
 import { useFilePicker } from '../lib/useFilePicker'
 import type { View } from '../lib/types'
 
@@ -105,6 +105,16 @@ function home() {
     <div class="actions">
       <span v-if="state.healthError" class="status" role="status"><i class="dot bad" />Сервис недоступен</span>
       <ThemeToggle />
+      <!-- «Создать карточку» — заявка на дизайн обложки, видна и на главной, и в рабочем режиме -->
+      <button
+        v-if="leadAvailable"
+        type="button"
+        class="btn pill lead-btn"
+        title="Заказать дизайн обложки"
+        @click="openLead"
+      >
+        <Sparkles :size="15" aria-hidden="true" /> <span class="hide-xs">Создать карточку</span>
+      </button>
       <!-- аккаунт нужен только для платных функций: если на сервере их нет, кнопку не показываем -->
       <AccountButton v-if="paidAvailable" />
       <template v-if="!working">

@@ -37,6 +37,8 @@ def health() -> dict:
             "oauth": oauth.enabled(),
             # номер счётчика Яндекс Метрики — сайт подключает её только после согласия на cookie
             "metrika": config.METRIKA_ID,
+            # приём заявок «Создать карточку» — только если задан внешний приёмник (бот ВК)
+            "lead": bool(config.LEAD_FORWARD_URL),
         },
     }
 
