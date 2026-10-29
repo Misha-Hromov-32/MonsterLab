@@ -369,8 +369,12 @@ const FEATURES = [
   color: var(--ink-3);
 }
 
-/* сцена: обложка в рамке и плавающие карточки с цифрами */
+/* сцена: обложка в рамке и плавающие карточки с цифрами.
+   --fw — ширина рамки; карточки привязаны к её краям, а не к краям сцены: на узкой сцене
+   (две колонки на ноутбуке) рамка чуть уже, и карточки заходят только на рамку, не на обложку */
 .stage {
+  --fw: clamp(280px, 100% - 220px, 360px);
+  --chip-in: 22px; /* насколько карточка заходит на рамку: толщина рамки и поля вокруг обложки */
   display: grid;
   place-items: center;
   min-height: 560px;
@@ -378,7 +382,7 @@ const FEATURES = [
 
 .frame {
   position: relative;
-  width: min(100%, 360px);
+  width: var(--fw);
   padding: 14px;
   border: 7px solid var(--brand);
   border-radius: 6px;
@@ -464,7 +468,7 @@ const FEATURES = [
 
 .c-index {
   top: 4%;
-  left: -2%;
+  right: calc(50% + var(--fw) / 2 - var(--chip-in));
   width: 184px;
 }
 
@@ -499,14 +503,21 @@ const FEATURES = [
   background: var(--brand);
 }
 
+/* правые карточки — по ширине содержимого: иначе у края сцены они сжимаются и ломают строки */
+.c-focus,
+.c-feed {
+  width: max-content;
+}
+
 .c-focus {
-  right: -2%;
+  left: calc(50% + var(--fw) / 2 - var(--chip-in));
   top: 24%;
   animation-delay: -2.5s;
 }
 
 .c-feed {
-  right: 4%;
+  /* тёмная карточка нарочно заходит на нижний угол обложки — там обычно нет текста */
+  left: calc(50% + var(--fw) / 2 - 70px);
   bottom: 8%;
   border-color: transparent;
   background: var(--plum);
@@ -887,6 +898,24 @@ const FEATURES = [
 }
 
 @media (max-width: 760px) {
+  /* рядом с обложкой карточкам уже тесно — ставим их под неё столбиком */
+  .stage {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 40px;
+  }
+  .chip {
+    position: static;
+    width: 100%;
+    max-width: 360px;
+    animation: none;
+  }
+  .frame {
+    width: min(100%, 360px);
+    margin-bottom: 40px;
+  }
   .steps {
     grid-template-columns: 1fr;
   }
@@ -899,20 +928,8 @@ const FEATURES = [
 }
 
 @media (max-width: 560px) {
-  .stage {
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding-top: 40px;
-  }
   .chip {
-    position: static;
-    width: 100%;
-    animation: none;
-  }
-  .frame {
-    margin-bottom: 40px;
+    max-width: none;
   }
   .bento {
     grid-template-columns: 1fr;
