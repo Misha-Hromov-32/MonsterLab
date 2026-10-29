@@ -105,7 +105,7 @@ function home() {
     <div class="actions">
       <span v-if="state.healthError" class="status" role="status"><i class="dot bad" />Сервис недоступен</span>
       <ThemeToggle />
-      <!-- «Создать карточку» — заявка на дизайн обложки, видна и на главной, и в рабочем режиме -->
+      <!-- «Заказать карточку» — заявка на дизайн обложки, видна и на главной, и в рабочем режиме -->
       <button
         v-if="leadAvailable"
         type="button"
@@ -113,7 +113,7 @@ function home() {
         title="Заказать дизайн обложки"
         @click="openLead"
       >
-        <Sparkles :size="15" aria-hidden="true" /> <span class="hide-xs">Создать карточку</span>
+        <Sparkles :size="15" aria-hidden="true" /> <span class="hide-xs">Заказать карточку</span>
       </button>
       <!-- аккаунт нужен только для платных функций: если на сервере их нет, кнопку не показываем -->
       <AccountButton v-if="paidAvailable" />

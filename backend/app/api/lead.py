@@ -1,4 +1,4 @@
-"""Заявка «Создать карточку»: короткая форма на сайте пересылается во внешний приёмник
+"""Заявка «Заказать карточку»: короткая форма на сайте пересылается во внешний приёмник
 (бот ВК CollabX на сервере up-point). Имя, телефон и описание вводит посетитель, направление
 подставляет сервер — так в общем чате видно, что заявка пришла именно с этого сайта."""
 
@@ -43,6 +43,6 @@ async def create_lead(req: LeadRequest) -> dict:
             r = await client.post(config.LEAD_FORWARD_URL, json=payload)
         r.raise_for_status()
     except httpx.HTTPError as exc:
-        log.warning("Заявка «Создать карточку» не ушла: %s", exc)
+        log.warning("Заявка «Заказать карточку» не ушла: %s", exc)
         raise api_error(502, "lead_failed", "Не удалось отправить заявку. Попробуйте позже.") from exc
     return {"status": "ok"}

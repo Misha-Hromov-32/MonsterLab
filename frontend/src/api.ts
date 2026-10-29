@@ -242,7 +242,7 @@ export const api = {
       timeoutMs: 60_000,
     }),
 
-  // заявка «Создать карточку» — вход в аккаунт не нужен, уходит в бот ВК через бэкенд
+  // заявка «Заказать карточку» — вход в аккаунт не нужен, уходит в бот ВК через бэкенд
   lead: (name: string, phone: string, description: string) =>
     request<{ status: string }>('/api/lead', jsonBody('POST', { name, phone, description }), { timeoutMs: 20_000 }),
 }

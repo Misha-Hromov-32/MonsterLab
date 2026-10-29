@@ -83,7 +83,7 @@ export const state = reactive({
   toast: '',
   /** слепые зоны WB поверх обложки: '' — выключены, zones — разметка углов, wb — как с бейджами площадки */
   blind: '' as '' | 'zones' | 'wb',
-  /** открыта ли форма «Создать карточку» */
+  /** открыта ли форма «Заказать карточку» */
   leadOpen: false,
 })
 
@@ -121,7 +121,7 @@ export const availableFeatures = computed(() =>
 /** Есть ли вообще что-то, ради чего входить в аккаунт. */
 export const paidAvailable = computed(() => availableFeatures.value.length > 0)
 
-/** Настроен ли на сервере приём заявок «Создать карточку» (пересылка в бот ВК). */
+/** Настроен ли на сервере приём заявок «Заказать карточку» (пересылка в бот ВК). */
 export const leadAvailable = computed(() => !!state.health?.features?.lead)
 export function openLead() {
   state.leadOpen = true

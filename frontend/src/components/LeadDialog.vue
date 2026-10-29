@@ -6,7 +6,7 @@ import { api } from '../api'
 import { closeLead } from '../store'
 import { goal } from '../lib/metrika'
 
-// Форма «Создать карточку»: заявка уходит в бот ВК через бэкенд. Вход в аккаунт не нужен.
+// Форма «Заказать карточку»: заявка уходит в бот ВК через бэкенд. Вход в аккаунт не нужен.
 const name = ref('')
 const phone = ref('')
 const description = ref('')
@@ -33,7 +33,7 @@ async function submit() {
 </script>
 
 <template>
-  <ModalDialog :title="sent ? 'Заявка отправлена' : 'Создать карточку'" @close="closeLead">
+  <ModalDialog :title="sent ? 'Заявка отправлена' : 'Заказать карточку'" @close="closeLead">
     <div v-if="sent" class="done">
       <span class="done-icon" aria-hidden="true"><CheckCircle2 :size="22" /></span>
       <p class="done-text">Спасибо! Мы получили заявку и свяжемся с вами по указанному телефону.</p>
