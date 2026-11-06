@@ -1,0 +1,12 @@
+[Unit]
+Description=MonStoreLab: отчёт в ВК дважды в день
+
+[Timer]
+# время сервера — московское
+OnCalendar=*-*-* 09:00:00
+OnCalendar=*-*-* 21:00:00
+# сервер был выключен в момент отчёта — отправить после загрузки
+Persistent=true
+
+[Install]
+WantedBy=timers.target

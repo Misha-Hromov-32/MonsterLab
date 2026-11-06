@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 from collections import Counter
 
-from . import accounts, crypto, db
+from . import accounts, billing, crypto, db
 
 DAY = 86400
 DAYS = 30  # глубина графиков и «за 30 дней»
@@ -61,7 +61,7 @@ def overview() -> dict:
         visits = dict(con.execute("SELECT day, count FROM visits WHERE day >= ?", (days[0],)).fetchall())
         runs_by_user = dict(con.execute("SELECT user_id, COUNT(*) FROM events GROUP BY user_id").fetchall())
 
-    paid = [p for p in payments if p["status"] == "succeeded"]
+    paid = [p for p in payments if p["status"] in billing.PAID_STATUSES]
     paid_30 = [p for p in paid if p["created_at"] >= since]
     revenue_30 = sum(float(p["amount"]) for p in paid_30)
     paying = [u for u in users if u["pro_until"] > now]
@@ -194,7 +194,7 @@ def users() -> dict:
         period = "demo" if user.plan == accounts.DEMO else f"p{int(user.period_start)}"
         used = {r["feature"]: r["count"] for r in by_usage.get(user.id, []) if r["day"] == period}
         user_runs = by_runs.get(user.id, [])
-        paid = [p for p in by_payment.get(user.id, []) if p["status"] == "succeeded"]
+        paid = [p for p in by_payment.get(user.id, []) if p["status"] in billing.PAID_STATUSES]
         email = _email(row)
         items.append(
             {

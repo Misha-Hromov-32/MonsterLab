@@ -92,6 +92,7 @@ def _fresh_limits() -> None:
         ratelimit.login_limit,
         ratelimit.mail_limit,
         ratelimit.promo_limit,
+        ratelimit.lead_limit,
     ):
         limiter._hits.clear()
 

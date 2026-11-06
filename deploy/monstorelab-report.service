@@ -1,0 +1,9 @@
+[Unit]
+Description=MonStoreLab: отчёт владельцам в ВК
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# ключ сообщества и получатели — VK_REPORT_TOKEN и VK_REPORT_PEERS в .env (контейнер получает их при запуске)
+ExecStart=/usr/bin/docker exec monster-lab-backend-1 python -m app.services.report

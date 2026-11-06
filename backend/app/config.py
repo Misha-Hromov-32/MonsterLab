@@ -146,6 +146,13 @@ PROXYAPI_BASE_URL = os.getenv("PROXYAPI_BASE_URL", "").strip() or "https://api.p
 LEAD_FORWARD_URL = os.getenv("LEAD_FORWARD_URL", "").strip()
 # Поле «направление» в заявке — чтобы в общем чате было видно, что заявка с этого сайта
 LEAD_DIRECTION = os.getenv("LEAD_DIRECTION", "").strip() or "MonStoreLab"
+
+# ---------------------------------------------------------------- отчёт владельцам в ВК (services/report.py)
+
+# Ключ доступа сообщества ВК с правом «сообщения» и id получателей через запятую. Получатель должен
+# хотя бы раз написать сообществу — иначе ВК не даст отправить ему сообщение. Пусто — отчёт не шлётся.
+VK_REPORT_TOKEN = os.getenv("VK_REPORT_TOKEN", "").strip()
+VK_REPORT_PEERS = [p.strip() for p in os.getenv("VK_REPORT_PEERS", "").split(",") if p.strip()]
 if not PROXYAPI_BASE_URL.startswith("https://"):
     raise RuntimeError("PROXYAPI_BASE_URL должен начинаться с https:// — по нему уходит ключ API")
 # JURY_MODELS — прежнее имя переменной, поддерживается для старых .env

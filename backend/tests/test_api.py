@@ -131,7 +131,10 @@ def test_seed_not_restored_after_delete(client: TestClient) -> None:
 def test_retired_seed_is_removed(monkeypatch, tmp_path) -> None:
     (tmp_path / "manifest.json").write_text(json.dumps([{"slug": "old", "retired": True}]), "utf-8")
     monkeypatch.setattr(site.config, "SEED_DIR", tmp_path)
-    data = {"seeded": {"old": 3}, "examples": [{"id": "abc123", "seed": "old", "title": "Старый"}, {"id": "keep", "title": "Свой"}]}
+    data = {
+        "seeded": {"old": 3},
+        "examples": [{"id": "abc123", "seed": "old", "title": "Старый"}, {"id": "keep", "title": "Свой"}],
+    }
 
     assert site._seed(data) is True
     assert [e["id"] for e in data["examples"]] == ["keep"]

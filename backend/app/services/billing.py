@@ -37,6 +37,8 @@ RUSSIAN_CA = Path(__file__).resolve().parent.parent / "certs" / "russian_trusted
 TOCHKA_MODES = ["sbp", "card"]
 SYNC_WINDOW_S = 2 * 86400  # sync_user проверяет платежи покупателя за последние двое суток
 AMOUNT_EPS = 0.009
+# статус оплаченного платежа в таблице payments: у ЮKassa — succeeded, у Точки — APPROVED
+PAID_STATUSES = frozenset({"succeeded", "APPROVED"})
 
 
 class BillingError(RuntimeError):
