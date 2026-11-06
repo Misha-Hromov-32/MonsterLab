@@ -140,6 +140,7 @@ watch(
 )
 
 const EXPERT_FAIL = 'Не удалось получить визуальный разбор. Попробуйте ещё раз через минуту.'
+const CHOICE_FAIL = 'Не удалось сравнить варианты. Попробуйте ещё раз через минуту.'
 
 let toastTimer = 0
 export function toast(msg: string) {
@@ -287,8 +288,8 @@ function invalidateComparisons() {
  * Сообщение об ошибке разбора: нужен вход или кончился лимит — открываем нужный диалог,
  * понятную причину от сервера (например, слишком длинные данные) показываем как есть.
  */
-function expertError(e: unknown, retry: () => void) {
-  return paidError(e, retry) ?? (e instanceof ApiError && e.code === 'bad_request' ? e.message : EXPERT_FAIL)
+function expertError(e: unknown, retry: () => void, fallback = EXPERT_FAIL) {
+  return paidError(e, retry) ?? (e instanceof ApiError && e.code === 'bad_request' ? e.message : fallback)
 }
 
 export async function analyze(v: Variant) {
@@ -365,7 +366,7 @@ export async function runCompare() {
   } catch (e) {
     if (gen !== compareGen) return
     state.compareStatus = 'error'
-    state.compareError = expertError(e, runCompare)
+    state.compareError = expertError(e, runCompare, CHOICE_FAIL)
   }
 }
 

@@ -32,7 +32,14 @@ SCORE_KEYS = ("aesthetics", "offer", "positioning", "standout", "trust")
 MESSAGE_ROLES = ("оффер", "факт", "статус", "бренд", "призыв", "шум")
 # Модели, у которых можно выключить «размышления»: для мгновенного выбора «на что нажму» они не нужны,
 # а стоят в 7 раз дороже самого ответа (замер 30.09.2026: 3,3 ₽ против 0,46 ₽ за пару).
-NO_THINKING = ("google/gemini-2.5-flash", "google/gemini-2.5-flash-lite")
+# 06.11.2026: Gemini 3.5 Flash с reasoning_effort=none — ~48 токенов ответа вместо ~280, 1,6 с на пару.
+NO_THINKING = (
+    "google/gemini-3.5-flash",
+    "google/gemini-3.5-flash-lite",
+    "google/gemini-3.6-flash",
+    "google/gemini-3.7-flash",
+    "google/gemini-3.8-flash",
+)
 
 _sem = asyncio.Semaphore(config.EXPERT_CONCURRENCY)
 

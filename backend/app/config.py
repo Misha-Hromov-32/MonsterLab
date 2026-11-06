@@ -151,7 +151,8 @@ if not PROXYAPI_BASE_URL.startswith("https://"):
 # JURY_MODELS — прежнее имя переменной, поддерживается для старых .env
 # Выбор покупателя — одна Gemini Flash: вторая модель (Claude Haiku) давала ~90% цены запуска (в 10 раз дороже),
 # а покупатель видит только итоговые проценты. Её же берёт разбор, если основная модель не ответила.
-_DEFAULT_MODELS = "google/gemini-2.5-flash"
+# Gemini 2.5 Flash ProxyAPI убрал из каталога (к 27.10.2026 — «Model not supported»), замена — 3.5 Flash.
+_DEFAULT_MODELS = "google/gemini-3.5-flash"
 _models = os.getenv("EXPERT_MODELS") or os.getenv("JURY_MODELS") or _DEFAULT_MODELS
 EXPERT_MODELS = [m.strip() for m in _models.split(",") if m.strip()]
 EXPERT_CONCURRENCY = _int("EXPERT_CONCURRENCY", 6)

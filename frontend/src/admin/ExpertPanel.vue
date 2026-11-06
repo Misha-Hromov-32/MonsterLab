@@ -19,8 +19,8 @@ const error = ref('')
 const results = ref<CheckResult[] | null>(null)
 
 const SUGGEST = [
-  'google/gemini-2.5-flash',
-  'google/gemini-2.5-pro',
+  'google/gemini-3.5-flash',
+  'google/gemini-3.1-pro-preview',
   'anthropic/claude-haiku-4-5',
   'anthropic/claude-sonnet-5',
   'openai/gpt-5.4',
@@ -137,7 +137,7 @@ async function check() {
         <input
           v-model="newModel"
           class="input"
-          placeholder="vendor/model, например google/gemini-2.5-flash"
+          placeholder="vendor/model, например google/gemini-3.5-flash"
           aria-label="Идентификатор модели"
           @keydown.enter="addModel()"
         />
