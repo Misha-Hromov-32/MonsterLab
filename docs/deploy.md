@@ -123,6 +123,39 @@ journalctl -t monstorelab-watchdog   # что и когда сторож пер�
 Скрипт и юниты рассчитаны на проект в `/root/MonsterLab`; в другом месте поправьте путь в
 `monstorelab-watchdog.service` и `DIR` в скриптах.
 
+## Ежедневный бэкап
+
+Каждую ночь (03:30) `deploy/backup.sh` делает копию в `/root/backups/monsterlab-auto-ГГГГММДД-ЧЧММ/`:
+базы `app.sqlite.gz` и `examples.sqlite.gz` (снимок без остановки сервиса), `files.tgz` (примеры, конкуренты,
+настройки главной) и `env`. Копия проверяется: база открывается, целостность в порядке, пользователи на месте.
+Хранятся 14 дней. Итог показывает утренний отчёт в ВК, а при сбое — блок «Внимание».
+
+Если в `.env` задан `BACKUP_REMOTE=root@второй-сервер`, копия **без `env`** уходит на второй сервер:
+почта покупателей в базе зашифрована, а ключ от неё (`MASTER_KEY`) туда не попадает — храните `.env`
+отдельно. Ключ доступа на втором сервере ограничен rrsync «только запись, без удаления»: даже с захваченного
+основного сервера бэкапы там не стереть. Старые копии второй сервер чистит сам.
+
+```bash
+cp /root/MonsterLab/deploy/monstorelab-backup.* /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now monstorelab-backup.timer
+ssh-keygen -t ed25519 -N "" -f /root/.ssh/monstorelab_backup -C monstorelab-backup
+# на втором сервере, в ~/.ssh/authorized_keys одной строкой:
+# restrict,command="/usr/bin/rrsync -wo -no-del /root/monstorelab-backups" ssh-ed25519 AAAA… monstorelab-backup
+# и чистка старше 30 дней: /etc/cron.d/monstorelab-backups
+journalctl -t monstorelab-backup   # когда и как прошли бэкапы
+```
+
+Восстановление (сервис остановлен, том `data` тот же):
+
+```bash
+cd /root/MonsterLab && docker compose stop backend
+B=/root/backups/monsterlab-auto-…   # или копия со второго сервера + сохранённый .env
+V=/var/lib/docker/volumes/monster-lab_data/_data
+gunzip -c $B/app.sqlite.gz > $V/app.sqlite && gunzip -c $B/examples.sqlite.gz > $V/examples.sqlite
+tar xzf $B/files.tgz -C $V && chown -R --reference=$V $V
+docker compose up -d backend
+```
+
 ## Отчёт владельцам в ВК
 
 Дважды в день (09:00 и 21:00 по времени сервера) сообщество ВК присылает отчёт: пользователи, оплаты,

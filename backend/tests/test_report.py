@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import time
 import urllib.parse
@@ -81,3 +82,30 @@ def test_send_reports_vk_error(monkeypatch) -> None:
     reply = httpx.Response(200, json={"error": {"error_msg": "Can't send messages for users without permission"}})
     monkeypatch.setattr(report.httpx, "Client", lambda **kw: real(**kw, transport=httpx.MockTransport(lambda r: reply)))
     assert report.send("привет") == ["1: Can't send messages for users without permission"]
+
+
+def _backup_status(**st) -> None:
+    (config.DATA_DIR / "backup-status.json").write_text(json.dumps(st), "utf-8")
+
+
+def test_backup_status_in_report(client: TestClient) -> None:
+    status = config.DATA_DIR / "backup-status.json"
+    try:
+        status.unlink(missing_ok=True)
+        assert "Автобэкап ещё ни разу не выполнялся" in report.build(live=False)
+
+        fresh = {"at": time.time() - 3600, "ok": True, "users": 21, "size_mb": 30, "error": ""}
+        _backup_status(**fresh, remote="ok")
+        text = report.build(live=False)
+        assert "21 польз., 30 МБ, копия на втором сервере" in text and "бэкап" not in text.split("🩺")[0]
+
+        _backup_status(**fresh, remote="failed")
+        assert "копия на второй сервер не ушла" in report.build(live=False)
+
+        _backup_status(**{**fresh, "at": time.time() - 30 * 3600}, remote="ok")
+        assert "ночной не сделался" in report.build(live=False)
+
+        _backup_status(at=time.time(), ok=False, users=0, size_mb=0, remote="none", error="снимок базы в контейнере")
+        assert "не удался: снимок базы в контейнере" in report.build(live=False)
+    finally:
+        status.unlink(missing_ok=True)

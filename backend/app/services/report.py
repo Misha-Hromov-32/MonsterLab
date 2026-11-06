@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import random
 import shutil
 import sys
@@ -29,6 +30,7 @@ DAY = 86400
 LOW_BALANCE_RUB = 300  # ниже — предупреждаем: «Выбор покупателя» и разбор скоро встанут
 LOW_DISK_GB = 5
 EXPIRING_DAYS = 5
+BACKUP_STALE_H = 26  # бэкап раз в сутки (deploy/monstorelab-backup.timer) — старше суток с запасом = не сделался
 VK_API = "https://api.vk.com/method/messages.send"
 VK_LIMIT = 4000  # ВК режет сообщения длиннее 4096 символов
 
@@ -55,6 +57,31 @@ def _rub(x: float) -> str:
 
 def _dt(ts: float, fmt: str = "%d.%m %H:%M") -> str:
     return datetime.fromtimestamp(ts, MSK).strftime(fmt)
+
+
+def _backup_line(now: float, alerts: list[str]) -> str:
+    """Итог ночного бэкапа: его пишет deploy/backup.sh в backup-status.json тома data."""
+    try:
+        st = json.loads((config.DATA_DIR / "backup-status.json").read_text("utf-8"))
+    except FileNotFoundError:
+        alerts.append("Автобэкап ещё ни разу не выполнялся")
+        return "бэкапа нет"
+    except ValueError:
+        alerts.append("Файл статуса бэкапа повреждён")
+        return "бэкап: статус не прочитать"
+    age_h = (now - float(st.get("at", 0))) / 3600
+    if not st.get("ok"):
+        alerts.append(f"Бэкап {_dt(st.get('at', 0))} не удался: {st.get('error') or 'причина в journalctl'}")
+        return "бэкап НЕ удался"
+    if age_h > BACKUP_STALE_H:
+        alerts.append(f"Последний бэкап был {age_h:.0f} ч назад — ночной не сделался")
+    remote = {"ok": "копия на втором сервере", "failed": "копия на второй сервер НЕ ушла", "off": "без второго сервера"}
+    if st.get("remote") == "failed":
+        alerts.append("Бэкап сделан, но копия на второй сервер не ушла")
+    return (
+        f"бэкап {_dt(st['at'])} ({st.get('users', '?')} польз., {st.get('size_mb', '?')} МБ, "
+        f"{remote.get(st.get('remote'), st.get('remote', ''))})"
+    )
 
 
 def _live_checks(alerts: list[str]) -> list[str]:
@@ -192,7 +219,11 @@ def build(hours: float = 12, live: bool = True) -> str:
 
     # ---------------------------------------------------------- сервер
     free_gb = shutil.disk_usage(config.DATA_DIR).free / 1024**3
-    health = [f"свободно на диске {free_gb:.0f} ГБ", f"примеров на главной {len(site.published_examples())}"]
+    health = [
+        _backup_line(now, alerts),
+        f"свободно на диске {free_gb:.0f} ГБ",
+        f"примеров на главной {len(site.published_examples())}",
+    ]
     if free_gb < LOW_DISK_GB:
         alerts.append(f"На диске сервера осталось {free_gb:.1f} ГБ")
     if live:

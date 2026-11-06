@@ -1,0 +1,12 @@
+[Unit]
+Description=MonStoreLab: бэкап каждую ночь
+
+[Timer]
+# время сервера — московское: ночью, до утреннего отчёта в ВК (09:00), который покажет итог
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=10min
+# сервер был выключен ночью — сделать бэкап после загрузки
+Persistent=true
+
+[Install]
+WantedBy=timers.target

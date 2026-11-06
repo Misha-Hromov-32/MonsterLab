@@ -1,0 +1,8 @@
+[Unit]
+Description=MonStoreLab: ежедневный бэкап базы, примеров и настроек
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /root/MonsterLab/deploy/backup.sh
