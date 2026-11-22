@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, type Component } from 'vue'
+import { computed, nextTick, watch, type Component } from 'vue'
 import DesignBrand from './DesignBrand.vue'
 import DesignEditorial from './DesignEditorial.vue'
 import DesignSplit from './DesignSplit.vue'
@@ -27,6 +27,20 @@ const override = param && Object.hasOwn(DESIGNS, param) ? (param as Design) : nu
 // вариант по умолчанию и сменился настроенным. Если ответа нет, показываем тексты по умолчанию.
 const landing = computed(() => site.data?.landing ?? DEFAULT_LANDING)
 const design = computed(() => DESIGNS[override ?? landing.value.design] ?? DesignBrand)
+
+// Браузер ищет якорь при первой загрузке, пока Vue ещё ждёт содержимое главной.
+watch(
+  () => site.loaded,
+  async (loaded) => {
+    if (!loaded) return
+    const id = location.hash.slice(1)
+    if (!['how', 'examples', 'generator', 'plans'].includes(id)) return
+    await nextTick()
+    await document.fonts.ready
+    if (location.hash === '#' + id) document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'instant' })
+  },
+  { immediate: true, flush: 'post' },
+)
 </script>
 
 <template>
