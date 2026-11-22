@@ -49,6 +49,7 @@ COPY app ./app
 # /data — docker-том с настройками, примерами и паролем админки
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN useradd --system --create-home app \
+ && chmod -R u=rwX,go=rX /srv/app /srv/seed \
  && mkdir -p /data && chown app:app /data \
  && chmod +x /usr/local/bin/entrypoint.sh
 VOLUME /data
