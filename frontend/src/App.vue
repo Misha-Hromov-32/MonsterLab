@@ -11,8 +11,9 @@ import ToastMessage from './components/ToastMessage.vue'
 import QueueBadge from './components/QueueBadge.vue'
 import CookieBanner from './components/CookieBanner.vue'
 import LoginDialog from './components/LoginDialog.vue'
-import AccountDialog from './components/AccountDialog.vue'
-import LibraryDialog from './components/LibraryDialog.vue'
+import { defineAsyncComponent } from 'vue'
+import { cabinetTab, syncCabinet } from './lib/cabinet'
+const AccountDashboard = defineAsyncComponent(() => import('./components/AccountDashboard.vue'))
 import TariffsDialog from './components/TariffsDialog.vue'
 import LeadDialog from './components/LeadDialog.vue'
 import { addFiles, loadHealth, loadSite, resetAll, state, toast } from './store'
@@ -39,7 +40,7 @@ let depth = 0
 const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files')
 
 function onEnter(e: DragEvent) {
-  if (!hasFiles(e)) return
+  if (cabinetTab.value || (e.target as HTMLElement)?.closest?.('[data-own-drop]') || !hasFiles(e)) return
   depth++
   dragging.value = true
 }
@@ -58,7 +59,7 @@ function onDrop(e: DragEvent) {
   dragging.value = false
   // зоны с собственной обработкой (конкуренты) помечены data-own-drop
   if ((e.target as HTMLElement)?.closest?.('[data-own-drop]')) return
-  if (e.dataTransfer?.files.length) addFiles(e.dataTransfer.files)
+  if (!cabinetTab.value && e.dataTransfer?.files.length) addFiles(e.dataTransfer.files)
 }
 
 // Яндекс Метрика: только с согласия на аналитические cookie и если на сервере задан номер счётчика
@@ -105,12 +106,16 @@ onMounted(() => {
           }
         }
       })
+  window.addEventListener('popstate', syncCabinet)
+  window.addEventListener('hashchange', syncCabinet)
   window.addEventListener('dragenter', onEnter)
   window.addEventListener('dragleave', onLeave)
   window.addEventListener('dragover', onOver)
   window.addEventListener('drop', onDrop)
 })
 onUnmounted(() => {
+  window.removeEventListener('popstate', syncCabinet)
+  window.removeEventListener('hashchange', syncCabinet)
   window.removeEventListener('dragenter', onEnter)
   window.removeEventListener('dragleave', onLeave)
   window.removeEventListener('dragover', onOver)
@@ -120,8 +125,9 @@ onUnmounted(() => {
 
 <template>
   <div class="app">
-    <TopBar />
-    <div class="body" :class="{ bare: !state.variants.length }">
+    <AccountDashboard v-if="cabinetTab" />
+    <TopBar v-if="!cabinetTab" />
+    <div v-if="!cabinetTab" class="body" :class="{ bare: !state.variants.length }">
       <VariantRail v-if="state.variants.length" />
       <main class="main">
         <Landing v-if="!state.variants.length" />
@@ -141,8 +147,6 @@ onUnmounted(() => {
     </Transition>
 
     <LoginDialog v-if="account.dialog === 'login'" />
-    <AccountDialog v-else-if="account.dialog === 'account'" />
-    <LibraryDialog v-else-if="account.dialog === 'library'" />
     <TariffsDialog v-else-if="account.dialog === 'tariffs'" />
 
     <LeadDialog v-if="state.leadOpen" />

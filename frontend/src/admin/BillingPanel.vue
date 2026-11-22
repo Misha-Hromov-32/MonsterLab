@@ -114,7 +114,7 @@ async function save() {
     <header class="ph">
       <div>
         <h1>Тарифы</h1>
-        <p>Демо-доступ после подтверждения почты и платные тарифы: цена, срок и импульсы на период оплаты.</p>
+        <p>Стартовые бонусы, цены и импульсы на каждый период подписки.</p>
       </div>
       <span class="status" :class="{ on: saved.enabled }">
         <i class="dot" :class="{ good: saved.enabled }" />
@@ -196,7 +196,12 @@ async function save() {
     <section class="card block">
       <h2 class="label">Начисление импульсов</h2>
       <label class="field"
-        >Разовый демо-баланс<input class="input" v-model.number="demoCredits" type="number" min="0" max="100000"
+        >Общий стартовый бонус (треть за регистрацию, остаток за почту)<input
+          class="input"
+          v-model.number="demoCredits"
+          type="number"
+          min="0"
+          max="100000"
       /></label>
       <label v-for="p in plans" :key="p.id" class="field"
         >Импульсов за период · {{ p.title

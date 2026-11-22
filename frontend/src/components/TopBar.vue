@@ -80,7 +80,7 @@ function home() {
       <button type="button" @click="go('examples')">Примеры</button>
       <button type="button" @click="go('generator')">Генератор</button>
       <button type="button" @click="go('plans')">Тарифы</button>
-      <button v-if="signedIn" type="button" @click="openLibrary">Личный кабинет</button>
+      <a href="/articles">Статьи</a>
     </nav>
 
     <nav v-else class="tabs" aria-label="Режим">
@@ -101,7 +101,7 @@ function home() {
         <span v-if="t.count" class="count">{{ t.count }}</span>
       </button>
       <span v-for="t in tabs" :id="`tab-hint-${t.id}`" :key="`hint-${t.id}`" hidden>{{ t.hint }}</span>
-      <button v-if="signedIn" type="button" class="tab" @click="openLibrary">Личный кабинет</button>
+      <button v-if="signedIn" type="button" class="tab" @click="openLibrary">Мои обложки</button>
     </nav>
 
     <div class="actions">
@@ -120,7 +120,7 @@ function home() {
       <!-- аккаунт нужен только для платных функций: если на сервере их нет, кнопку не показываем -->
       <AccountButton v-if="paidAvailable" />
       <template v-if="!working">
-        <button type="button" class="btn primary" @click="pick()">
+        <button type="button" class="btn primary" aria-label="Загрузить обложки" @click="pick()">
           <Upload :size="15" aria-hidden="true" /> <span class="hide-xs">Загрузить обложки</span>
         </button>
       </template>
@@ -333,6 +333,38 @@ function home() {
   /* строка «MON STORE LAB» широкая — на телефоне мельче, чтобы не наезжать на кнопки аккаунта */
   .brand :deep(.wm) {
     height: 14px;
+  }
+}
+.links a {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--ink-2);
+  padding: 6px;
+}
+.links a:hover {
+  color: var(--ink);
+}
+@media (max-width: 440px) {
+  .links {
+    min-width: 0;
+    justify-content: space-between;
+    gap: 0;
+  }
+  .links button,
+  .links a {
+    padding: 0 4px;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+  .top {
+    column-gap: 8px;
+  }
+  .actions {
+    gap: 4px;
   }
 }
 </style>

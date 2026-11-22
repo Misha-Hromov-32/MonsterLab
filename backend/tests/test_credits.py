@@ -31,6 +31,7 @@ def test_snapshot_old_paid_quota(client, user_headers):
     user = accounts.user_from_token(user_headers["Authorization"].split()[1])
     accounts.activate(user.id, "start", 30)
     with db.connect() as con:
+        con.execute("DELETE FROM welcome_rewards WHERE buyer=?", (user.id,))  # Аккаунт до введения бонусов.
         con.execute("UPDATE users SET quota_json=? WHERE id=?", (json.dumps({"improve": 3, "shelf": 2}), user.id))
     user = accounts.get(user.id)
     with db.connect() as con:
@@ -47,7 +48,7 @@ def test_photo_generation_dispatch_and_price(client, user_headers, monkeypatch):
     image = jpeg_bytes(make_cover(1))
     user = accounts.get(user.id)
     current = credits.wallet(user)["remaining"]
-    assert current == 7000
+    assert current == 7000 + 30
     calls = []
 
     def generate(jpeg, prompt, model):

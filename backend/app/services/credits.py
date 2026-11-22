@@ -42,12 +42,19 @@ def snapshot(con, user):
 
     period = accounts.usage_period(user)
     grant = allowance(user)
+    welcome = con.execute("SELECT signup,email FROM welcome_rewards WHERE buyer=?", (user.id,)).fetchone()
+    earned = 0
+    if welcome:
+        earned = welcome["signup"] + (welcome["email"] if user.email and user.verified else 0)
+        if user.plan == accounts.DEMO:
+            grant = 0
     old = con.execute("SELECT feature,count FROM usage WHERE user_id=? AND day=?", (user.id, period))
     # Снимок прежнего расхода создаётся один раз до первого нового списания.
     con.execute("INSERT OR IGNORE INTO credit_opening VALUES(?,?,?)", (user.id, period, weighted(dict(old))))
     opening = con.execute("SELECT used FROM credit_opening WHERE buyer=? AND period=?", (user.id, period)).fetchone()[0]
     rows = con.execute("SELECT feature,balance FROM user_bonus WHERE user_id=?", (user.id,))
-    bonus = weighted(dict(rows))
+    social = con.execute("SELECT amount FROM social_claims WHERE buyer=? AND status='approved'", (user.id,)).fetchone()
+    bonus = earned + weighted(dict(rows)) + (social["amount"] if social else 0)
     spent, extra = con.execute(
         "SELECT coalesce(sum(CASE WHEN period=? THEN base ELSE 0 END),0),coalesce(sum(extra),0) "
         "FROM credit_charges WHERE buyer=? AND (settled=1 OR expiry IS NULL OR expiry>?)",

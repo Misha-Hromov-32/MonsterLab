@@ -102,6 +102,25 @@ CREATE TABLE IF NOT EXISTS usage (
     PRIMARY KEY (user_id, feature, day)
 );
 -- бонусные запуски сверх квоты тарифа (промокоды): тратятся, когда квота тарифа на функцию исчерпана
+CREATE TABLE IF NOT EXISTS welcome_rewards (
+    buyer INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    signup INTEGER NOT NULL,
+    email INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS link_email_codes (
+    buyer INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    target TEXT NOT NULL, proof TEXT NOT NULL, sent REAL NOT NULL, tries INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS social_claims (
+    id INTEGER PRIMARY KEY,
+    buyer INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','declined')),
+    amount INTEGER NOT NULL,
+    created REAL NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS social_buyer ON social_claims(buyer) WHERE status != 'declined';
+CREATE UNIQUE INDEX IF NOT EXISTS social_url ON social_claims(url) WHERE status != 'declined';
 CREATE TABLE IF NOT EXISTS user_bonus (
     user_id INTEGER NOT NULL,
     feature TEXT NOT NULL,

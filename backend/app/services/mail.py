@@ -101,6 +101,24 @@ def verification_letter(to: str, link: str) -> EmailMessage:
     return _letter(to, "Подтвердите почту для MonStoreLab", letter, text)
 
 
+def link_email_letter(to: str, code: str) -> EmailMessage:
+    lead = f"Введите код {code} в личном кабинете, чтобы привязать этот адрес. Код действует 10 минут."
+    return _letter(
+        to,
+        "Код подтверждения почты MonStoreLab",
+        {
+            "preheader": "Подтверждение адреса в личном кабинете",
+            "eyebrow": "Подтверждение почты",
+            "title": code,
+            "lead": lead,
+            "button": "Открыть кабинет",
+            "link": f"{config.PUBLIC_URL}/account#rewards",
+            "note": "Если вы не запрашивали код, никому его не передавайте.",
+        },
+        lead,
+    )
+
+
 def reset_letter(to: str, link: str) -> EmailMessage:
     letter = {
         "preheader": "Ссылка для нового пароля — действует час",

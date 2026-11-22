@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { Download, FolderOpen, Loader2, Trash2 } from 'lucide-vue-next'
-import ModalDialog from './ModalDialog.vue'
+import { navigateCabinet } from '../lib/cabinet'
 import { api } from '../api'
 import { closeDialog } from '../lib/account'
 import { openSavedCover } from '../store'
 import type { SavedCover } from '../lib/types'
 
+defineProps<{ recent?: boolean }>()
 const items = ref<SavedCover[]>([])
 const total = ref(0)
 const loading = ref(false)
@@ -32,7 +33,10 @@ async function use(item: SavedCover) {
   error.value = ''
   try {
     const saved = await api.savedCover(item.id)
-    if (openSavedCover(saved)) closeDialog()
+    if (openSavedCover(saved)) {
+      closeDialog()
+      navigateCabinet(null)
+    }
   } catch (e) {
     error.value = (e as Error).message
   } finally {
@@ -76,21 +80,24 @@ onMounted(load)
 </script>
 
 <template>
-  <ModalDialog title="Личный кабинет" wide @close="closeDialog">
-    <nav class="actions">
-      <a class="btn pill" href="/studio#wb">Аудит каталога WB</a
-      ><a class="btn pill" href="/studio#rules">Правила площадок</a>
-    </nav>
-    <p class="intro">
+  <div class="collection">
+    <p v-if="!recent" class="intro">
       Ваши загруженные и сгенерированные обложки сохраняются автоматически после успешного анализа или генерации.
       Доступны только вам.
     </p>
     <p v-if="error" class="error" role="alert">
       {{ error }} <button class="btn sm" :disabled="loading" @click="load">Повторить</button>
     </p>
-    <p v-if="!loading && !error && !items.length" class="empty">Здесь пока пусто. Загрузите и проверьте обложку.</p>
+    <div v-if="!loading && !error && !items.length" class="empty-covers">
+      <div class="empty-icon"><FolderOpen :size="26" /></div>
+      <div>
+        <strong>Здесь будут ваши обложки</strong>
+        <p>После анализа или генерации результат сохраняется автоматически.</p>
+        <a href="/#generator">Создать первую обложку →</a>
+      </div>
+    </div>
     <div class="covers">
-      <article v-for="item in items" :key="item.id" class="cover">
+      <article v-for="item in recent ? items.slice(0, 3) : items" :key="item.id" class="cover">
         <button class="preview" :disabled="!!busy" :aria-label="`Открыть ${item.name}`" @click="use(item)">
           <img :src="item.preview" :alt="item.name" loading="lazy" />
         </button>
@@ -113,12 +120,61 @@ onMounted(load)
       </article>
     </div>
     <p v-if="loading || busy" role="status" class="status"><Loader2 :size="16" class="spin" /> Загружаем…</p>
-    <button v-if="items.length < total" class="btn" :disabled="loading || !!busy" @click="load">Показать ещё</button>
-    <p v-if="items.length" class="meta">Сохранено {{ total }} из 500 обложек</p>
-  </ModalDialog>
+    <button v-if="!recent && items.length < total" class="btn" :disabled="loading || !!busy" @click="load">
+      Показать ещё
+    </button>
+    <p v-if="!recent && items.length" class="meta">Сохранено {{ total }} из 500 обложек</p>
+  </div>
 </template>
 
 <style scoped>
+.empty-covers {
+  padding: clamp(18px, 3vw, 32px);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: var(--panel);
+  border: 1px dashed var(--line-strong);
+  border-radius: 16px;
+}
+.empty-icon {
+  color: var(--brand);
+  padding: 14px;
+  background: color-mix(in srgb, var(--brand) 8%, var(--panel));
+  border-radius: 14px;
+  display: grid;
+}
+.empty-covers strong {
+  font-size: 18px;
+  white-space: normal;
+}
+.empty-covers p {
+  margin: 5px 0 8px;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.empty-covers a,
+.recent-head a {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-underline-offset: 4px;
+}
+.collection {
+  display: grid;
+  gap: 16px;
+}
+.empty {
+  background: var(--panel-2);
+  padding: 30px;
+  border-radius: 14px;
+}
+.empty a {
+  display: block;
+  color: var(--ink);
+  font-weight: 650;
+  margin-top: 8px;
+}
 .intro,
 .empty {
   margin: 0;

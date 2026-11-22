@@ -58,23 +58,17 @@ def render_body(body: str) -> str:
     return "\n".join(blocks)
 
 
-STYLE = """
-*{box-sizing:border-box}body{margin:0;background:#f6f6f2;color:#222322;font:17px/1.65 system-ui,sans-serif}
-main,nav{max-width:820px;margin:auto;padding:20px clamp(16px,5vw,48px)}
-nav{display:flex;gap:24px;border-bottom:1px solid #d6d6ce}
-nav a:first-child{font-weight:750;margin-right:auto}a{color:#494082;text-underline-offset:3px}
-h1{font-size:clamp(34px,6vw,56px);line-height:1.05;letter-spacing:-.04em;margin:36px 0 20px}
-h2{font-size:clamp(22px,4vw,30px);line-height:1.22;margin:36px 0 10px}.lead{font-size:1.2em;color:#4b4a49}
-article{padding-bottom:32px}aside{border-top:1px solid #d6d6ce;padding:16px 0}a:focus-visible{outline:3px solid #6758b1}
-"""
-
-
-def page(title: str, summary: str, path: str, content: str) -> HTMLResponse:
-    return HTMLResponse(f"""<!doctype html><html lang="ru"><head><meta charset="utf-8">
+def page(title: str, summary: str, path: str, content: str, status: int = 200) -> HTMLResponse:
+    return HTMLResponse(
+        f"""<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>{escape(title)} — MonStoreLab</title>
 <meta name="description" content="{escape(summary)}"><link rel="canonical" href="{escape(config.PUBLIC_URL + path)}">
-<style>{STYLE}</style></head><body><nav><a href="/">MonStoreLab</a><a href="/articles">Все статьи</a></nav>
-<main>{content}</main></body></html>""")
+<link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/journal.css"><script src="/theme.js"></script>
+</head><body><nav aria-label="Навигация"><a href="/"><img src="/favicon.svg" alt="">MON STORE LAB</a>
+<a href="/articles">Статьи</a><a href="/account">Кабинет</a></nav>
+<main>{content}</main></body></html>""",
+        status_code=status,
+    )
 
 
 @router.get("/articles", response_class=HTMLResponse)
@@ -90,7 +84,7 @@ def journal():
         "Статьи о карточках товаров",
         "Практические руководства по обложкам, требованиям площадок и проверке каталога.",
         "/articles",
-        "<h1>Статьи о карточках товаров</h1>" + entries,
+        '<h1>Статьи о карточках товаров</h1><div class="entries">' + entries + "</div>",
     )
 
 
@@ -99,9 +93,11 @@ def article_page(slug: str):
     with db.connect() as con:
         row = con.execute("SELECT * FROM articles WHERE slug=? AND published=1", (slug,)).fetchone()
     if not row:
-        return HTMLResponse(
-            '<html lang="ru"><title>Статья не найдена</title><h1>Статья не найдена</h1>'
-            '<a href="/articles">Все статьи</a></html>',
+        return page(
+            "Статья не найдена",
+            "Статьи MonStoreLab",
+            "/articles",
+            '<h1>Статья не найдена</h1><a href="/articles">Вернуться ко всем статьям</a>',
             404,
         )
     content = (

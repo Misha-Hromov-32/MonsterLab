@@ -13,7 +13,21 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, config
-from .api import account, admin, analysis, articles, catalog, expert, jobs, lead, library, partners, public, tools
+from .api import (
+    account,
+    admin,
+    analysis,
+    articles,
+    catalog,
+    expert,
+    jobs,
+    lead,
+    library,
+    partners,
+    public,
+    rewards,
+    tools,
+)
 from .core import saliency
 from .errors import install_handlers
 from .services import aicost, auth, crypto, payout_gateway, precompute, site, wb_audit
@@ -45,7 +59,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="MonStoreLab API", version=__version__, lifespan=lifespan)
 install_handlers(app)
-for module in (analysis, expert, public, account, tools, library, jobs, lead, partners, catalog, articles):
+for module in (analysis, expert, public, account, tools, library, jobs, lead, partners, catalog, articles, rewards):
     app.include_router(module.router)
 app.include_router(admin.router)
 app.include_router(admin.guarded)

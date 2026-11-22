@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronDown } from 'lucide-vue-next'
 import { computed, watch } from 'vue'
 import { account } from '../lib/account'
 const model = defineModel<string>('model', { required: true })
@@ -15,14 +16,15 @@ watch(
 )
 </script>
 <template>
-  <label class="field"
-    >Модель<select v-model="model" class="input" :disabled="disabled || !models.length">
-      <option v-if="!models.length" value="">Загрузка моделей…</option>
-      <option v-for="m in models" :key="m.id" :value="m.id">{{ m.title }} · {{ m.cost }} имп.</option>
-    </select></label
-  >
-  <label class="field"
-    >Ваше задание
+  <label class="lab-field"
+    >Модель генерации<span class="model-select"
+      ><select v-model="model" class="input" :disabled="disabled || !models.length">
+        <option v-if="!models.length" value="">Загрузка моделей…</option>
+        <option v-for="m in models" :key="m.id" :value="m.id">{{ m.title }} · {{ m.cost }} имп.</option></select
+      ><ChevronDown :size="16" aria-hidden="true" /></span
+  ></label>
+  <label class="lab-field"
+    >Задание для модели
     <textarea
       v-model="prompt"
       class="input"
@@ -33,3 +35,23 @@ watch(
     ></textarea>
   </label>
 </template>
+<style scoped>
+.model-select {
+  position: relative;
+  display: block;
+}
+.model-select select {
+  appearance: none;
+  padding-right: 32px;
+}
+.model-select svg {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.lab-field textarea {
+  min-height: 94px;
+}
+</style>

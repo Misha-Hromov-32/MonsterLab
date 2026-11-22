@@ -22,6 +22,7 @@ import ExamplesPanel from './ExamplesPanel.vue'
 import ExpertPanel from './ExpertPanel.vue'
 import BillingPanel from './BillingPanel.vue'
 import ArticlesPanel from './ArticlesPanel.vue'
+import SharesPanel from './SharesPanel.vue'
 import PayoutsPanel from './PayoutsPanel.vue'
 import StatsPanel from './StatsPanel.vue'
 import QueuePanel from './QueuePanel.vue'
@@ -33,7 +34,18 @@ import { TOAST_MS } from '../lib/constants'
 import type { AdminSettings } from '../lib/types'
 
 type Tab =
-  'articles' | 'payouts' | 'stats' | 'users' | 'ai' | 'queue' | 'landing' | 'examples' | 'expert' | 'billing' | 'promo'
+  | 'shares'
+  | 'articles'
+  | 'payouts'
+  | 'stats'
+  | 'users'
+  | 'ai'
+  | 'queue'
+  | 'landing'
+  | 'examples'
+  | 'expert'
+  | 'billing'
+  | 'promo'
 const tabs: { id: Tab; title: string; icon: Component }[] = [
   { id: 'stats', title: 'Статистика', icon: BarChart3 },
   { id: 'users', title: 'Пользователи', icon: Users },
@@ -44,6 +56,7 @@ const tabs: { id: Tab; title: string; icon: Component }[] = [
   { id: 'expert', title: 'Нейросети', icon: Sparkles },
   { id: 'billing', title: 'Тарифы', icon: CreditCard },
   { id: 'articles', title: 'Статьи', icon: LayoutTemplate },
+  { id: 'shares', title: 'Бонусы за публикации', icon: Wallet },
   { id: 'payouts', title: 'Выплаты партнёрам', icon: Wallet },
   { id: 'promo', title: 'Промокоды', icon: Ticket },
 ]
@@ -138,6 +151,7 @@ onUnmounted(() => {
         <ExpertPanel v-else-if="tab === 'expert'" :data="data" @notify="notify" @changed="reload" />
         <BillingPanel v-else-if="tab === 'billing'" :data="data" @notify="notify" @changed="reload" />
         <ArticlesPanel v-else-if="tab === 'articles'" />
+        <SharesPanel v-else-if="tab === 'shares'" />
         <PayoutsPanel v-else-if="tab === 'payouts'" />
         <PromoPanel v-else :data="data" @notify="notify" />
       </template>

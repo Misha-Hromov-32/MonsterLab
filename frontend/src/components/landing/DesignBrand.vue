@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-vue-next'
 import BeforeAfter from './BeforeAfter.vue'
+import TariffsDialog from '../TariffsDialog.vue'
 import CoverGenerator from '../CoverGenerator.vue'
 import ExamplesGallery from './ExamplesGallery.vue'
 import BrandMark from '../BrandMark.vue'
@@ -202,6 +203,7 @@ const FEATURES = [
     </section>
 
     <!-- ---------------------------------------------------------------- финальный призыв -->
+    <TariffsDialog inline />
     <section class="final">
       <div class="final-copy">
         <h2>Проверьте обложку до того, как за неё заплатит реклама</h2>

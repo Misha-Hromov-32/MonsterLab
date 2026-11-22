@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { LogIn, UserRound } from 'lucide-vue-next'
-import { account, isPaid, openAccount, openLogin, signedIn, accountLabel } from '../lib/account'
+import { account, openAccount, openLogin, signedIn, accountLabel } from '../lib/account'
 </script>
 
 <template>
@@ -9,13 +9,11 @@ import { account, isPaid, openAccount, openLogin, signedIn, accountLabel } from 
     type="button"
     class="acc"
     :title="accountLabel(account.user)"
-    :aria-label="account.user ? `${accountLabel(account.user)}, тариф ${account.user.plan_title}` : 'Аккаунт'"
-    aria-haspopup="dialog"
+    aria-label="Личный кабинет"
     @click="openAccount"
   >
     <UserRound :size="15" aria-hidden="true" />
-    <span class="email ym-hide-content">{{ accountLabel(account.user) }}</span>
-    <span v-if="account.user" class="badge" :class="{ pro: isPaid, free: !isPaid }">{{ account.user.plan_title }}</span>
+    <span class="email">Личный кабинет</span>
   </button>
   <button v-else type="button" class="btn pill login" aria-label="Войти" aria-haspopup="dialog" @click="openLogin()">
     <LogIn :size="15" aria-hidden="true" /> <span class="txt">Войти</span>
@@ -29,7 +27,7 @@ import { account, isPaid, openAccount, openLogin, signedIn, accountLabel } from 
   gap: 8px;
   height: 38px;
   max-width: 280px;
-  padding: 0 6px 0 12px;
+  padding: 0 12px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: var(--panel);
@@ -50,24 +48,6 @@ import { account, isPaid, openAccount, openLogin, signedIn, accountLabel } from 
   white-space: nowrap;
 }
 
-.badge {
-  flex: none;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 9px;
-  border-radius: 999px;
-  background: var(--panel-2);
-  color: var(--ink-2);
-  font-size: 11.5px;
-  font-weight: 500;
-}
-
-.badge.pro {
-  background: var(--lime);
-  color: var(--on-tile);
-}
-
 .login {
   height: 38px;
   padding: 0 14px;
@@ -75,18 +55,14 @@ import { account, isPaid, openAccount, openLogin, signedIn, accountLabel } from 
   letter-spacing: -0.02em;
 }
 
-/* на телефоне email и «Демо» не помещаются — остаются иконка и плашка Pro */
 @media (max-width: 640px) {
   .email,
-  .txt,
-  .badge.free {
+  .txt {
     display: none;
   }
   .acc {
-    padding: 0 10px;
-  }
-  .acc:has(.badge.pro) {
-    padding-right: 6px;
+    padding: 0 12px;
+    min-width: 40px;
   }
 }
 </style>

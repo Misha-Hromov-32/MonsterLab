@@ -1,3 +1,4 @@
+import { navigateCabinet } from './cabinet'
 import { computed, reactive } from 'vue'
 import { api, ApiError } from '../api'
 import { session, setUserToken } from './session'
@@ -5,7 +6,7 @@ import { formatDate, promoSummary } from './format'
 import { goal } from './metrika'
 import type { Billing, Consent, OAuthProvider, Session, User } from './types'
 
-export type AccountDialog = '' | 'login' | 'account' | 'tariffs' | 'library'
+export type AccountDialog = '' | 'login' | 'tariffs'
 /** sent — «проверьте почту», forgot — запрос ссылки для нового пароля, reset — ввод нового пароля */
 export type AuthMode = 'login' | 'register' | 'sent' | 'forgot' | 'reset'
 export type LetterKind = 'verify' | 'reset'
@@ -45,14 +46,16 @@ export function openLogin(reason = '', then?: () => void, mode: AuthMode = 'logi
 
 export function openAccount() {
   account.reason = ''
-  account.dialog = 'account'
+  closeDialog()
+  navigateCabinet()
   refreshMe()
   loadPlans()
 }
 
 export function openLibrary() {
   if (!signedIn.value) return openLogin('Войдите, чтобы открыть свои обложки', openLibrary)
-  account.dialog = 'library'
+  closeDialog()
+  navigateCabinet('covers')
 }
 
 export function openTariffs(reason = '') {
@@ -81,11 +84,13 @@ export function logout() {
 
 /** Обновляет тариф и расход лимитов. Токен отозван или устарел — тихо выходим. */
 export async function refreshMe() {
-  if (!session.token) return
+  const token = session.token
+  if (!token) return
   try {
-    account.user = await api.me()
+    const user = await api.me()
+    if (session.token === token) account.user = user
   } catch (e) {
-    if (e instanceof ApiError && e.status === 401) forget()
+    if (session.token === token && e instanceof ApiError && e.status === 401) forget()
   }
 }
 

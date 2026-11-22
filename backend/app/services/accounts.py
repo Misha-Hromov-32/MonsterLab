@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from email.message import EmailMessage
 
 from .. import config
-from . import crypto, db, mail, partners, site
+from . import crypto, db, mail, partners, rewards, site
 
 log = logging.getLogger(__name__)
 
@@ -306,6 +306,7 @@ def register(email: str, password: str, accepted: bool = False, referral: str = 
             )
             user_id = cur.lastrowid
             partners.attribute(con, user_id, referral)
+            rewards.enroll(con, user_id)
     except sqlite3.IntegrityError:  # тот же email только что зарегистрировали параллельно
         return register(email, password, accepted, referral)
     return get(user_id)
@@ -355,6 +356,7 @@ def _create_verified(email_index: str, email: str, now: float, referral: str) ->
             ),
         ).lastrowid
         partners.attribute(con, user_id, referral)
+        rewards.enroll(con, user_id)
         return user_id
 
 
@@ -450,6 +452,58 @@ def _send(user: User, purpose: str, letter: Callable[[str, str], EmailMessage]) 
 
 def send_verification(user: User) -> bool:
     return False if user.verified else _send(user, "verify", mail.verification_letter)
+
+
+def send_link_email(user: User, email: str) -> None:
+    email = normalize(email)
+    if (
+        user.email
+        or not valid_email(email)
+        or not email_allowed(email)
+        or email.rpartition("@")[2] in DISPOSABLE_DOMAINS
+    ):
+        raise AccountError("Укажите доступный для регистрации адрес почты")
+    now = time.time()
+    code = f"{secrets.randbelow(100_000_000):08d}"
+    target = _index(email)
+    proof = crypto.blind_index(f"{user.id}:{target}:{code}", "link-email")
+    with db.connect() as con:
+        con.execute("BEGIN IMMEDIATE")
+        previous = con.execute("SELECT sent FROM link_email_codes WHERE buyer=?", (user.id,)).fetchone()
+        if previous and previous[0] > now - RESEND_COOLDOWN:
+            raise AccountError("Новый код можно запросить через минуту")
+        con.execute("INSERT OR REPLACE INTO link_email_codes VALUES(?,?,?,?,5)", (user.id, target, proof, now))
+        taken = con.execute("SELECT 1 FROM users WHERE email_index=?", (target,)).fetchone()
+    if not taken:
+        try:
+            mail.deliver(mail.link_email_letter(email, code))
+        except mail.MailError:
+            with db.connect() as con:
+                con.execute("DELETE FROM link_email_codes WHERE buyer=? AND proof=?", (user.id, proof))
+            raise
+
+
+def confirm_link_email(user: User, email: str, code: str) -> None:
+    email = normalize(email)
+    target = _index(email)
+    proof = crypto.blind_index(f"{user.id}:{target}:{code}", "link-email")
+    with db.connect() as con:
+        con.execute("BEGIN IMMEDIATE")
+        row = con.execute("SELECT * FROM link_email_codes WHERE buyer=?", (user.id,)).fetchone()
+        actual = _row(con.execute("SELECT * FROM users WHERE id=?", (user.id,)).fetchone())
+        if actual and actual.email == email:
+            return
+        if row and actual and not actual.email and row["tries"] > 0 and row["sent"] > time.time() - 600:
+            con.execute("UPDATE link_email_codes SET tries=tries-1 WHERE buyer=?", (user.id,))
+            if row["target"] == target and secrets.compare_digest(proof, row["proof"]):
+                changed = con.execute(
+                    "UPDATE OR IGNORE users SET email_index=?, email_enc=?, verified_at=? WHERE id=?",
+                    (target, crypto.encrypt(email.encode(), "email"), time.time(), user.id),
+                )
+                con.execute("DELETE FROM link_email_codes WHERE buyer=?", (user.id,))
+                if changed.rowcount:
+                    return
+    raise AccountError("Код неверен или истёк. Проверьте адрес и запросите новый код.")
 
 
 def send_reset(email: str) -> None:

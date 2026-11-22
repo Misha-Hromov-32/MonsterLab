@@ -48,7 +48,7 @@ watch(
   <div v-else class="landing-page">
     <component :is="design" :l="landing" />
     <CoverGenerator v-if="design !== DesignBrand" />
-    <TariffsDialog inline />
+    <TariffsDialog v-if="design !== DesignBrand" inline />
     <SiteFooter />
   </div>
 </template>

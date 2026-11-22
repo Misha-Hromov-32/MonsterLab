@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { CreditCard, Loader2 } from 'lucide-vue-next'
+import { ArrowRight, Zap, Loader2 } from 'lucide-vue-next'
 import ModalDialog from './ModalDialog.vue'
 import { account, checkout, closeDialog, isPaid } from '../lib/account'
 import { formatDate, plural } from '../lib/format'
@@ -49,31 +49,40 @@ async function pay(p: PlanInfo) {
   <component
     :is="inline ? 'section' : ModalDialog"
     :id="inline ? 'plans' : undefined"
-    :class="{ publicPlans: inline }"
+    :class="{ 'lab-section': inline }"
     title="Тарифы"
     wide
     @close="closeDialog"
-    ><h2 v-if="inline">Тарифы</h2>
+    ><h2 v-if="inline" class="lab-title">Тарифы</h2>
     <p v-if="!inline && account.reason" class="reason">{{ account.reason }}</p>
 
     <div v-if="!billing" class="loading"><Loader2 :size="18" class="spin" /> Загружаем условия…</div>
     <template v-else>
-      <section class="demo">
-        <span class="label">Демо-доступ · после подтверждения почты</span>
-        <p>
-          {{ billing.demo_credits }} импульсов на весь демо-доступ. Четыре готовых примера можно открыть без
-          регистрации.
-        </p>
-      </section>
-
-      <label class="field"
-        >Срок оплаты
-        <select v-model.number="periods" class="input" :disabled="!!busy">
-          <option :value="1">{{ monthly ? '1 месяц' : '1 период' }}</option>
-          <option :value="3">{{ monthly ? '3 месяца' : '3 периода' }} · скидка {{ billing.discount3 ?? 10 }}%</option>
-          <option :value="6">{{ monthly ? '6 месяцев' : '6 периодов' }} · скидка {{ billing.discount6 ?? 20 }}%</option>
-        </select>
-      </label>
+      <div class="term-picker" role="group" aria-label="Срок оплаты">
+        <button
+          v-for="n in [1, 3, 6]"
+          :key="n"
+          type="button"
+          :aria-pressed="periods === n"
+          :disabled="!!busy"
+          @click="periods = n"
+        >
+          {{ n }}
+          {{
+            monthly
+              ? n === 1
+                ? 'месяц'
+                : n === 3
+                  ? 'месяца'
+                  : 'месяцев'
+              : n === 1
+                ? 'период'
+                : n === 3
+                  ? 'периода'
+                  : 'периодов'
+          }}<small v-if="n !== 1">−{{ n === 3 ? (billing.discount3 ?? 10) : (billing.discount6 ?? 20) }}%</small>
+        </button>
+      </div>
       <div class="cols">
         <section
           v-for="p in billing.plans"
@@ -92,22 +101,17 @@ async function pay(p: PlanInfo) {
             <span>/ {{ days(p) }}</span>
           </div>
           <strong class="grant"
-            >{{ p.credits?.toLocaleString('ru-RU') }} импульсов каждые {{ p.period_days }} дней</strong
+            ><Zap :size="17" />{{ p.credits?.toLocaleString('ru-RU') }} импульсов каждые
+            {{ p.period_days }} дней</strong
           >
-          <button
-            v-if="canPay"
-            class="btn wide"
-            :class="p.featured ? 'primary' : 'pill'"
-            :disabled="!!busy"
-            @click="pay(p)"
-          >
-            <Loader2 v-if="busy === p.id" :size="15" class="spin" /><CreditCard v-else :size="15" />
-            {{ current === p.id ? 'Продлить' : 'Выбрать' }}
+          <button v-if="canPay" class="plan-buy" :disabled="!!busy" @click="pay(p)">
+            <Loader2 v-if="busy === p.id" :size="15" class="spin" />
+            {{ current === p.id ? 'Продлить тариф' : 'Выбрать тариф' }} <ArrowRight :size="16" />
           </button>
         </section>
       </div>
 
-      <label v-if="canPay && needsEmail" class="receipt field">
+      <label v-if="canPay && needsEmail" class="receipt lab-field">
         <span class="flabel">Почта для чека</span>
         <input v-model="receiptEmail" class="input" type="email" autocomplete="email" inputmode="email" />
       </label>
@@ -131,8 +135,7 @@ async function pay(p: PlanInfo) {
         <template v-if="isPaid && account.user?.pro_until">
           Сейчас действует «{{ account.user.plan_title }}» до {{ formatDate(account.user.pro_until) }}.
         </template>
-        Импульсы начисляются на каждый базовый период тарифа. При продлении срок суммируется. Предоплаченные периоды
-        действуют последовательно, со своими тарифами.
+        При оплате нескольких периодов импульсы поступают в начале каждого периода.
         <template v-if="canPay && billing?.provider === 'tochka'">Оплата через Точку Банк: картой или по СБП.</template>
         <template v-else-if="canPay">Оплата через ЮKassa: картой, SberPay или ЮMoney.</template>
         <template v-else>Оплата пока недоступна.</template>
@@ -143,199 +146,217 @@ async function pay(p: PlanInfo) {
 </template>
 
 <style scoped>
-.publicPlans {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: clamp(32px, 6vw, 84px) clamp(18px, 4vw, 50px);
-  display: grid;
-  gap: 20px;
-  scroll-margin-top: 24px;
-}
-.publicPlans h2 {
-  font-size: clamp(32px, 5vw, 62px);
-  letter-spacing: -0.045em;
-  margin: 0;
-}
-.grant {
-  font-size: 15px;
-  line-height: 1.45;
-}
-.costs summary {
-  cursor: pointer;
-  font-weight: 650;
-}
-.costs dl {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 6px 20px;
-  max-width: 540px;
-}
-.costs dd {
-  font-variant-numeric: tabular-nums;
-}
-.receipt {
-  max-width: 340px;
-}
-
-.flabel {
-  font-size: 12px;
-  color: var(--ink-2);
-}
-
-.reason {
-  margin: -6px 0 0;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--lime-soft);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.loading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--ink-3);
-}
-
-.demo {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: var(--radius);
+.term-picker {
+  display: inline-flex;
+  max-width: 100%;
+  width: fit-content;
+  gap: 3px;
+  padding: 4px;
   background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin: 20px 0;
 }
-
-.demo p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
+.term-picker button {
+  border: 0;
+  background: transparent;
   color: var(--ink-2);
+  padding: 9px 13px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 39px;
 }
-
+.term-picker [aria-pressed='true'] {
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 1px 4px #0002;
+}
+.term-picker small {
+  color: var(--brand);
+  font-weight: 750;
+  margin-left: 5px;
+}
 .cols {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 }
-
 .col {
-  display: grid;
-  grid-template-rows: auto auto auto auto 1fr auto;
-  gap: 10px;
-  padding: 16px 14px 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--bg);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--ink);
+  padding: clamp(17px, 2.2vw, 30px);
+  min-width: 0;
 }
-
 .col.featured {
-  border-color: color-mix(in srgb, var(--lime) 60%, var(--line-strong));
-  background: var(--lime-soft);
+  background: #2b1128;
+  color: #fff;
+  border-color: #2b1128;
 }
-
-.col.current {
-  border-color: var(--ink);
-}
-
 .col header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-
 .name {
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font: 750 clamp(19px, 2.2vw, 29px) var(--display-font);
+  letter-spacing: -0.05em;
 }
-
 .tag {
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 500;
-  white-space: nowrap;
+  border-radius: 20px;
+  padding: 4px 9px;
+  background: var(--panel-2);
+  font-size: 11px;
+  color: var(--ink);
 }
-
-.tag.hot {
-  background: var(--lime);
-  color: var(--on-tile);
+.featured .tag {
+  background: #69315d;
+  color: #ffdbf7;
 }
-
-.tag.cur {
-  background: var(--ink);
-  color: var(--bg);
+.pnote,
+.price span,
+.note {
+  color: var(--ink-2);
 }
-
 .pnote {
-  margin: -4px 0 0;
-  font-size: 12px;
-  color: var(--ink-3);
+  margin: 7px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
 }
-
+.featured .pnote,
+.featured .price span {
+  color: #e2c6dd;
+}
 .price {
+  margin-top: auto;
+  padding-top: 25px;
   display: flex;
   align-items: baseline;
+  gap: 6px;
   flex-wrap: wrap;
-  gap: 4px;
 }
-
 .price strong {
-  font-size: 26px;
-  font-weight: 300;
-  letter-spacing: -0.04em;
+  font: 800 clamp(24px, 3.2vw, 48px)/1 var(--display-font);
+  letter-spacing: -0.065em;
 }
-
 .price span {
-  font-size: 12px;
-  color: var(--ink-3);
-}
-
-ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  align-content: start;
-  gap: 7px;
-}
-
-li {
-  display: grid;
-  grid-template-columns: 14px 1fr;
-  gap: 7px;
-  font-size: 12.5px;
-  line-height: 1.35;
-  color: var(--ink-2);
-}
-
-li svg {
-  margin-top: 1px;
-  color: var(--good);
-}
-
-.wide {
-  justify-content: center;
-  height: 38px;
-}
-
-.note {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-3);
-}
-
-.note a {
-  color: var(--ink-2);
-  text-underline-offset: 2px;
-}
-
-.err {
-  margin: 0;
-  color: var(--bad);
   font-size: 13px;
+}
+.grant {
+  border-top: 1px solid var(--line);
+  margin: 20px 0 16px;
+  padding-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+}
+.grant svg {
+  color: var(--brand);
+  flex-shrink: 0;
+}
+.featured .grant {
+  border-color: #62415d;
+}
+.featured .grant svg {
+  color: #f788e5;
+}
+.plan-buy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: var(--panel-2);
+  color: var(--ink);
+  border: 0;
+  border-radius: 9px;
+  padding: 12px 14px;
+  min-height: 44px;
+  font-weight: 650;
+}
+.featured .plan-buy {
+  background: #af199e;
+  color: white;
+}
+.plan-buy:hover {
+  filter: brightness(0.95);
+}
+.costs {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 15px 18px;
+  margin-top: 16px;
+}
+.costs summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.costs dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 20px;
+  margin-bottom: 0;
+  max-width: 640px;
+}
+.costs dd {
+  font-weight: 650;
+}
+.note,
+.reason {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.note a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+.receipt {
+  margin-top: 15px;
+}
+.err {
+  color: var(--bad);
+}
+.loading {
+  padding: 18px 0;
+}
+.reason {
+  margin: 0;
+}
+@media (max-width: 720px) {
+  .cols {
+    grid-template-columns: 1fr;
+  }
+  .col {
+    padding: 19px;
+  }
+  .price {
+    padding-top: 16px;
+  }
+  .grant {
+    margin: 14px 0;
+    padding-top: 12px;
+  }
+  .term-picker button {
+    padding: 7px 9px;
+  }
+  .term-picker {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .term-picker small {
+    display: block;
+    margin: 2px 0 0;
+  }
+  .term-picker button {
+    line-height: 1.17;
+  }
 }
 </style>

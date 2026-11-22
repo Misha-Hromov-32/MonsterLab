@@ -142,6 +142,11 @@ async function resend() {
           Она действует час.
         </template>
       </p>
+      <p v-if="account.letter === 'verify'" class="hint-line">
+        За регистрацию начисляем {{ Math.floor((account.billing?.demo_credits ?? 30) / 3) }} импульсов. После
+        подтверждения почты добавим ещё
+        {{ (account.billing?.demo_credits ?? 30) - Math.floor((account.billing?.demo_credits ?? 30) / 3) }}.
+      </p>
       <p class="hint-line">Письма нет? Проверьте «Спам» или отправьте ещё раз.</p>
       <p v-if="error" class="err" role="alert">{{ error }}</p>
       <button class="btn pill wide" type="button" :disabled="busy || cooldown > 0" @click="resend">
