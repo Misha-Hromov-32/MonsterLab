@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import secrets
@@ -25,12 +26,12 @@ from dataclasses import dataclass
 from email.message import EmailMessage
 
 from .. import config
-from . import crypto, db, mail, site
+from . import crypto, db, mail, partners, site
 
 log = logging.getLogger(__name__)
 
 # Редакция правил сервиса (страница /legal). Новая редакция — новая дата здесь и в документах.
-LEGAL_VERSION = "2026-10-10"
+LEGAL_VERSION = "2026-11-23"
 TOKEN_TTL = 30 * 24 * 3600
 TOKEN_PREFIX = "u2"
 MIN_PASSWORD = 8
@@ -170,6 +171,8 @@ class User:
     stamp: str
     plan_id: str = ""
     period_start: float = 0
+    cycle_days: int = 0
+    quota_json: str | None = None
 
     @property
     def plan(self) -> str:
@@ -239,6 +242,8 @@ def _row(row) -> User | None:
         row["stamp"],
         row["plan_id"] or "",
         row["period_start"] or 0,
+        row["cycle_days"] or 0,
+        row["quota_json"],
     )
 
 
@@ -252,7 +257,7 @@ def find(email: str) -> User | None:
         return _row(con.execute("SELECT * FROM users WHERE email_index = ?", (_index(email),)).fetchone())
 
 
-def register(email: str, password: str, accepted: bool = False) -> User:
+def register(email: str, password: str, accepted: bool = False, referral: str = "") -> User:
     """Новый покупатель с неподтверждённой почтой. accepted — приняты пользовательское соглашение
     и дано согласие на обработку персональных данных: без этого аккаунт не создаётся.
     Если он уже регистрировался, но не подтвердил почту, — возвращаем его же и помечаем «спорным»:
@@ -297,8 +302,9 @@ def register(email: str, password: str, accepted: bool = False) -> User:
                 ),
             )
             user_id = cur.lastrowid
+            partners.attribute(con, user_id, referral)
     except sqlite3.IntegrityError:  # тот же email только что зарегистрировали параллельно
-        return register(email, password, accepted)
+        return register(email, password, accepted, referral)
     return get(user_id)
 
 
@@ -326,11 +332,11 @@ def _identity_index(provider: str, subject: str) -> str:
     return crypto.blind_index(f"{provider}:{subject}", "identity")
 
 
-def _create_verified(email_index: str, email: str, now: float) -> int:
+def _create_verified(email_index: str, email: str, now: float, referral: str) -> int:
     """Новый покупатель после входа через провайдера: почта (если есть) подтверждена провайдером, пароля нет —
     задать его можно через «Забыли пароль». Согласия приняты перед входом. Возвращает id."""
     with db.connect() as con:
-        return con.execute(
+        user_id = con.execute(
             "INSERT INTO users (email_index, email_enc, password, stamp, verified_at, created_at,"
             " terms_accepted_at, pd_consent_at, legal_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
@@ -345,9 +351,11 @@ def _create_verified(email_index: str, email: str, now: float) -> int:
                 LEGAL_VERSION,
             ),
         ).lastrowid
+        partners.attribute(con, user_id, referral)
+        return user_id
 
 
-def oauth_login(provider: str, subject: str, email: str | None, accepted: bool) -> User:
+def oauth_login(provider: str, subject: str, email: str | None, accepted: bool, referral: str = "") -> User:
     """Покупатель по входу через провайдера. subject — id у провайдера, email — адрес, подтверждённый провайдером.
 
     Уже входил так — тот же аккаунт. Иначе ищем по email: есть аккаунт — привязываем провайдера к нему
@@ -371,9 +379,9 @@ def oauth_login(provider: str, subject: str, email: str | None, accepted: bool) 
         # без почты email_index — слепой индекс id у провайдера (своё назначение — с адресами не пересекается)
         email_index = _index(email) if email else crypto.blind_index(f"{provider}:{subject}", "no-email")
         try:
-            user_id = _create_verified(email_index, email, now)
+            user_id = _create_verified(email_index, email, now, referral)
         except sqlite3.IntegrityError:  # тот же аккаунт только что создали параллельно
-            return oauth_login(provider, subject, email, accepted)
+            return oauth_login(provider, subject, email, accepted, referral)
     else:
         user_id = existing.id
         if not existing.verified:
@@ -497,16 +505,42 @@ def reset_password(token: str, password: str) -> User:
 def activate(user_id: int, plan_id: str, days: int) -> None:
     """Оплата прошла: тариф plan_id на days дней. Если тариф ещё действует, срок прибавляется
     к оставшемуся; квоты начинаются заново с момента оплаты."""
-    now = time.time()
     with db.connect() as con:
-        row = con.execute("SELECT pro_until FROM users WHERE id = ?", (user_id,)).fetchone()
-        if row is None:
-            return
-        until = max(now, row["pro_until"]) + days * 86400
+        activate_in(con, user_id, plan_id, days, 0)
+
+
+def activate_in(
+    con: sqlite3.Connection, user_id: int, plan_id: str, days: int, cycle: int, quota_json: str | None = None
+) -> None:
+    now = time.time()
+    user = con.execute("SELECT pro_until,prepaid FROM users WHERE id=?", (user_id,)).fetchone()
+    if user is None:
+        return
+    prepaid = bool(cycle and days > cycle)
+    tail = con.execute("SELECT max(ends) FROM prepaid_terms WHERE buyer=?", (user_id,)).fetchone()[0]
+    # Смена тарифа не должна превращать заранее оплаченные месяцы в месяцы более дорогого тарифа.
+    if tail or (user["pro_until"] > now and (prepaid or user["prepaid"])):
+        starts = tail or user["pro_until"]
         con.execute(
-            "UPDATE users SET pro_until = ?, plan_id = ?, period_start = ? WHERE id = ?",
-            (until, plan_id, now, user_id),
+            "INSERT INTO prepaid_terms(buyer,plan,starts,ends,cycle,prepaid,quota_json) VALUES(?,?,?,?,?,?,?)",
+            (user_id, plan_id, starts, starts + days * 86400, cycle, prepaid, quota_json),
         )
+        return
+    con.execute(
+        "UPDATE users SET pro_until = MAX(?, pro_until) + ?, plan_id = ?, period_start = ?,"
+        " cycle_days = ?, prepaid=?, quota_json=?"
+        " WHERE id = ?",
+        (now, days * 86400, plan_id, now, cycle, prepaid, quota_json, user_id),
+    )
+
+
+def upcoming(user_id: int) -> list:
+    titles = {p["id"]: p["title"] for p in plans()}
+    with db.connect() as con:
+        return [
+            {**dict(r), "title": titles.get(r["plan"], r["plan"])}
+            for r in con.execute("SELECT plan,starts,ends FROM prepaid_terms WHERE buyer=? ORDER BY starts", (user_id,))
+        ]
 
 
 # ---------------------------------------------------------------- тарифы и квоты
@@ -525,20 +559,30 @@ def limits(user: User) -> dict[str, int]:
     billing = site.read()["billing"]
     if user.plan == DEMO:
         quota = billing["demo"]
+    elif user.quota_json:
+        quota = json.loads(user.quota_json)
     else:
         plan = find_plan(user.plan) or max(billing["plans"], key=lambda p: p["price_rub"])
         quota = plan["limits"]
     return {f: int(quota.get(f, 0)) for f in FEATURES}
 
 
-def _period(user: User) -> str:
+def usage_period(user: User) -> str:
     """Ключ периода в таблице usage: «demo» — на всё время, иначе — начало оплаченного периода."""
-    return DEMO if user.plan == DEMO else f"p{int(user.period_start)}"
+    if user.plan == DEMO:
+        return DEMO
+    start = int(user.period_start)
+    if user.cycle_days:
+        cycle = user.cycle_days * 86400
+        start += max(0, int(time.time() - user.period_start) // cycle) * cycle
+    return f"p{start}"
 
 
 def usage(user: User) -> dict[str, int]:
     with db.connect() as con:
-        rows = con.execute("SELECT feature, count FROM usage WHERE user_id = ? AND day = ?", (user.id, _period(user)))
+        rows = con.execute(
+            "SELECT feature, count FROM usage WHERE user_id = ? AND day = ?", (user.id, usage_period(user))
+        )
         used = {r["feature"]: r["count"] for r in rows}
     return {f: used.get(f, 0) for f in FEATURES}
 
@@ -562,7 +606,7 @@ def spend(user: User, feature: str) -> None:
     """После успешного запуска: списать один запуск — из квоты тарифа, а когда она кончилась, из бонусных.
     Сбой модели запуск не тратит."""
     limit = limits(user).get(feature, 0)
-    period = _period(user)
+    period = usage_period(user)
     with db.connect() as con:
         row = con.execute(
             "SELECT count FROM usage WHERE user_id = ? AND feature = ? AND day = ?", (user.id, feature, period)
@@ -589,3 +633,6 @@ def extend(user_id: int, days: int) -> None:
     """Продлить действующий тариф на days дней, не меняя сам тариф и не обнуляя квоты (промокод)."""
     with db.connect() as con:
         con.execute("UPDATE users SET pro_until = pro_until + ? WHERE id = ?", (days * 86400, user_id))
+        con.execute(
+            "UPDATE prepaid_terms SET starts=starts+?,ends=ends+? WHERE buyer=?", (days * 86400, days * 86400, user_id)
+        )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
@@ -23,6 +24,7 @@ class Credentials(BaseModel):
 
 
 class Registration(Credentials):
+    referral: str = Field("", max_length=64)
     # две отдельные галочки: согласие на обработку персональных данных по закону оформляется
     # отдельно от пользовательского соглашения и политики
     accept_terms: bool = False
@@ -30,6 +32,7 @@ class Registration(Credentials):
 
 
 class CheckoutRequest(BaseModel):
+    periods: Literal[1, 3, 6] = 1
     plan: str = Field(min_length=1, max_length=40)
     # почта для кассового чека — только у аккаунтов без почты (вход через VK ID)
     email: str | None = Field(None, max_length=254)
@@ -55,6 +58,7 @@ def _me(user: accounts.User) -> dict:
         "plan": user.plan,
         "plan_title": plan["title"] if plan else ("Демо" if user.plan == accounts.DEMO else "Платный"),
         "pro_until": user.pro_until if user.plan != accounts.DEMO else None,
+        "upcoming": accounts.upcoming(user.id),
         "usage": accounts.usage(user),
         "limits": accounts.limits(user),
         # бонусные запуски по промокодам — сверх квоты тарифа
@@ -83,7 +87,7 @@ async def register(body: Registration, request: Request) -> dict:
     login_limit.check(ip)
     mail_limit.hit(ip)  # регистрация — это письмо и 64 МБ памяти на хэш пароля
     try:
-        user = await asyncio.to_thread(accounts.register, body.email, body.password, True)
+        user = await asyncio.to_thread(accounts.register, body.email, body.password, True, body.referral)
         await asyncio.to_thread(accounts.send_verification, user)
     except accounts.AccountError as exc:
         login_limit.hit(ip)  # перебор чужих email тоже притормаживаем
@@ -114,6 +118,7 @@ class OAuthStart(BaseModel):
 
 
 class OAuthFinish(BaseModel):
+    referral: str = Field("", max_length=64)
     code: str = Field(min_length=1, max_length=2048)
     state: str = Field(min_length=10, max_length=200)
     device_id: str | None = Field(None, max_length=200)
@@ -146,7 +151,7 @@ async def oauth_finish(provider: str, body: OAuthFinish, request: Request) -> di
     try:
         identity = await asyncio.to_thread(oauth.finish, _provider(provider), body.code, body.state, body.device_id)
         user = await asyncio.to_thread(
-            accounts.oauth_login, identity.provider, identity.subject, identity.email, identity.accepted
+            accounts.oauth_login, identity.provider, identity.subject, identity.email, identity.accepted, body.referral
         )
     except oauth.OAuthError as exc:
         login_limit.hit(ip)
@@ -252,7 +257,7 @@ async def checkout(body: CheckoutRequest, user: accounts.User | None = Depends(c
         receipt_email = accounts.normalize(body.email or "")
         if receipt_email and not accounts.valid_email(receipt_email):
             raise api_error(422, "bad_email", "Проверьте почту для чека")
-        return {"url": await asyncio.to_thread(billing.checkout, user, body.plan, receipt_email)}
+        return await asyncio.to_thread(billing.checkout, user, body.plan, receipt_email, body.periods)
     except billing.ReceiptEmailRequired as exc:
         raise api_error(422, "email_required", str(exc)) from exc
     except billing.BillingError as exc:
@@ -260,16 +265,24 @@ async def checkout(body: CheckoutRequest, user: accounts.User | None = Depends(c
 
 
 @router.post("/billing/check", dependencies=[Depends(analysis_limit.dependency)])
-async def check_payment(user: accounts.User | None = Depends(current_user)) -> dict:
+async def check_payment(payment_id: str = "", user: accounts.User | None = Depends(current_user)) -> dict:
     """Возврат со страницы оплаты: перепроверить недавние платежи покупателя, не дожидаясь уведомления."""
     if user is None:
         raise api_error(401, "login_required", "Войдите заново")
     try:
-        activated = await asyncio.to_thread(billing.sync_user, user)
+        paid = None
+        if payment_id:
+            paid = await asyncio.to_thread(billing.receipt, user.id, payment_id)
+            if not paid:
+                raise api_error(404, "not_found", "Платёж не найден")
+            activated = not paid["applied"] and await asyncio.to_thread(billing.confirm, payment_id)
+            paid = await asyncio.to_thread(billing.receipt, user.id, payment_id)
+        else:
+            activated = await asyncio.to_thread(billing.sync_user, user)
     except billing.BillingError as exc:
         raise api_error(503, "billing_unavailable", str(exc)) from exc
     fresh = await asyncio.to_thread(accounts.get, user.id)
-    return {"activated": activated, "user": _me(fresh or user)}
+    return {"activated": activated, "user": _me(fresh or user), "receipt": paid}
 
 
 @router.post("/billing/webhook", include_in_schema=False)

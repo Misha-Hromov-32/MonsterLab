@@ -39,6 +39,9 @@ RUN if [ "$MARKETPLACE" = "1" ]; then \
  && rm requirements-marketplace.txt
 ENV BROWSER_PATH=/usr/bin/chromium
 
+RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY seed ./seed
 COPY app ./app
 

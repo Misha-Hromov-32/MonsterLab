@@ -176,6 +176,7 @@ export type FeatureLimits = Record<Feature, number>
 
 /** Платный тариф: /api/billing/plans и раздел «Тарифы» в админке. */
 export interface PlanInfo {
+  offers?: { periods: number; days: number; discount: number; price: number }[]
   id: string
   title: string
   price_rub: number
@@ -195,6 +196,7 @@ export interface User {
   plan: string
   plan_title: string
   /** до какого момента действует оплаченный тариф, unix-секунды; у демо — null */
+  upcoming?: { title: string; starts: number; ends: number }[]
   pro_until: number | null
   /** расход и квоты: у демо — на всё время, у тарифа — на период оплаты */
   usage: FeatureLimits
@@ -269,6 +271,9 @@ export interface Registered {
 
 /** Тарифы: /api/billing/plans. demo — разовые квоты после подтверждения почты. */
 export interface Billing {
+  discount3?: number
+  discount6?: number
+  partner_percent?: number
   /** подключена ли оплата (ключи платёжного сервиса заданы на сервере) */
   enabled: boolean
   /** через кого принимается оплата */

@@ -1,3 +1,4 @@
+import { referralCode } from './lib/referral'
 import { authHeader } from './lib/session'
 import { forgetJob, trackJob } from './lib/queue'
 import type {
@@ -189,6 +190,7 @@ export const api = {
     request<Registered>(
       '/api/auth/register',
       jsonBody('POST', {
+        referral: referralCode(),
         email,
         password,
         accept_terms: consent.terms,
@@ -216,20 +218,30 @@ export const api = {
       { timeoutMs: 20_000 },
     ),
   oauthFinish: (provider: OAuthProvider, body: { code: string; state: string; device_id: string | null }) =>
-    request<Session>(`/api/auth/oauth/${provider}/finish`, jsonBody('POST', body), { timeoutMs: 30_000 }),
+    request<Session>(`/api/auth/oauth/${provider}/finish`, jsonBody('POST', { ...body, referral: referralCode() }), {
+      timeoutMs: 30_000,
+    }),
   redeemPromo: (code: string) =>
     request<{ applied: PromoApplied; user: User }>('/api/promo/redeem', withAuth(jsonBody('POST', { code })), {
       timeoutMs: 20_000,
     }),
   /** вернулись со страницы оплаты: сервер перепроверит недавние платежи, не дожидаясь уведомления банка */
-  checkPayment: () =>
-    request<{ activated: boolean; user: User }>('/api/billing/check', withAuth({ method: 'POST' }), {
-      timeoutMs: 30_000,
-    }),
-  checkout: (plan: string, email?: string) =>
-    request<{ url: string }>('/api/billing/checkout', withAuth(jsonBody('POST', { plan, email: email || null })), {
-      timeoutMs: 30_000,
-    }),
+  checkPayment: (paymentId = '') =>
+    request<{ activated: boolean; user: User; receipt?: { applied: number; plan: string; amount: string } }>(
+      '/api/billing/check' + (paymentId ? '?payment_id=' + encodeURIComponent(paymentId) : ''),
+      withAuth({ method: 'POST' }),
+      {
+        timeoutMs: 30_000,
+      },
+    ),
+  checkout: (plan: string, email?: string, periods = 1) =>
+    request<{ url: string; payment_id: string; amount: number }>(
+      '/api/billing/checkout',
+      withAuth(jsonBody('POST', { plan, periods, email: email || null })),
+      {
+        timeoutMs: 30_000,
+      },
+    ),
 
   /** улучшенная обложка рисуется 30–60 секунд */
   improve: (id: string, context: object, issues: string[]) =>

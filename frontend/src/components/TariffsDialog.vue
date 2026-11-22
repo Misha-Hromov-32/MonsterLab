@@ -25,11 +25,15 @@ const rows = (limits: FeatureLimits) =>
   ORDER.filter((f) => availableFeatures.value.includes(f) && (limits[f] ?? 0) > 0).map((f) => quotaLabel(f, limits[f]))
 
 const demoRows = computed(() => (billing.value ? rows(billing.value.demo) : []))
-const days = (p: PlanInfo) => `${p.period_days} ${plural(p.period_days, ['день', 'дня', 'дней'])}`
+const periods = ref(1)
+const terms = (p: PlanInfo) =>
+  p.offers?.find((o) => o.periods === periods.value) ?? { days: p.period_days, price: p.price_rub, discount: 0 }
+const days = (p: PlanInfo) => `${terms(p).days} ${plural(terms(p).days, ['день', 'дня', 'дней'])}`
+const monthly = computed(() => billing.value?.plans.every((p) => p.period_days === 30))
 
 async function pay(p: PlanInfo) {
   busy.value = p.id
-  error.value = await checkout(p.id, receiptEmail.value)
+  error.value = await checkout(p.id, receiptEmail.value, periods.value)
   busy.value = ''
 }
 </script>
@@ -45,6 +49,14 @@ async function pay(p: PlanInfo) {
         <p>{{ demoRows.join(' · ') }}</p>
       </section>
 
+      <label class="field"
+        >Срок оплаты
+        <select v-model.number="periods" class="input" :disabled="!!busy">
+          <option :value="1">{{ monthly ? '1 месяц' : '1 период' }}</option>
+          <option :value="3">{{ monthly ? '3 месяца' : '3 периода' }} · скидка {{ billing.discount3 ?? 10 }}%</option>
+          <option :value="6">{{ monthly ? '6 месяцев' : '6 периодов' }} · скидка {{ billing.discount6 ?? 20 }}%</option>
+        </select>
+      </label>
       <div class="cols">
         <section
           v-for="p in billing.plans"
@@ -59,9 +71,10 @@ async function pay(p: PlanInfo) {
           </header>
           <p v-if="p.note" class="pnote">{{ p.note }}</p>
           <div class="price">
-            <strong class="num">{{ p.price_rub.toLocaleString('ru-RU') }} ₽</strong>
+            <strong class="num">{{ terms(p).price.toLocaleString('ru-RU') }} ₽</strong>
             <span>/ {{ days(p) }}</span>
           </div>
+          <small>Квоты на каждые {{ p.period_days }} дн.</small>
           <ul>
             <li v-for="r in rows(p.limits)" :key="r"><Check :size="14" aria-hidden="true" />{{ r }}</li>
           </ul>
@@ -89,7 +102,8 @@ async function pay(p: PlanInfo) {
         <template v-if="isPaid && account.user?.pro_until">
           Сейчас действует «{{ account.user.plan_title }}» до {{ formatDate(account.user.pro_until) }}.
         </template>
-        Лимиты действуют в оплаченный период и не переносятся. При продлении срок суммируется.
+        Лимиты обновляются каждый базовый период тарифа. При продлении срок суммируется. Предоплаченные периоды
+        действуют последовательно, со своими тарифами.
         <template v-if="canPay && billing?.provider === 'tochka'">Оплата через Точку Банк: картой или по СБП.</template>
         <template v-else-if="canPay">Оплата через ЮKassa: картой, SberPay или ЮMoney.</template>
         <template v-else>Оплата пока недоступна.</template>
@@ -148,7 +162,7 @@ async function pay(p: PlanInfo) {
 
 .col {
   display: grid;
-  grid-template-rows: auto auto auto 1fr auto;
+  grid-template-rows: auto auto auto auto 1fr auto;
   gap: 10px;
   padding: 16px 14px 14px;
   border: 1px solid var(--line);

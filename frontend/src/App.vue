@@ -16,7 +16,7 @@ import TariffsDialog from './components/TariffsDialog.vue'
 import LeadDialog from './components/LeadDialog.vue'
 import { addFiles, loadHealth, loadSite, resetAll, state, toast } from './store'
 import { session } from './lib/session'
-import { account, checkPaymentReturn, handleEmailLink, handleOAuthCallback, refreshMe } from './lib/account'
+import { account, checkPaymentReturn, handleEmailLink, handleOAuthCallback, openLogin, refreshMe } from './lib/account'
 import { consent } from './lib/consent'
 import { hit, initMetrika } from './lib/metrika'
 
@@ -91,7 +91,17 @@ onMounted(() => {
     handleOAuthCallback(toast)
       .then((handled) => handled || handleEmailLink(toast))
       .then((handled) => {
-        if (!handled) refreshMe()
+        if (!handled) {
+          void refreshMe()
+          const target = new URLSearchParams(location.search).get('studio') || ''
+          if (['partner', 'wb', 'rules'].includes(target)) {
+            const enter = () => location.assign('/studio#' + target)
+            if (session.token) enter()
+            else openLogin('Войдите, чтобы открыть инструменты продавца', enter)
+          } else if (new URLSearchParams(location.search).has('ref') && !session.token) {
+            openLogin('Создайте аккаунт по приглашению партнёра', undefined, 'register')
+          }
+        }
       })
   window.addEventListener('dragenter', onEnter)
   window.addEventListener('dragleave', onLeave)

@@ -21,18 +21,38 @@ const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x))
 
 const demo = ref<FeatureLimits>(clone(saved.value.demo))
 const plans = ref<PlanInfo[]>(clone(saved.value.plans))
+const discount3 = ref(saved.value.discount3 ?? 10)
+const discount6 = ref(saved.value.discount6 ?? 20)
+const partnerPercent = ref(saved.value.partner_percent ?? 15)
 const busy = ref(false)
 const error = ref('')
 
-const body = computed(() => ({ demo: demo.value, plans: plans.value }))
+const body = computed(() => ({
+  demo: demo.value,
+  plans: plans.value,
+  discount3: discount3.value,
+  discount6: discount6.value,
+  partner_percent: partnerPercent.value,
+}))
 const dirty = computed(
-  () => JSON.stringify(body.value) !== JSON.stringify({ demo: saved.value.demo, plans: saved.value.plans }),
+  () =>
+    JSON.stringify(body.value) !==
+    JSON.stringify({
+      demo: saved.value.demo,
+      plans: saved.value.plans,
+      discount3: saved.value.discount3 ?? 10,
+      discount6: saved.value.discount6 ?? 20,
+      partner_percent: saved.value.partner_percent ?? 15,
+    }),
 )
 
 const inRange = (n: number, min: number, max: number) => Number.isInteger(n) && n >= min && n <= max
 const quotasOk = (l: FeatureLimits) => FEATURES.every((f) => inRange(l[f], 0, MAX_LIMIT))
 const valid = computed(
   () =>
+    inRange(discount3.value, 0, 90) &&
+    inRange(discount6.value, 0, 90) &&
+    inRange(partnerPercent.value, 0, 100) &&
     quotasOk(demo.value) &&
     plans.value.length > 0 &&
     new Set(plans.value.map((p) => p.id)).size === plans.value.length &&
@@ -101,6 +121,23 @@ async function save() {
       ключи задаются в переменных окружения, выбор — <code>PAYMENT_PROVIDER</code>.
       <template v-if="!saved.enabled">Пока их нет, кнопки оплаты на сайте скрыты, а демо-квоты уже действуют.</template>
     </p>
+    <section class="card block">
+      <h2>Условия оплаты</h2>
+      <label class="field"
+        >Скидка за 3 периода, %<input class="input" v-model.number="discount3" type="number" min="0" max="90"
+      /></label>
+      <label class="field"
+        >Скидка за 6 периодов, %<input class="input" v-model.number="discount6" type="number" min="0" max="90"
+      /></label>
+      <label class="field"
+        >Комиссия партнёра с подтверждённой оплаты, %<input
+          class="input"
+          v-model.number="partnerPercent"
+          type="number"
+          min="0"
+          max="100"
+      /></label>
+    </section>
     <p v-if="error" class="err">{{ error }}</p>
 
     <section class="card block">

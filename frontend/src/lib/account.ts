@@ -334,11 +334,15 @@ export function paidError(e: unknown, retry?: () => void): string | null {
 
 /** Переход на страницу оплаты. receiptEmail — почта для чека у аккаунта без почты (вход через VK ID).
  * Возвращает текст ошибки, если оплата сейчас невозможна. */
-export async function checkout(planId: string, receiptEmail = ''): Promise<string> {
+export async function checkout(planId: string, receiptEmail = '', periods = 1): Promise<string> {
   if (!requireLogin('Войдите, чтобы оформить подписку', () => openTariffs())) return ''
   try {
-    const { url } = await api.checkout(planId, receiptEmail.trim())
-    const price = account.billing?.plans.find((p) => p.id === planId)?.price_rub
+    const { url, payment_id, amount: price } = await api.checkout(planId, receiptEmail.trim(), periods)
+    try {
+      sessionStorage.setItem('ml.payment', payment_id)
+    } catch {
+      /* Доступна проверка недавних платежей. */
+    }
     goal('checkout', { plan: planId, order_price: price, currency: 'RUB' })
     location.href = url
     return ''
@@ -360,8 +364,12 @@ export async function checkPaymentReturn(
 ) {
   const url = new URL(location.href)
   const result = url.searchParams.get('payment')
-  // срок тарифа до возврата с оплаты: вырос — значит, оплата прошла сейчас (цель «payment» с суммой)
-  const paidBefore = account.user?.pro_until ?? 0
+  let paymentId = ''
+  try {
+    paymentId = sessionStorage.getItem('ml.payment') || ''
+  } catch {
+    /* Приватный режим. */
+  }
   if (result !== 'return' && result !== 'fail') return
   try {
     if (result === 'fail') {
@@ -371,15 +379,24 @@ export async function checkPaymentReturn(
     if (!session.token) return
     for (let i = 0; i < PAYMENT_POLLS; i++) {
       // проверка в банке не обязательна: если она не удалась, тариф всё равно продлит уведомление
-      await api.checkPayment().catch(() => null)
+      const checked = await api.checkPayment(paymentId).catch(() => null)
       await refreshMe()
       const u = account.user
-      if (u && u.plan !== 'demo') {
-        if ((u.pro_until ?? 0) > paidBefore) {
-          if (!account.billing) await loadPlans()
-          const price = account.billing?.plans.find((p) => p.id === u.plan)?.price_rub
-          goal('payment', { plan: u.plan, order_price: price, currency: 'RUB' })
+      if (u && (paymentId ? checked?.receipt?.applied : u.plan !== 'demo')) {
+        if (checked?.receipt?.applied) {
+          goal('payment', { plan: checked.receipt.plan, order_price: Number(checked.receipt.amount), currency: 'RUB' })
+          try {
+            sessionStorage.removeItem('ml.payment')
+          } catch {
+            /* Приватный режим. */
+          }
         }
+        const upcoming = u.upcoming?.at(-1)
+        if (upcoming) {
+          notify(`Оплата подтверждена. Тариф «${upcoming.title}» начнётся ${formatDate(upcoming.starts)}.`)
+          return
+        }
+
         notify(
           u.pro_until
             ? `Тариф «${u.plan_title}» активен до ${formatDate(u.pro_until)}`

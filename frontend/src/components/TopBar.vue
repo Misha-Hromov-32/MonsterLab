@@ -76,7 +76,7 @@ function home() {
     </button>
 
     <nav v-if="!working" class="links" aria-label="Разделы">
-      <button type="button" @click="go('how')">Как это работает</button>
+      <button type="button" @click="go('how')">Как работает</button>
       <button type="button" @click="go('examples')">Примеры</button>
       <button v-if="signedIn" type="button" @click="openLibrary">Личный кабинет</button>
     </nav>

@@ -6,7 +6,12 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     port: 5173,
-    proxy: { '/api': { target: process.env.API_URL ?? 'http://localhost:8000', changeOrigin: true } },
+    proxy: Object.fromEntries(
+      ['/api', '/articles', '/robots.txt', '/sitemap.xml'].map((path) => [
+        path,
+        { target: process.env.API_URL ?? 'http://localhost:8000', changeOrigin: true },
+      ]),
+    ),
   },
   test: {
     environment: 'happy-dom',

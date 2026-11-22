@@ -11,6 +11,8 @@ watchSystemTheme()
 const path = location.pathname.replace(/\/+$/, '')
 if (path === '/admin') {
   import('./admin/AdminApp.vue').then(({ default: AdminApp }) => createApp(AdminApp).mount('#app'))
+} else if (path === '/studio') {
+  import('./studio/StudioApp.vue').then(({ default: Studio }) => createApp(Studio).mount('#app'))
 } else if (path === '/legal') {
   import('./legal/LegalPage.vue').then(({ default: LegalPage }) => createApp(LegalPage).mount('#app'))
 } else {

@@ -53,16 +53,26 @@ function signOut() {
         </div>
       </div>
 
+      <p v-for="term in user.upcoming" :key="term.starts">
+        Оплачен тариф «{{ term.title }}» с {{ formatDate(term.starts) }} по {{ formatDate(term.ends) }}.
+      </p>
       <section>
         <span class="label">{{ isPaid ? 'Использовано за период' : 'Демо-доступ' }}</span>
         <UsageList :usage="user.usage" :limits="user.limits" :bonus="user.bonus" />
         <p class="note">
           {{
-            isPaid ? 'Квоты обновятся при продлении тарифа.' : 'Демо-доступ разовый. Для продолжения выберите тариф.'
+            isPaid
+              ? 'Квоты действуют в пределах базового периода тарифа.'
+              : 'Демо-доступ разовый. Для продолжения выберите тариф.'
           }}
         </p>
       </section>
 
+      <nav class="actions">
+        <a class="btn pill" href="/studio#rules">Правила площадок</a
+        ><a class="btn pill" href="/studio#wb">Аудит каталога WB</a
+        ><a class="btn pill" href="/studio#partner">Партнёрская программа</a>
+      </nav>
       <form class="promo" @submit.prevent="applyPromo">
         <label class="label" for="promo-code">Промокод</label>
         <div class="promo-row">

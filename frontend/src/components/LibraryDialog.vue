@@ -77,6 +77,10 @@ onMounted(load)
 
 <template>
   <ModalDialog title="Личный кабинет" wide @close="closeDialog">
+    <nav class="actions">
+      <a class="btn pill" href="/studio#wb">Аудит каталога WB</a
+      ><a class="btn pill" href="/studio#rules">Правила площадок</a>
+    </nav>
     <p class="intro">
       Ваши загруженные и сгенерированные обложки сохраняются автоматически после успешного анализа или генерации.
       Доступны только вам.

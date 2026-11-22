@@ -38,7 +38,7 @@ export function setToken(token: string) {
   }
 }
 
-async function call<T>(url: string, init: RequestInit = {}, timeoutMs = 60_000): Promise<T> {
+export async function call<T>(url: string, init: RequestInit = {}, timeoutMs = 60_000): Promise<T> {
   try {
     const headers = { ...init.headers, Authorization: `Bearer ${auth.token}` }
     return await request<T>(url, { ...init, headers }, { timeoutMs })

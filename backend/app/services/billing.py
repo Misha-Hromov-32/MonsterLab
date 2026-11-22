@@ -26,7 +26,7 @@ import certifi
 import httpx
 
 from .. import config
-from . import accounts, db, site
+from . import accounts, db, partners, site
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +67,17 @@ def enabled() -> bool:
 def plans() -> dict:
     """Условия для страницы тарифов: демо-квоты и платные тарифы."""
     billing = site.read()["billing"]
-    return {"demo": billing["demo"], "plans": billing["plans"]}
+    return {**billing, "plans": [{**p, "offers": [offer(p, n, billing) for n in (1, 3, 6)]} for p in billing["plans"]]}
+
+
+def offer(plan: dict, periods: int, settings: dict) -> dict:
+    discount = {1: 0, 3: settings.get("discount3", 10), 6: settings.get("discount6", 20)}[periods]
+    return {
+        "periods": periods,
+        "days": periods * plan["period_days"],
+        "discount": discount,
+        "price": plan["price_rub"] * periods * (100 - discount) / 100,
+    }
 
 
 # ---------------------------------------------------------------- клиенты HTTP
@@ -104,7 +114,7 @@ def _call(name: str, method: str, path: str, **kw) -> httpx.Response:
 # ---------------------------------------------------------------- создание платежа
 
 
-def checkout(user: accounts.User, plan_id: str, receipt_email: str = "") -> str:
+def checkout(user: accounts.User, plan_id: str, receipt_email: str = "", periods: int = 1) -> dict:
     """Создаёт платёж за тариф plan_id и возвращает адрес страницы оплаты."""
     info = accounts.find_plan(plan_id)
     if info is None:
@@ -112,7 +122,10 @@ def checkout(user: accounts.User, plan_id: str, receipt_email: str = "") -> str:
     name = provider()
     if name is None:
         raise BillingError("Оплата пока не подключена")
-    price = float(info["price_rub"])
+    terms = offer(info, periods, site.read()["billing"])
+    cycle = info["period_days"]
+    info = {**info, "period_days": terms["days"]}
+    price = terms["price"]
     description = f"MonStoreLab, тариф «{info['title']}» на {info['period_days']} дней"
     make = _tochka_checkout if name == "tochka" else _yookassa_checkout
     # почта для кассового чека: из аккаунта, а у аккаунта без почты (вход через VK ID) — введённая при оплате
@@ -122,11 +135,23 @@ def checkout(user: accounts.User, plan_id: str, receipt_email: str = "") -> str:
     payment_id, status, url = make(user, email, info, price, description)
     with db.connect() as con:
         con.execute(
-            "INSERT OR IGNORE INTO payments (id, user_id, amount, status, plan, provider, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (payment_id, user.id, f"{price:.2f}", status, info["id"], name, time.time()),
+            "INSERT OR IGNORE INTO payments (id, user_id, amount, status, plan, provider, created_at,"
+            " term_days, cycle_days, quota_json)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                payment_id,
+                user.id,
+                f"{price:.2f}",
+                status,
+                info["id"],
+                name,
+                time.time(),
+                terms["days"],
+                cycle,
+                json.dumps(info["limits"]),
+            ),
         )
-    return url
+    return {"url": url, "payment_id": payment_id, "amount": price}
 
 
 def _tochka_checkout(
@@ -240,6 +265,9 @@ def confirm(payment_id: str) -> bool:
     if found is None:
         return False
     status, paid, amount = found
+    plan = accounts.find_plan(row["plan"] or "")
+    days = row["term_days"] or (int(plan["period_days"]) if plan else 30)
+    percent = site.read()["billing"].get("partner_percent", 15)
     with db.connect() as con:
         con.execute("UPDATE payments SET status = ? WHERE id = ?", (status, payment_id))
         if not paid:
@@ -250,9 +278,8 @@ def confirm(payment_id: str) -> bool:
         # applied ставим в той же транзакции, что и проверяем: повторное уведомление ничего не продлит
         if con.execute("UPDATE payments SET applied = 1 WHERE id = ? AND applied = 0", (payment_id,)).rowcount != 1:
             return False
-    plan = accounts.find_plan(row["plan"] or "")
-    days = int(plan["period_days"]) if plan else 30
-    accounts.activate(row["user_id"], row["plan"] or "pro", days)
+        accounts.activate_in(con, row["user_id"], row["plan"] or "pro", days, row["cycle_days"] or 0, row["quota_json"])
+        partners.credit(con, row, percent)
     log.info("Тариф %s оплачен: пользователь %s, платёж %s (%s)", row["plan"], row["user_id"], payment_id, name)
     return True
 
@@ -271,6 +298,14 @@ def sync_user(user: accounts.User) -> bool:
             )
         ]
     return any([confirm(pid) for pid in ids])
+
+
+def receipt(user_id: int, payment_id: str) -> dict | None:
+    with db.connect() as con:
+        row = con.execute(
+            "SELECT plan,amount,applied FROM payments WHERE user_id=? AND id=?", (user_id, payment_id)
+        ).fetchone()
+    return dict(row) if row else None
 
 
 def webhook_payment_id(raw: bytes) -> str | None:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -13,10 +13,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, config
-from .api import account, admin, analysis, expert, jobs, lead, library, public, tools
+from .api import account, admin, analysis, articles, catalog, expert, jobs, lead, library, partners, public, tools
 from .core import saliency
 from .errors import install_handlers
-from .services import aicost, auth, crypto, precompute, site
+from .services import aicost, auth, crypto, payout_gateway, precompute, site, wb_audit
 from .services.jobs import queue
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -31,14 +31,21 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await queue.start()  # очередь тяжёлых задач: нейросеть, модели, генерация, браузер
     precompute.start()  # примеры считаются в фоне через ту же очередь, с низшим приоритетом
     balance_watch = asyncio.create_task(aicost.watch(), name="proxyapi-balance")  # замеры баланса ProxyAPI
+    await asyncio.to_thread(articles.seed)
+    catalogs = asyncio.create_task(wb_audit.worker(), name="wb-catalogs")
+    transfers = asyncio.create_task(payout_gateway.watch(), name="partner-payouts")
     yield
+    for worker in (catalogs, transfers):
+        worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await worker
     balance_watch.cancel()
     await queue.stop()
 
 
 app = FastAPI(title="MonStoreLab API", version=__version__, lifespan=lifespan)
 install_handlers(app)
-for module in (analysis, expert, public, account, tools, library, jobs, lead):
+for module in (analysis, expert, public, account, tools, library, jobs, lead, partners, catalog, articles):
     app.include_router(module.router)
 app.include_router(admin.router)
 app.include_router(admin.guarded)

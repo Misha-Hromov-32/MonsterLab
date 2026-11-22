@@ -146,6 +146,9 @@ class PlanSettings(BaseModel):
 
 
 class BillingSettings(BaseModel):
+    discount3: int = Field(10, ge=0, le=90)
+    discount6: int = Field(20, ge=0, le=90)
+    partner_percent: int = Field(15, ge=0, le=100)
     demo: FeatureLimits
     plans: list[PlanSettings] = Field(min_length=1, max_length=4)
 

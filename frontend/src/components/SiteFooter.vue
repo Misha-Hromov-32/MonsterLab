@@ -11,6 +11,8 @@ const year = new Date().getFullYear()
 <template>
   <footer class="site-foot">
     <nav class="docs" aria-label="Документы">
+      <a href="/studio">Инструменты продавца</a>
+      <a href="/articles">Статьи</a>
       <a href="/legal#terms">Пользовательское соглашение</a>
       <a href="/legal#privacy">Политика обработки персональных данных</a>
       <a href="/legal#consent">Согласие на обработку данных</a>

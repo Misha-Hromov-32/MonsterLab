@@ -30,11 +30,19 @@ from fastapi.testclient import TestClient
 
 from app import ratelimit
 from app.main import app
-from app.services import accounts, mail, precompute
+from app.services import accounts, mail, precompute, wb_audit
 
 # Фоновый поток расчёта примеров в тестах не нужен: тесты вызывают precompute.run_pending() сами
 # и проверяют результат детерминированно.
 precompute.start = lambda: None
+
+
+async def _idle_catalog_worker():
+    # Тесты каталога продвигают очередь сами с подменённым HTTP-транспортом.
+    return
+
+
+wb_audit.worker = _idle_catalog_worker
 
 # Письма не уходят по SMTP, а складываются сюда — тесты достают из них ссылки.
 OUTBOX: list[EmailMessage] = []

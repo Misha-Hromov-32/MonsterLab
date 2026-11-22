@@ -53,6 +53,10 @@ server {
     return 429 '{"detail":{"code":"rate_limited","message":"Слишком много запросов. Подождите немного."}}';
   }
 
+  location ~ ^/(articles(/|$)|robots\\.txt$|sitemap\\.xml$) {
+    proxy_pass http://backend:8000;
+  }
+
   location /api/ {
     limit_req zone=api burst=100 nodelay;
     limit_conn perip 40;
@@ -60,7 +64,7 @@ server {
   }
 
   # одна обложка — до 25 МБ (MAX_UPLOAD_MB)
-  location = /api/analyze {
+  location ~ ^/api/(analyze|card-rules)$ {
     client_max_body_size 30m;
     limit_req zone=api burst=100 nodelay;
     limit_conn perip 40;

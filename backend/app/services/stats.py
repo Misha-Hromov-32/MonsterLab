@@ -189,9 +189,9 @@ def users() -> dict:
     for row in rows:
         user = accounts.User(
             row["id"], "", row["pro_until"], row["verified_at"] is not None, row["stamp"],
-            row["plan_id"] or "", row["period_start"] or 0,
+            row["plan_id"] or "", row["period_start"] or 0, row["cycle_days"] or 0, row["quota_json"],
         )  # fmt: skip
-        period = "demo" if user.plan == accounts.DEMO else f"p{int(user.period_start)}"
+        period = accounts.usage_period(user)
         used = {r["feature"]: r["count"] for r in by_usage.get(user.id, []) if r["day"] == period}
         user_runs = by_runs.get(user.id, [])
         paid = [p for p in by_payment.get(user.id, []) if p["status"] in billing.PAID_STATUSES]

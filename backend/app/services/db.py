@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -144,6 +145,43 @@ CREATE TABLE IF NOT EXISTS ai_balance (
     ts REAL NOT NULL,
     balance REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS prepaid_terms (
+    id INTEGER PRIMARY KEY, buyer INTEGER NOT NULL, plan TEXT NOT NULL, starts REAL NOT NULL,
+    ends REAL NOT NULL, cycle INTEGER NOT NULL, prepaid INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS prepaid_start ON prepaid_terms(starts);
+CREATE INDEX IF NOT EXISTS prepaid_buyer ON prepaid_terms(buyer,starts);
+CREATE TABLE IF NOT EXISTS partners (
+    user_id INTEGER PRIMARY KEY, code TEXT UNIQUE NOT NULL, joined REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS referrals (
+    buyer INTEGER PRIMARY KEY, partner INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS referrals_partner ON referrals(partner);
+CREATE TABLE IF NOT EXISTS commissions (
+    payment TEXT PRIMARY KEY, partner INTEGER NOT NULL, kopecks INTEGER NOT NULL, at REAL NOT NULL, payout INTEGER
+);
+CREATE INDEX IF NOT EXISTS commissions_balance ON commissions(partner, payout);
+CREATE TABLE IF NOT EXISTS payouts (
+    id INTEGER PRIMARY KEY, partner INTEGER NOT NULL, kopecks INTEGER NOT NULL, details BLOB NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', reference TEXT NOT NULL DEFAULT '', at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS articles (
+    id INTEGER PRIMARY KEY, slug TEXT UNIQUE NOT NULL, title TEXT NOT NULL, summary TEXT NOT NULL,
+    body TEXT NOT NULL, published INTEGER NOT NULL, version INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS wb_audits (
+    id INTEGER PRIMARY KEY, owner INTEGER NOT NULL, token BLOB, status TEXT NOT NULL, cursor TEXT NOT NULL DEFAULT '{}',
+    next_at REAL NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0, message TEXT NOT NULL DEFAULT '',
+    created REAL NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS wb_one_active ON wb_audits(owner) WHERE status IN ('import','photos');
+CREATE TABLE IF NOT EXISTS wb_cards (
+    audit INTEGER NOT NULL, nm INTEGER NOT NULL, sku TEXT NOT NULL, title TEXT NOT NULL, photo TEXT NOT NULL,
+    findings TEXT NOT NULL, checked INTEGER NOT NULL DEFAULT 0, image_status TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY(audit,nm)
+);
+CREATE INDEX IF NOT EXISTS wb_unchecked ON wb_cards(audit,checked,nm);
 CREATE TABLE IF NOT EXISTS competitor_cache (
     query TEXT PRIMARY KEY,
     payload TEXT NOT NULL,
@@ -158,11 +196,29 @@ ADDED_COLUMNS = {
         "pd_consent_at": "REAL",
         "legal_version": "TEXT",
         "plan_id": "TEXT",  # оплаченный тариф; действует, пока pro_until в будущем
+        "quota_json": "TEXT",
+        "prepaid": "INTEGER NOT NULL DEFAULT 0",
         "period_start": "REAL",  # начало оплаченного периода — от него считаются квоты
         # на неподтверждённую почту регистрировались повторно — пароль мог задать не владелец
+        "cycle_days": "INTEGER",
         "contested": "INTEGER",
     },
-    "payments": {"plan": "TEXT", "provider": "TEXT"},  # provider: tochka или yookassa (пусто — ЮKassa)
+    "payouts": {
+        "method": "TEXT NOT NULL DEFAULT 'manual'",
+        "attempt": "TEXT",
+        "provider_id": "TEXT",
+        "sent_at": "REAL",
+        "poll_at": "REAL",
+    },
+    "prepaid_terms": {"quota_json": "TEXT"},
+    "wb_cards": {"score": "INTEGER"},
+    "payments": {
+        "plan": "TEXT",
+        "provider": "TEXT",
+        "quota_json": "TEXT",
+        "term_days": "INTEGER",
+        "cycle_days": "INTEGER",
+    },  # provider: tochka или yookassa (пусто — ЮKassa)
 }
 
 _lock = threading.Lock()
@@ -187,6 +243,26 @@ def connect() -> Iterator[sqlite3.Connection]:
             with con:
                 con.executescript(SCHEMA)
                 _migrate(con)
+                due = con.execute(
+                    "SELECT * FROM prepaid_terms WHERE starts<=? ORDER BY starts,id", (time.time(),)
+                ).fetchall()
+                if due:
+                    for term in due:
+                        con.execute(
+                            "UPDATE users SET pro_until=?,plan_id=?,period_start=?,cycle_days=?,"
+                            "prepaid=?,quota_json=? WHERE id=?",
+                            (
+                                term["ends"],
+                                term["plan"],
+                                term["starts"],
+                                term["cycle"],
+                                term["prepaid"],
+                                term["quota_json"],
+                                term["buyer"],
+                            ),
+                        )
+                        con.execute("DELETE FROM prepaid_terms WHERE id=?", (term["id"],))
+                    con.commit()
                 yield con
         finally:
             con.close()
