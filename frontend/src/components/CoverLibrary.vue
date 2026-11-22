@@ -229,6 +229,7 @@ onMounted(load)
   gap: 16px;
 }
 .cover {
+  container-type: inline-size;
   min-width: 0;
   display: grid;
   gap: 8px;
@@ -258,8 +259,8 @@ strong {
   white-space: nowrap;
 }
 .meta {
-  font-size: 11px;
-  color: var(--ink-3);
+  font-size: 12px;
+  color: var(--ink-2);
 }
 .actions {
   display: flex;
@@ -275,7 +276,23 @@ strong {
   gap: 8px;
   color: var(--ink-2);
 }
+@container (max-width: 200px) {
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .actions .primary {
+    grid-column: 1 / -1;
+  }
+  .actions .btn {
+    width: 100%;
+  }
+}
 @media (max-width: 640px) {
+  .actions .btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
   .covers {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
