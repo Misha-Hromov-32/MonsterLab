@@ -232,6 +232,8 @@ function replaceVariant(key: Key, file: File) {
     file,
     generatedBaseline: generatedFiles.get(file),
     measuredIndex: undefined,
+    improveModel: undefined,
+    improvePrompt: undefined,
     url: URL.createObjectURL(file),
     name: file.name,
     analysis: undefined,

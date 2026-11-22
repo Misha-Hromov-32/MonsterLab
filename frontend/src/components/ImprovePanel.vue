@@ -11,8 +11,18 @@ import type { Variant } from '../lib/types'
 
 const props = defineProps<{ variant: Variant }>()
 const v = computed(() => props.variant)
-const model = ref(''),
-  prompt = ref('')
+const model = computed({
+  get: () => v.value.improveModel ?? '',
+  set: (value: string) => {
+    v.value.improveModel = value
+  },
+})
+const prompt = computed({
+  get: () => v.value.improvePrompt ?? '',
+  set: (value: string) => {
+    v.value.improvePrompt = value
+  },
+})
 
 // выводы экспертов усиливают перерисовку — говорим об этом, чтобы было ясно, зачем их запрашивать
 const editor = ref(false)

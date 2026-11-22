@@ -125,6 +125,8 @@ export interface Variant {
   critiqueError?: string
   /** улучшенная обложка (data URL), которую нарисовала нейросеть по выводам разбора */
   improved?: string
+  improveModel?: string
+  improvePrompt?: string
   improveStatus: Status
   improveError?: string
   /** когда запустили генерацию — индикатор не начинается заново при переключении вариантов */
