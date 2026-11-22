@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import time
 
@@ -15,7 +16,7 @@ from ..errors import api_error
 from ..ratelimit import analysis_limit
 from ..services import accounts, billing, expert, library, marketplace, oauth
 from ..services.uploads import store
-from .deps import enqueue, paid, read_image
+from .deps import enqueue, paid, read_image, read_upload
 
 router = APIRouter(prefix="/api")
 
@@ -45,13 +46,15 @@ def health() -> dict:
 
 @router.post("/analyze", dependencies=[Depends(analysis_limit.dependency)])
 async def analyze(request: Request, file: UploadFile = File(...), user: accounts.User = Depends(paid("analyze"))):
-    rgb = await read_image(file)  # файл читаем сразу: после ответа загрузка уже недоступна
+    data = await read_upload(file)
+    rgb = await read_image(file, data)
+    source_digest = hashlib.sha256(data).hexdigest()
     name = file.filename or "Обложка"
 
     async def work() -> dict:
         image_id = await asyncio.to_thread(store.put, rgb)
         report = await asyncio.to_thread(cover_report, rgb)
-        saved = await asyncio.to_thread(library.save, user.id, rgb, name, report)
+        saved = await asyncio.to_thread(library.save, user.id, rgb, name, report, source_digest=source_digest)
         return {"id": image_id, **report, **saved}
 
     return await enqueue(request, "neural", "Проверка обложки", work, user, "analyze")

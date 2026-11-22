@@ -52,6 +52,10 @@ def test_generated_covers_saved_and_deduplicated(client, monkeypatch):
     key = result.json()["library_id"]
     row = library.get(user.id, key)
     assert row["kind"] == "generated" and row["baseline"] is not None
+    # Кабинет передаёт сохранённый JPEG. Повторное JPEG-кодирование меняет его хеш.
+    opened = client.post("/api/analyze", files={"file": ("saved.jpg", row["jpeg"], "image/jpeg")}, headers=headers)
+    assert opened.status_code == 200 and opened.json()["library_id"] == key
+    assert library.get(user.id, key)["report"] and library.listing(user.id, 0, 24)["total"] == 2
     duplicate = library.save(user.id, decode(generated), "another name.jpg", {"index": 30})
     assert duplicate["library_id"] == key
     assert duplicate["generated_baseline"] == row["baseline"]

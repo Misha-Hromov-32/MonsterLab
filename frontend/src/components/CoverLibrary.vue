@@ -3,12 +3,14 @@ import { onMounted, ref } from 'vue'
 import { Download, FolderOpen, Loader2, Trash2 } from 'lucide-vue-next'
 import { navigateCabinet } from '../lib/cabinet'
 import { api } from '../api'
-import { closeDialog } from '../lib/account'
+import ModalDialog from './ModalDialog.vue'
+import { account } from '../lib/account'
 import { openSavedCover } from '../store'
-import type { SavedCover } from '../lib/types'
+import type { SavedCover, SavedCoverDetail } from '../lib/types'
 
 defineProps<{ recent?: boolean }>()
 const items = ref<SavedCover[]>([])
+const selected = ref<SavedCoverDetail>()
 const total = ref(0)
 const loading = ref(false)
 const busy = ref('')
@@ -28,19 +30,22 @@ async function load() {
   }
 }
 
-async function use(item: SavedCover) {
+async function preview(item: SavedCover) {
   busy.value = item.id
   error.value = ''
   try {
-    const saved = await api.savedCover(item.id)
-    if (openSavedCover(saved)) {
-      closeDialog()
-      navigateCabinet(null)
-    }
+    selected.value = await api.savedCover(item.id)
   } catch (e) {
     error.value = (e as Error).message
   } finally {
     busy.value = ''
+  }
+}
+
+function openAnalysis() {
+  if (selected.value && openSavedCover(selected.value)) {
+    selected.value = undefined
+    navigateCabinet(null)
   }
 }
 
@@ -98,7 +103,7 @@ onMounted(load)
     </div>
     <div class="covers">
       <article v-for="item in recent ? items.slice(0, 3) : items" :key="item.id" class="cover">
-        <button class="preview" :disabled="!!busy" :aria-label="`Открыть ${item.name}`" @click="use(item)">
+        <button class="preview" :disabled="!!busy" :aria-label="`Открыть ${item.name}`" @click="preview(item)">
           <img :src="item.preview" :alt="item.name" loading="lazy" />
         </button>
         <strong :title="item.name">{{ item.name }}</strong>
@@ -107,7 +112,7 @@ onMounted(load)
           {{ new Date(item.created_at * 1000).toLocaleDateString('ru-RU') }}</span
         >
         <div class="actions">
-          <button class="btn primary sm" :disabled="!!busy" @click="use(item)">
+          <button class="btn primary sm" :disabled="!!busy" @click="preview(item)">
             <FolderOpen :size="14" /> Открыть
           </button>
           <button class="btn sm icon" :disabled="!!busy" aria-label="Скачать обложку" @click="download(item)">
@@ -125,9 +130,45 @@ onMounted(load)
     </button>
     <p v-if="!recent && items.length" class="meta">Сохранено {{ total }} из 500 обложек</p>
   </div>
+  <ModalDialog v-if="selected" :title="selected.name" wide @close="selected = undefined">
+    <img class="full-cover" :src="selected.image" :alt="selected.name" />
+    <div class="viewer-actions">
+      <a class="lab-secondary" :href="selected.image" :download="selected.name.replace(/\.[^.]+$/, '') + '.jpg'"
+        ><Download :size="16" />Скачать</a
+      >
+      <button
+        class="lab-primary"
+        :disabled="!selected.analysis && !account.billing?.costs?.analyze"
+        @click="openAnalysis"
+      >
+        {{
+          selected.analysis
+            ? 'Открыть готовый разбор'
+            : account.billing?.costs?.analyze
+              ? 'Проверить · ' + account.billing.costs.analyze + ' имп.'
+              : 'Проверка недоступна'
+        }}
+      </button>
+    </div>
+  </ModalDialog>
 </template>
 
 <style scoped>
+.full-cover {
+  display: block;
+  width: 100%;
+  max-height: 56dvh;
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--panel-2);
+}
+.viewer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .empty-covers {
   padding: clamp(18px, 3vw, 32px);
   display: flex;

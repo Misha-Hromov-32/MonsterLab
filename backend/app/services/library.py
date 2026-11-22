@@ -13,14 +13,24 @@ from . import db
 
 
 def save(
-    user_id: int, rgb, name: str, report: dict | None = None, kind: str = "uploaded", baseline: float | None = None
+    user_id: int,
+    rgb,
+    name: str,
+    report: dict | None = None,
+    kind: str = "uploaded",
+    baseline: float | None = None,
+    *,
+    source_digest: str | None = None,
 ) -> dict:
     jpeg = to_jpeg(rgb, 90)
     digest = hashlib.sha256(jpeg).hexdigest()
     preview = to_jpeg(resize_long(rgb, 240), 75)
     with db.connect() as con:
         existing = con.execute(
-            "SELECT id, baseline FROM personal_covers WHERE user_id = ? AND digest = ?", (user_id, digest)
+            # При открытии из кабинета входной JPEG уже хранится у этого покупателя.
+            "SELECT id, baseline FROM personal_covers WHERE user_id=? AND digest IN (?,?) "
+            "ORDER BY (digest=?) DESC LIMIT 1",
+            (user_id, digest, source_digest, source_digest),
         ).fetchone()
         if existing:
             if report is not None:

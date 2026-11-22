@@ -114,9 +114,7 @@ function leave() {
       <div class="cab-layout">
         <aside class="cab-side">
           <strong>Личный кабинет</strong
-          ><button class="cab-switch" :aria-expanded="menu" @click="menu = !menu">
-            <Menu :size="18" />Разделы
-          </button>
+          ><button class="cab-switch" :aria-expanded="menu" @click="menu = !menu"><Menu :size="18" />Разделы</button>
           <nav :class="{ expanded: menu }" aria-label="Разделы личного кабинета">
             <a
               v-for="t in tabs"
@@ -219,6 +217,7 @@ function leave() {
   margin: 0;
 }
 .recent-head a {
+  white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -523,6 +522,7 @@ function leave() {
     align-items: start;
   }
   .cab-subhead {
+    font-size: 21px;
     margin-top: 24px;
   }
   .cab-top .logo {

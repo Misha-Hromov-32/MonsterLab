@@ -4,7 +4,7 @@ import { Sparkles, Download, Upload, ImagePlus, Replace, Loader2 } from 'lucide-
 import { site } from '../store'
 import ModelFields from './ModelFields.vue'
 import { api } from '../api'
-import { account, paidError, refreshMe, requireLogin } from '../lib/account'
+import { account, openTariffs, paidError, refreshMe, requireLogin } from '../lib/account'
 const file = ref<File>(),
   source = ref(''),
   image = ref(''),
@@ -13,6 +13,13 @@ const file = ref<File>(),
   busy = ref(false),
   error = ref('')
 const price = computed(() => account.billing?.image_models?.find((m) => m.id === model.value)?.cost)
+const balance = computed(() => account.user?.wallet?.remaining)
+const shortfall = computed(
+  () => balance.value !== undefined && price.value !== undefined && price.value > balance.value,
+)
+const affordable = computed(
+  () => account.billing?.image_models?.filter((m) => m.cost <= (balance.value ?? 0)).sort((a, b) => b.cost - a.cost)[0],
+)
 const input = ref<HTMLInputElement>()
 const over = ref(false)
 const sample = computed(
@@ -35,7 +42,7 @@ onUnmounted(() => {
   if (source.value) URL.revokeObjectURL(source.value)
 })
 async function generate() {
-  if (!file.value || !model.value || busy.value) return
+  if (!file.value || !model.value || busy.value || shortfall.value) return
   if (!requireLogin('Войдите, чтобы сохранить новую обложку в своём кабинете', generate)) return
   busy.value = true
   error.value = ''
@@ -101,7 +108,17 @@ async function generate() {
           <p v-if="price" class="cost">
             Стоимость генерации <strong>{{ price }} имп.</strong>
           </p>
-          <button class="lab-primary" :disabled="!file || !model || busy">
+          <p v-if="balance !== undefined" class="cost">
+            На вашем балансе <strong>{{ balance }} имп.</strong>
+          </p>
+          <div v-if="shortfall" class="shortfall">
+            <span>Для этой модели не хватает {{ (price ?? 0) - (balance ?? 0) }} имп.</span>
+            <button v-if="affordable" type="button" @click="model = affordable.id">
+              Выбрать {{ affordable.title }} за {{ affordable.cost }} имп.
+            </button>
+            <button v-else type="button" @click="openTariffs()">Выбрать тариф</button>
+          </div>
+          <button class="lab-primary" :disabled="!file || !model || busy || shortfall">
             <component :is="busy ? Loader2 : Sparkles" :size="18" :class="{ spin: busy }" />{{
               busy ? 'Генерируем…' : 'Сгенерировать обложку'
             }}
@@ -225,6 +242,25 @@ async function generate() {
 .submit-area {
   display: grid;
   gap: 10px;
+}
+.shortfall {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border-radius: 9px;
+  font-size: 13px;
+}
+.shortfall button {
+  padding: 0;
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--ink);
+  font-weight: 600;
+  text-align: left;
 }
 .submit-area p {
   margin: 0;

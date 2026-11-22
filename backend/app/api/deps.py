@@ -25,8 +25,9 @@ async def read_upload(file: UploadFile) -> bytes:
     return data
 
 
-async def read_image(file: UploadFile) -> np.ndarray:
-    data = await read_upload(file)
+async def read_image(file: UploadFile, data: bytes | None = None) -> np.ndarray:
+    if data is None:
+        data = await read_upload(file)
     try:
         return await asyncio.to_thread(decode, data)
     except BadImage as exc:
