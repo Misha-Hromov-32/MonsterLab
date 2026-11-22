@@ -2,11 +2,14 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { Download, ImagePlus, Loader2, RefreshCw, Replace, Sparkles } from 'lucide-vue-next'
 import { addImproved, critiqueIssues, freeKeys, improvedFile, runImprove, state } from '../store'
+import ModelFields from './ModelFields.vue'
 import { IMPROVE_ETA_SEC } from '../lib/constants'
 import type { Variant } from '../lib/types'
 
 const props = defineProps<{ variant: Variant }>()
 const v = computed(() => props.variant)
+const model = ref(''),
+  prompt = ref('')
 
 // выводы экспертов усиливают перерисовку — говорим об этом, чтобы было ясно, зачем их запрашивать
 const withCritique = computed(() => critiqueIssues(v.value).length > 0)
@@ -48,8 +51,9 @@ function download() {
 
 <template>
   <section class="improve">
-    <div class="sec-head"><span class="label">Улучшенная обложка</span></div>
+    <div class="sec-head"><span class="label">Генератор обложек</span></div>
 
+    <ModelFields v-model:model="model" v-model:prompt="prompt" :disabled="v.improveStatus === 'loading'" />
     <div v-if="v.improveStatus === 'loading'" class="wait" role="status">
       <span class="wait-title"><Loader2 :size="15" class="spin" /> Перерисовываем обложку…</span>
       <span class="prog"><i :style="{ width: `${progress}%` }" /></span>
@@ -87,11 +91,15 @@ function download() {
         </div>
         <button class="btn" @click="download"><Download :size="14" /> Скачать</button>
       </div>
-      <button class="btn sm ghost again" @click="runImprove(v)"><RefreshCw :size="13" /> Сгенерировать ещё раз</button>
+      <button class="btn sm ghost again" :disabled="!model" @click="runImprove(v, model, prompt)">
+        <RefreshCw :size="13" /> Сгенерировать ещё раз
+      </button>
     </div>
 
     <div v-else class="ask">
-      <button class="btn primary big" @click="runImprove(v)"><Sparkles :size="16" /> Улучшить обложку</button>
+      <button class="btn primary big" :disabled="!model" @click="runImprove(v, model, prompt)">
+        <Sparkles :size="16" /> Улучшить обложку
+      </button>
       <span class="hint">
         Генерация нового варианта с сохранением товара и бренда.
         <template v-if="withCritique">По рекомендациям разбора.</template>

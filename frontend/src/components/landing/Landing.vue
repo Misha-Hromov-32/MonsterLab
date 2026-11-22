@@ -6,6 +6,8 @@ import DesignSplit from './DesignSplit.vue'
 import DesignFeed from './DesignFeed.vue'
 import { DEFAULT_LANDING } from './defaults'
 import SiteFooter from '../SiteFooter.vue'
+import TariffsDialog from '../TariffsDialog.vue'
+import CoverGenerator from '../CoverGenerator.vue'
 import { site } from '../../store'
 import type { Design } from '../../lib/types'
 
@@ -31,6 +33,8 @@ const design = computed(() => DESIGNS[override ?? landing.value.design] ?? Desig
   <div v-if="!site.loaded" class="wait" aria-busy="true" />
   <div v-else class="landing-page">
     <component :is="design" :l="landing" />
+    <CoverGenerator v-if="design !== DesignBrand" />
+    <TariffsDialog inline />
     <SiteFooter />
   </div>
 </template>

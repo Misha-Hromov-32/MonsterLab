@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, SecretStr
 from ..core.imaging import BadImage, open_image
 from ..errors import api_error
 from ..ratelimit import analysis_limit
-from ..services import accounts, card_rules, db, wb_audit
+from ..services import accounts, card_rules, credits, db, wb_audit
 from .deps import read_upload, require_user
 
 router = APIRouter(prefix="/api")
@@ -28,6 +28,17 @@ async def card_check(
 ):
     if not (title.strip() or description.strip() or caption.strip() or cover):
         raise api_error(422, "empty", "Добавьте текст или изображение карточки")
+    reserve = await asyncio.to_thread(credits.reserve, user, "rules")
+    try:
+        result = await inspect_fields(market, title, description, caption, cover)
+    except BaseException:
+        await asyncio.to_thread(credits.finish, reserve, False)
+        raise
+    await asyncio.to_thread(credits.finish, reserve, True)
+    return result
+
+
+async def inspect_fields(market, title, description, caption, cover):
     status = ""
     image_findings = []
     if cover:
@@ -165,4 +176,5 @@ def cancel(run: int, user: accounts.User = Depends(require_user)):
             " WHERE id=? AND status IN ('import','photos')",
             (run,),
         )
+        credits.finish_in(con, f"wb-{run}", False)
     return {"ok": True}

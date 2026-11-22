@@ -57,7 +57,7 @@ def _clean(data: dict) -> dict:
         raise PromoError("Код — 3–32 символа: буквы, цифры, - и _")
     bonus = {}
     for feature, delta in (data.get("bonus") or {}).items():
-        if feature not in accounts.FEATURES:
+        if feature != "credits" and feature not in accounts.FEATURES:
             raise PromoError(f"Неизвестная функция: {feature}")
         delta = int(delta)
         if abs(delta) > MAX_DELTA:
@@ -138,6 +138,17 @@ def redeem(user: accounts.User, code: str) -> dict:
             raise PromoError("Вы уже активировали этот промокод") from exc
         bonus = json.loads(row["bonus"] or "{}")
         for feature, delta in bonus.items():
+            if feature == "credits":
+                from . import credits
+
+                if delta < 0:
+                    delta = -min(-delta, credits.snapshot(con, user)["bonus"])
+                con.execute(
+                    "INSERT INTO user_bonus(user_id,feature,balance) VALUES(?, 'credits', ?) "
+                    "ON CONFLICT(user_id,feature) DO UPDATE SET balance=balance+excluded.balance",
+                    (user.id, delta),
+                )
+                continue
             # убавить можно только до нуля: отрицательного баланса не бывает
             con.execute(
                 "INSERT OR IGNORE INTO user_bonus (user_id, feature, balance) VALUES (?, ?, 0)", (user.id, feature)

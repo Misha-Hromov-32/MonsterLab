@@ -9,7 +9,7 @@ import { srcset } from '../../lib/images'
   <section v-if="site.data?.examples.length" id="examples" class="gallery">
     <div class="head">
       <h2 class="display">Примеры</h2>
-      <span class="sub">Готовые наборы для проверки и сравнения</span>
+      <span class="sub">Готовые проверки обложек · без регистрации</span>
     </div>
     <div class="cards">
       <!-- кликабельна вся карточка: кнопка «Открыть» растянута псевдоэлементом на всю площадь -->

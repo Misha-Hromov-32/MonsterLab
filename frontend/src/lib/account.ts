@@ -18,6 +18,7 @@ export const account = reactive({
   user: null as User | null,
   billing: null as Billing | null,
   dialog: '' as AccountDialog,
+  tariffPeriods: 1,
   authMode: 'login' as AuthMode,
   /** почему открыли диалог: «войдите, чтобы…», «исчерпан лимит…» */
   reason: '',
@@ -335,7 +336,18 @@ export function paidError(e: unknown, retry?: () => void): string | null {
 /** Переход на страницу оплаты. receiptEmail — почта для чека у аккаунта без почты (вход через VK ID).
  * Возвращает текст ошибки, если оплата сейчас невозможна. */
 export async function checkout(planId: string, receiptEmail = '', periods = 1): Promise<string> {
-  if (!requireLogin('Войдите, чтобы оформить подписку', () => openTariffs())) return ''
+  if (
+    !requireLogin('Войдите, чтобы оформить подписку', async () => {
+      account.tariffPeriods = periods
+      if (!account.user?.email) {
+        openTariffs()
+        return
+      }
+      const error = await checkout(planId, receiptEmail, periods)
+      if (error) openTariffs(error)
+    })
+  )
+    return ''
   try {
     const { url, payment_id, amount: price } = await api.checkout(planId, receiptEmail.trim(), periods)
     try {

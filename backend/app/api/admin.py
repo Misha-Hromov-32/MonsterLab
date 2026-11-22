@@ -76,7 +76,7 @@ def get_settings() -> dict:
         "examples": [site.example_out(e) for e in data["examples"]],
         "expert": _expert_out(),
         "designs": list(site.DESIGNS),
-        "billing": {**data["billing"], "enabled": billing.enabled()},
+        "billing": {**billing.plans(), "enabled": billing.enabled()},
     }
 
 
@@ -136,6 +136,7 @@ class FeatureLimits(BaseModel):
 
 
 class PlanSettings(BaseModel):
+    credits: int | None = Field(None, ge=1, le=10_000_000)
     id: str = Field(pattern=r"^[a-z0-9_-]{1,40}$")
     title: str = Field(min_length=1, max_length=40)
     price_rub: int = Field(ge=1, le=1_000_000)
@@ -146,6 +147,7 @@ class PlanSettings(BaseModel):
 
 
 class BillingSettings(BaseModel):
+    demo_credits: int = Field(30, ge=0, le=100_000)
     discount3: int = Field(10, ge=0, le=90)
     discount6: int = Field(20, ge=0, le=90)
     partner_percent: int = Field(15, ge=0, le=100)

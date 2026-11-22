@@ -76,12 +76,13 @@ async def enqueue(
     work: Callable[[], Awaitable[Any]],
     user: accounts.User,
     feature: str,
+    cost: int | None = None,
 ) -> Any:
     """Ставит тяжёлую работу в очередь. По умолчанию — сразу 202 {"job": …}, клиент опрашивает
     /api/jobs/{id}. С заголовком X-Wait: 1 ждёт результат и возвращает его как обычная ручка
     (удобно для внешних API-клиентов и тестов)."""
     try:
-        job = jobs.queue.submit(lane, title, work, user=user, feature=feature)
+        job = jobs.queue.submit(lane, title, work, user=user, feature=feature, cost=cost)
     except jobs.QueueFull as exc:
         raise api_error(429, exc.code, exc.message) from exc
     if request.headers.get("x-wait") == "1":

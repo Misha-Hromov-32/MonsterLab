@@ -151,6 +151,14 @@ CREATE TABLE IF NOT EXISTS prepaid_terms (
 );
 CREATE INDEX IF NOT EXISTS prepaid_start ON prepaid_terms(starts);
 CREATE INDEX IF NOT EXISTS prepaid_buyer ON prepaid_terms(buyer,starts);
+CREATE TABLE IF NOT EXISTS credit_opening (
+    buyer INTEGER NOT NULL, period TEXT NOT NULL, used INTEGER NOT NULL, PRIMARY KEY(buyer,period)
+);
+CREATE TABLE IF NOT EXISTS credit_charges (
+    id TEXT PRIMARY KEY, buyer INTEGER NOT NULL, period TEXT NOT NULL, action TEXT NOT NULL,
+    base INTEGER NOT NULL, extra INTEGER NOT NULL, expiry REAL, settled INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS credit_buyer ON credit_charges(buyer,period);
 CREATE TABLE IF NOT EXISTS partners (
     user_id INTEGER PRIMARY KEY, code TEXT UNIQUE NOT NULL, joined REAL NOT NULL
 );

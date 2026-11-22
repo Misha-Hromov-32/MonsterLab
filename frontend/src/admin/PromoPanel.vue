@@ -14,7 +14,7 @@ const MAX_DELTA = 10_000
 const MAX_DAYS = 366
 const CODE_RE = /^[A-Z0-9А-ЯЁ_-]{3,32}$/
 
-const FEATURES = Object.keys(FEATURE_TITLES) as Feature[]
+const FEATURES: (Feature | 'credits')[] = ['credits', ...(Object.keys(FEATURE_TITLES) as Feature[])]
 const plans = computed(() => props.data.billing.plans)
 const planTitle = (id: string) => plans.value.find((p) => p.id === id)?.title ?? id
 
@@ -27,7 +27,7 @@ const editing = ref<number | null>(null) // id редактируемого; nul
 type Form = {
   code: string
   note: string
-  bonus: Record<Feature, number>
+  bonus: Record<Feature | 'credits', number>
   plan_id: string
   plan_days: number
   max_uses: number
@@ -38,7 +38,7 @@ type Form = {
 const empty = (): Form => ({
   code: '',
   note: '',
-  bonus: Object.fromEntries(FEATURES.map((f) => [f, 0])) as Record<Feature, number>,
+  bonus: Object.fromEntries(FEATURES.map((f) => [f, 0])) as Record<Feature | 'credits', number>,
   plan_id: '',
   plan_days: 0,
   max_uses: 0,
@@ -88,7 +88,7 @@ function edit(p: PromoCode) {
   form.value = {
     code: p.code,
     note: p.note,
-    bonus: { ...empty().bonus, ...p.bonus } as Record<Feature, number>,
+    bonus: { ...empty().bonus, ...p.bonus } as Record<Feature | 'credits', number>,
     plan_id: p.plan_id ?? '',
     plan_days: p.plan_days || 0,
     max_uses: p.max_uses,
@@ -206,15 +206,15 @@ onMounted(async () => {
       </div>
 
       <div>
-        <span class="flabel">Запуски: плюс — начислить, минус — списать (не ниже нуля)</span>
+        <span class="flabel">Бонусный баланс импульсов</span>
         <div class="features">
           <label
-            v-for="f in FEATURES"
+            v-for="f in FEATURES.filter((k) => k === 'credits' || form.bonus[k])"
             :key="f"
             class="feat"
             :class="{ plus: form.bonus[f] > 0, minus: form.bonus[f] < 0 }"
           >
-            <span>{{ FEATURE_TITLES[f] }}</span>
+            <span>{{ f === 'credits' ? 'Импульсы' : FEATURE_TITLES[f] }}</span>
             <input
               v-model.number="form.bonus[f]"
               class="input num"

@@ -16,7 +16,7 @@ import numpy as np
 from ..core import metrics, saliency
 from ..core.imaging import BadImage, open_image, resize_long
 from ..errors import api_error
-from . import crypto, db
+from . import accounts, credits, crypto, db
 from .card_rules import check, finding, inspect_cover, read_cover
 
 log = logging.getLogger(__name__)
@@ -50,12 +50,18 @@ def start(owner: int, token: str) -> int:
         not os.getenv("WB_CLIENT_SECRET") or claims.get("for") != "asid:" + os.getenv("WB_SERVICE_ID", "")
     ):
         raise api_error(422, "wb_service", "Сервисный токен должен быть выпущен для подключённого сервиса MonStoreLab.")
+    user = accounts.get(owner)
+    if user is None:
+        raise api_error(401, "login_required", "Войдите для проверки каталога")
     with db.connect() as con:
+        con.execute("BEGIN IMMEDIATE")
         try:
-            return con.execute(
+            run = con.execute(
                 "INSERT INTO wb_audits(owner,token,status,created) VALUES(?,?,?,?)",
                 (owner, crypto.encrypt(token.encode(), f"wb/{owner}"), IMPORT, time.time()),
             ).lastrowid
+            credits.reserve_in(con, user, "wb", credits.COST["wb"], f"wb-{run}", persistent=True)
+            return run
         except sqlite3.IntegrityError as exc:
             raise api_error(409, "in_progress", "Проверка каталога уже идёт") from exc
 
@@ -66,6 +72,7 @@ def set_error(run: int, message: str) -> None:
             "UPDATE wb_audits SET status='error',token=NULL,message=? WHERE id=? AND status IN ('import','photos')",
             (message, run),
         )
+        credits.finish_in(con, f"wb-{run}", False)
 
 
 def card_record(run: int, card: dict):
@@ -154,7 +161,11 @@ def analyze_next(run, client):
             "SELECT * FROM wb_cards WHERE audit=? AND checked=0 ORDER BY nm LIMIT 1", (run["id"],)
         ).fetchone()
         if not row:
-            con.execute("UPDATE wb_audits SET status='done',message='' WHERE id=? AND status='photos'", (run["id"],))
+            changed = con.execute(
+                "UPDATE wb_audits SET status='done',message='' WHERE id=? AND status='photos'", (run["id"],)
+            ).rowcount
+            if changed:
+                credits.finish_in(con, f"wb-{run['id']}", True)
             return
     findings = json.loads(row["findings"])
     score = None

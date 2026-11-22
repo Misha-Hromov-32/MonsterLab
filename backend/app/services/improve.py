@@ -18,7 +18,7 @@ import httpx
 from PIL import Image, ImageFilter
 
 from .. import config
-from . import aicost, expert
+from . import aicost, expert, image_models
 
 log = logging.getLogger(__name__)
 
@@ -65,8 +65,11 @@ def build_prompt(notes: list[dict], issues: list[str], ctx: dict) -> str:
     return PROMPT.format(problems=problems, context=("\n" + " ".join(extra)) if extra else "")
 
 
-def generate(jpeg: bytes, prompt: str) -> bytes:
+def generate(jpeg: bytes, prompt: str, model: str | None = None) -> bytes:
     """Возвращает улучшенную обложку в JPEG — в пропорциях исходной."""
+    model = model or image_models.default_id()
+    if model not in image_models.MODELS:
+        raise ImproveError("Выберите модель из списка")
     cfg = expert.current_config()
     if not cfg.enabled:
         raise ImproveError("Генерация не подключена")
@@ -75,21 +78,55 @@ def generate(jpeg: bytes, prompt: str) -> bytes:
     canvas.save(src, format="JPEG", quality=92)
     try:
         with httpx.Client(base_url=cfg.base_url, timeout=httpx.Timeout(TIMEOUT_S, connect=15)) as client:
-            r = client.post(
-                "/images/edits",
-                headers={"Authorization": f"Bearer {cfg.api_key}"},
-                data={"model": config.IMAGE_MODEL, "prompt": prompt, "size": SIZE, "quality": config.IMAGE_QUALITY},
-                files={"image": ("cover.jpg", src.getvalue(), "image/jpeg")},
-            )
+            if model.startswith("google/"):
+                url = cfg.base_url.removesuffix("/v1") + "/v1beta/models/" + model.split("/")[1] + ":generateContent"
+                payload = {
+                    "contents": [
+                        {
+                            "parts": [
+                                {"text": prompt},
+                                {
+                                    "inlineData": {
+                                        "mimeType": "image/jpeg",
+                                        "data": base64.b64encode(src.getvalue()).decode(),
+                                    }
+                                },
+                            ]
+                        }
+                    ],
+                    "generationConfig": {
+                        "responseModalities": ["TEXT", "IMAGE"],
+                        "imageConfig": {"aspectRatio": "2:3", "imageSize": "1K"},
+                    },
+                }
+                r = client.post(url, headers={"x-goog-api-key": cfg.api_key}, json=payload)
+            else:
+                params = {"model": model, "prompt": prompt, "size": SIZE}
+                if model.startswith("openai/"):
+                    params["quality"] = "high" if config.IMAGE_QUALITY == "high" else "medium"
+                if model.startswith("black-forest-labs/"):
+                    params.update(size="1K", aspect_ratio="2:3")
+                r = client.post(
+                    "/images/edits",
+                    headers={"Authorization": f"Bearer {cfg.api_key}"},
+                    data=params,
+                    files={"image": ("cover.jpg", src.getvalue(), "image/jpeg")},
+                )
     except httpx.HTTPError as exc:
         log.warning("Генерация обложки: сеть — %s", exc)
         raise ImproveError("Сервис генерации недоступен, попробуйте через минуту") from exc
-    aicost.record(config.IMAGE_MODEL, expert._usage(r), r.status_code < 400)
+    aicost.record(model, expert._usage(r), r.status_code < 400)
     if r.status_code >= 400:
         log.warning("Генерация обложки: %s %s", r.status_code, r.text[:300])
         raise ImproveError("Не удалось сгенерировать обложку, попробуйте ещё раз")
     try:
-        png = base64.b64decode(r.json()["data"][0]["b64_json"])
+        payload = r.json()
+        if model.startswith("google/"):
+            parts = payload["candidates"][0]["content"]["parts"]
+            encoded = next((p["inlineData"]["data"] for p in parts if "inlineData" in p), "")
+        else:
+            encoded = payload["data"][0]["b64_json"]
+        png = base64.b64decode(encoded)
         img = Image.open(io.BytesIO(png)).convert("RGB")
     except (KeyError, IndexError, ValueError, OSError) as exc:
         raise ImproveError("Модель вернула пустой ответ, попробуйте ещё раз") from exc

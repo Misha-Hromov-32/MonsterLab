@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from ..errors import api_error
 from ..ratelimit import analysis_limit, client_ip, login_limit, mail_limit, promo_limit
-from ..services import accounts, billing, mail, oauth, promo
+from ..services import accounts, billing, credits, mail, oauth, promo
 from .deps import current_user
 
 log = logging.getLogger(__name__)
@@ -59,6 +59,7 @@ def _me(user: accounts.User) -> dict:
         "plan_title": plan["title"] if plan else ("Демо" if user.plan == accounts.DEMO else "Платный"),
         "pro_until": user.pro_until if user.plan != accounts.DEMO else None,
         "upcoming": accounts.upcoming(user.id),
+        "wallet": credits.wallet(user),
         "usage": accounts.usage(user),
         "limits": accounts.limits(user),
         # бонусные запуски по промокодам — сверх квоты тарифа

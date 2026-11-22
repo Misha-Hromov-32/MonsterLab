@@ -39,6 +39,7 @@ async function check() {
       Проверьте формулировки и текст на обложке перед загрузкой. Замечания помогают найти фрагменты для сверки с
       правилами выбранной категории.
     </p>
+    <p>Одна проверка — 2 импульса.</p>
     <form @submit.prevent="check" @input="result = undefined">
       <label class="field"
         >Площадка<select v-model="market" class="input">

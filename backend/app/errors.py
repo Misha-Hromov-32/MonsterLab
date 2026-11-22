@@ -67,6 +67,12 @@ def _field(loc: tuple) -> str:
 
 
 def install_handlers(app: FastAPI) -> None:
+    from .services.accounts import LimitReached
+
+    @app.exception_handler(LimitReached)
+    async def insufficient(_: Request, exc: LimitReached):
+        return JSONResponse(status_code=403, content={"detail": {"code": "limit_reached", "message": str(exc)}})
+
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:
         errors = exc.errors()

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Check, CreditCard, Loader2 } from 'lucide-vue-next'
+import { CreditCard, Loader2 } from 'lucide-vue-next'
 import ModalDialog from './ModalDialog.vue'
 import { account, checkout, closeDialog, isPaid } from '../lib/account'
-import { formatDate, plural, quotaLabel } from '../lib/format'
-import { availableFeatures, features } from '../store'
-import type { Feature, FeatureLimits, PlanInfo } from '../lib/types'
+import { formatDate, plural } from '../lib/format'
+import { features } from '../store'
+import type { PlanInfo } from '../lib/types'
 
 const busy = ref('')
 const error = ref('')
@@ -17,15 +17,22 @@ const billing = computed(() => account.billing)
 const canPay = computed(() => features.value.billing && !!billing.value?.enabled)
 const current = computed(() => (isPaid.value ? account.user?.plan : ''))
 
-// сначала то, за что платят (нейросети), потом «технические» функции
-const ORDER: Feature[] = ['expert', 'improve', 'choice', 'analyze', 'shelf', 'competitors']
-
-/** Только функции, которые есть на сервере, и только ненулевые квоты. */
-const rows = (limits: FeatureLimits) =>
-  ORDER.filter((f) => availableFeatures.value.includes(f) && (limits[f] ?? 0) > 0).map((f) => quotaLabel(f, limits[f]))
-
-const demoRows = computed(() => (billing.value ? rows(billing.value.demo) : []))
-const periods = ref(1)
+defineProps<{ inline?: boolean }>()
+const labels: Record<string, string> = {
+  analyze: 'Анализ обложки',
+  shelf: 'Тест полки',
+  expert: 'Визуальный разбор',
+  choice: 'Выбор покупателя',
+  competitors: 'Подбор конкурентов',
+  rules: 'Правила площадок',
+  wb: 'Аудит каталога WB',
+}
+const periods = computed({
+  get: () => account.tariffPeriods,
+  set: (n: number) => {
+    account.tariffPeriods = n
+  },
+})
 const terms = (p: PlanInfo) =>
   p.offers?.find((o) => o.periods === periods.value) ?? { days: p.period_days, price: p.price_rub, discount: 0 }
 const days = (p: PlanInfo) => `${terms(p).days} ${plural(terms(p).days, ['день', 'дня', 'дней'])}`
@@ -39,14 +46,24 @@ async function pay(p: PlanInfo) {
 </script>
 
 <template>
-  <ModalDialog title="Тарифы" wide @close="closeDialog">
-    <p v-if="account.reason" class="reason">{{ account.reason }}</p>
+  <component
+    :is="inline ? 'section' : ModalDialog"
+    :id="inline ? 'plans' : undefined"
+    :class="{ publicPlans: inline }"
+    title="Тарифы"
+    wide
+    @close="closeDialog"
+    ><h2 v-if="inline">Тарифы</h2>
+    <p v-if="!inline && account.reason" class="reason">{{ account.reason }}</p>
 
     <div v-if="!billing" class="loading"><Loader2 :size="18" class="spin" /> Загружаем условия…</div>
     <template v-else>
       <section class="demo">
         <span class="label">Демо-доступ · после подтверждения почты</span>
-        <p>{{ demoRows.join(' · ') }}</p>
+        <p>
+          {{ billing.demo_credits }} импульсов на весь демо-доступ. Четыре готовых примера можно открыть без
+          регистрации.
+        </p>
       </section>
 
       <label class="field"
@@ -74,10 +91,9 @@ async function pay(p: PlanInfo) {
             <strong class="num">{{ terms(p).price.toLocaleString('ru-RU') }} ₽</strong>
             <span>/ {{ days(p) }}</span>
           </div>
-          <small>Квоты на каждые {{ p.period_days }} дн.</small>
-          <ul>
-            <li v-for="r in rows(p.limits)" :key="r"><Check :size="14" aria-hidden="true" />{{ r }}</li>
-          </ul>
+          <strong class="grant"
+            >{{ p.credits?.toLocaleString('ru-RU') }} импульсов каждые {{ p.period_days }} дней</strong
+          >
           <button
             v-if="canPay"
             class="btn wide"
@@ -96,13 +112,26 @@ async function pay(p: PlanInfo) {
         <input v-model="receiptEmail" class="input" type="email" autocomplete="email" inputmode="email" />
       </label>
 
+      <details class="costs">
+        <summary>Сколько импульсов стоит действие</summary>
+        <dl>
+          <template v-for="(title, key) in labels" :key="key"
+            ><dt>{{ title }}</dt>
+            <dd>{{ billing.costs?.[key] }}</dd></template
+          >
+          <template v-for="m in billing.image_models" :key="m.id"
+            ><dt>{{ m.title }}</dt>
+            <dd>{{ m.cost }}</dd></template
+          >
+        </dl>
+      </details>
       <p v-if="error" class="err" role="alert">{{ error }}</p>
 
       <p class="note">
         <template v-if="isPaid && account.user?.pro_until">
           Сейчас действует «{{ account.user.plan_title }}» до {{ formatDate(account.user.pro_until) }}.
         </template>
-        Лимиты обновляются каждый базовый период тарифа. При продлении срок суммируется. Предоплаченные периоды
+        Импульсы начисляются на каждый базовый период тарифа. При продлении срок суммируется. Предоплаченные периоды
         действуют последовательно, со своими тарифами.
         <template v-if="canPay && billing?.provider === 'tochka'">Оплата через Точку Банк: картой или по СБП.</template>
         <template v-else-if="canPay">Оплата через ЮKassa: картой, SberPay или ЮMoney.</template>
@@ -110,10 +139,40 @@ async function pay(p: PlanInfo) {
         {{ ' ' }}<a href="/legal#terms" target="_blank" rel="noopener">Условия и возврат</a>
       </p>
     </template>
-  </ModalDialog>
+  </component>
 </template>
 
 <style scoped>
+.publicPlans {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(32px, 6vw, 84px) clamp(18px, 4vw, 50px);
+  display: grid;
+  gap: 20px;
+  scroll-margin-top: 24px;
+}
+.publicPlans h2 {
+  font-size: clamp(32px, 5vw, 62px);
+  letter-spacing: -0.045em;
+  margin: 0;
+}
+.grant {
+  font-size: 15px;
+  line-height: 1.45;
+}
+.costs summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+.costs dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 20px;
+  max-width: 540px;
+}
+.costs dd {
+  font-variant-numeric: tabular-nums;
+}
 .receipt {
   max-width: 340px;
 }

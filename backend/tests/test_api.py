@@ -67,7 +67,7 @@ def test_expert_needs_login_then_key(client: TestClient, anon: TestClient, user_
     assert anon.post("/api/expert/critique", data={"id": "x"}).json()["detail"]["code"] == "login_required"
     # демо — только бесплатные функции: нейросети открываются в платных тарифах
     demo = client.post("/api/expert/critique", data={"id": "whatever"}, headers=user_headers).json()["detail"]
-    assert demo["code"] == "limit_reached" and "в платных тарифах" in demo["message"]
+    assert demo["code"] == "limit_reached" and "импульсов" in demo["message"]
     r = client.post("/api/expert/critique", data={"id": "whatever"})  # сессия client — на тарифе «Агентство»
     assert r.status_code == 503
     assert r.json()["detail"]["code"] == "expert_disabled"

@@ -180,7 +180,7 @@ def test_improve_spends_limit_only_on_success(client: TestClient, user_headers: 
     monkeypatch.setattr(expert, "current_config", lambda: expert.ExpertConfig("key", "https://x.test/v1", ["m"]))
     calls = []
 
-    def fake_generate(jpeg: bytes, prompt: str) -> bytes:
+    def fake_generate(jpeg: bytes, prompt: str, model: str) -> bytes:
         calls.append(prompt)
         if len(calls) == 1:
             raise improve.ImproveError("сбой")
@@ -390,12 +390,13 @@ def test_checkout_without_shop_is_503(client: TestClient, user_headers: dict) ->
 def test_demo_quota_is_lifetime_and_counts_analysis(anon: TestClient) -> None:
     auth = {"Authorization": f"Bearer {verified_token(anon)}"}
     files = {"file": ("c.jpg", jpeg_bytes(make_cover(4)), "image/jpeg")}
-    demo = anon.get("/api/billing/plans").json()["demo"]["analyze"]
+    terms = anon.get("/api/billing/plans").json()
+    demo = terms["demo_credits"] // terms["costs"]["analyze"]
     for _ in range(demo):
         assert anon.post("/api/analyze", files=files, headers=auth).status_code == 200
     r = anon.post("/api/analyze", files=files, headers=auth)
     assert r.status_code == 403 and r.json()["detail"]["code"] == "limit_reached"
-    assert "Демо-доступ" in r.json()["detail"]["message"]
+    assert "импульсов" in r.json()["detail"]["message"]
     assert anon.get("/api/auth/me", headers=auth).json()["usage"]["analyze"] == demo
 
 

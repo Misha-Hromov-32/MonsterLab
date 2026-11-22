@@ -96,11 +96,6 @@ const list = computed(() => {
 })
 const visible = computed(() => list.value.slice(0, shown.value))
 
-function quota(u: AdminUser, f: Feature) {
-  const bonus = u.bonus[f] ?? 0
-  return `${num(u.usage[f])} / ${num(u.limits[f])}${bonus ? ` + ${num(bonus)} бонус` : ''}`
-}
-
 const STATUS: Record<string, string> = { succeeded: 'оплачен', pending: 'ожидает', canceled: 'отменён' }
 
 // CSV для Excel: точка с запятой и BOM, иначе кириллица и столбцы разъедутся
@@ -262,7 +257,7 @@ function exportCsv() {
                       </div>
 
                       <div class="dcard">
-                        <h3 class="label">Квоты и запуски</h3>
+                        <h3 class="label">Использование функций</h3>
                         <table class="mini">
                           <thead>
                             <tr>
@@ -274,7 +269,7 @@ function exportCsv() {
                           <tbody>
                             <tr v-for="f in FEATURES" :key="f">
                               <td>{{ FEATURE_TITLES[f] }}</td>
-                              <td class="r num">{{ quota(u, f) }}</td>
+                              <td class="r num">{{ num(u.usage[f] ?? 0) }}</td>
                               <td class="r num">{{ num(u.runs[f] ?? 0) }}</td>
                             </tr>
                           </tbody>

@@ -151,6 +151,9 @@ class EmailUnverified(AccountError):
 class LimitReached(Exception):
     def __init__(self, feature: str, limit: int, plan: str) -> None:
         self.feature, self.limit, self.plan = feature, limit, plan
+        if feature == "credits":
+            super().__init__(f"Недостаточно импульсов. Для этого действия нужно {limit}.")
+            return
         what = FEATURE_TITLES.get(feature, "запусков")
         if limit == 0:
             name = FEATURE_NAMES.get(feature, "Эта функция")
@@ -516,6 +519,10 @@ def activate_in(
     user = con.execute("SELECT pro_until,prepaid FROM users WHERE id=?", (user_id,)).fetchone()
     if user is None:
         return
+    if quota_json is None and (plan := find_plan(plan_id)):
+        from . import credits
+
+        quota_json = json.dumps({**plan["limits"], "credits": credits.plan_grant(plan)})
     prepaid = bool(cycle and days > cycle)
     tail = con.execute("SELECT max(ends) FROM prepaid_terms WHERE buyer=?", (user_id,)).fetchone()[0]
     # Смена тарифа не должна превращать заранее оплаченные месяцы в месяцы более дорогого тарифа.
@@ -596,37 +603,15 @@ def bonus(user: User) -> dict[str, int]:
 
 
 def check(user: User, feature: str) -> None:
-    """До запуска функции: остались ли запуски в квоте тарифа или бонусные."""
-    limit = limits(user).get(feature, 0)
-    if usage(user)[feature] >= limit and bonus(user)[feature] <= 0:
-        raise LimitReached(feature, limit, user.plan)
+    from . import credits
+
+    credits.ensure(user, credits.COST[feature])
 
 
 def spend(user: User, feature: str) -> None:
-    """После успешного запуска: списать один запуск — из квоты тарифа, а когда она кончилась, из бонусных.
-    Сбой модели запуск не тратит."""
-    limit = limits(user).get(feature, 0)
-    period = usage_period(user)
-    with db.connect() as con:
-        row = con.execute(
-            "SELECT count FROM usage WHERE user_id = ? AND feature = ? AND day = ?", (user.id, feature, period)
-        ).fetchone()
-        used = row["count"] if row else 0
-        from_bonus = (
-            used >= limit
-            and con.execute(
-                "UPDATE user_bonus SET balance = balance - 1 WHERE user_id = ? AND feature = ? AND balance > 0",
-                (user.id, feature),
-            ).rowcount
-            == 1
-        )
-        if not from_bonus:
-            con.execute(
-                "INSERT INTO usage (user_id, feature, day, count) VALUES (?, ?, ?, 1) "
-                "ON CONFLICT (user_id, feature, day) DO UPDATE SET count = count + 1",
-                (user.id, feature, period),
-            )
-        con.execute("INSERT INTO events (ts, user_id, feature) VALUES (?, ?, ?)", (time.time(), user.id, feature))
+    from . import credits
+
+    credits.finish(credits.reserve(user, feature), True)
 
 
 def extend(user_id: int, days: int) -> None:

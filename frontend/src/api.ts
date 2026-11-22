@@ -244,8 +244,19 @@ export const api = {
     ),
 
   /** улучшенная обложка рисуется 30–60 секунд */
-  improve: (id: string, context: object, issues: string[]) =>
-    request<{ image: string }>('/api/improve', withAuth(jsonBody('POST', { id, context, issues })), {
+  generatePhoto(file: File, model: string, prompt: string) {
+    const data = new FormData()
+    data.append('file', file)
+    data.append('model', model)
+    data.append('prompt', prompt)
+    return request<{ image: string; cost: number }>(
+      '/api/improve/from-photo',
+      withAuth({ method: 'POST', body: data }),
+      { timeoutMs: 300_000 },
+    )
+  },
+  improve: (id: string, context: object, issues: string[], model = '', prompt = '') =>
+    request<{ image: string }>('/api/improve', withAuth(jsonBody('POST', { id, context, issues, model, prompt })), {
       timeoutMs: 300_000,
     }),
 

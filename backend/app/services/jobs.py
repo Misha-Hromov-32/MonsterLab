@@ -74,6 +74,7 @@ class Job:
     work: Callable[[], Awaitable[Any]] = field(repr=False)
     user: accounts.User | None = None
     feature: str | None = None
+    cost: int | None = None
     priority: int = BACKGROUND
     seq: int = 0
     created: float = field(default_factory=time.time)
@@ -153,6 +154,7 @@ class JobQueue:
         user: accounts.User | None = None,
         feature: str | None = None,
         priority: int | None = None,
+        cost: int | None = None,
     ) -> Job:
         """Ставит задачу (вызывать из event loop). QueueFull — если ставить некуда."""
         self._cleanup()
@@ -172,6 +174,7 @@ class JobQueue:
             work=work,
             user=user,
             feature=feature,
+            cost=cost,
             priority=priority_for(user) if priority is None else priority,
             seq=next(self._seq),
         )
@@ -283,19 +286,22 @@ class JobQueue:
     async def _run(self, job: Job) -> None:
         job.status, job.started = "running", time.time()
         self._running[job.lane] += 1
+        from . import credits
+
         ok = False
+        charge = None
         try:
             if job.created + config.QUEUE_MAX_WAIT_S < job.started:
                 raise HTTPException(
                     503, {"code": "queue_timeout", "message": "Очередь слишком длинная. Попробуйте позже."}
                 )
             if job.user is not None and job.feature:
-                await asyncio.to_thread(accounts.check, job.user, job.feature)
+                charge = await asyncio.to_thread(credits.reserve, job.user, job.feature, job.cost)
             # журнал расходов на нейросети: чей запрос и какая функция (наследуется задачами и потоками)
             aicost.CALLER.set((job.user.id if job.user else None, job.feature or "background"))
             job.result = await asyncio.wait_for(job.work(), timeout=config.QUEUE_JOB_TIMEOUT_S)
-            if job.user is not None and job.feature:
-                await asyncio.to_thread(accounts.spend, job.user, job.feature)
+            if charge:
+                await asyncio.to_thread(credits.finish, charge, True)
             job.status, ok = "done", True
         except asyncio.CancelledError:
             job.status, job.error = "error", {"status": 503, "code": "restarting", "message": "Сервис перезапускается"}
@@ -303,6 +309,8 @@ class JobQueue:
         except Exception as exc:  # noqa: BLE001 — любая ошибка задачи идёт клиенту, исполнитель живёт дальше
             job.status, job.error = "error", _error_of(exc)
         finally:
+            if charge and not ok:
+                await asyncio.to_thread(credits.finish, charge, False)
             job.finished = time.time()
             self._running[job.lane] -= 1
             self._stats.append((job.finished, job.lane, job.started - job.created, job.finished - job.started, ok))

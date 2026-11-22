@@ -46,7 +46,7 @@ def test_generated_covers_saved_and_deduplicated(client, monkeypatch):
     original = jpeg_bytes(make_cover(772))
     generated = jpeg_bytes(make_cover(773))
     first = client.post("/api/analyze", files={"file": ("source.jpg", original, "image/jpeg")}, headers=headers).json()
-    monkeypatch.setattr(improve, "generate", lambda jpeg, prompt: generated)
+    monkeypatch.setattr(improve, "generate", lambda jpeg, prompt, model: generated)
     result = client.post("/api/improve", json={"id": first["id"]}, headers=headers)
     assert result.status_code == 200, result.text
     key = result.json()["library_id"]

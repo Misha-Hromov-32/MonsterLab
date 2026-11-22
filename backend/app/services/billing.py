@@ -26,7 +26,7 @@ import certifi
 import httpx
 
 from .. import config
-from . import accounts, db, partners, site
+from . import accounts, credits, db, partners, site
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +67,19 @@ def enabled() -> bool:
 def plans() -> dict:
     """Условия для страницы тарифов: демо-квоты и платные тарифы."""
     billing = site.read()["billing"]
-    return {**billing, "plans": [{**p, "offers": [offer(p, n, billing) for n in (1, 3, 6)]} for p in billing["plans"]]}
+    from . import credits, image_models
+
+    return {
+        **billing,
+        "demo_credits": billing.get("demo_credits", credits.DEMO),
+        "costs": credits.COST,
+        "image_models": image_models.catalog(),
+        "default_image_model": image_models.default_id(),
+        "plans": [
+            {**p, "credits": credits.plan_grant(p), "offers": [offer(p, n, billing) for n in (1, 3, 6)]}
+            for p in billing["plans"]
+        ],
+    }
 
 
 def offer(plan: dict, periods: int, settings: dict) -> dict:
@@ -148,7 +160,7 @@ def checkout(user: accounts.User, plan_id: str, receipt_email: str = "", periods
                 time.time(),
                 terms["days"],
                 cycle,
-                json.dumps(info["limits"]),
+                json.dumps({**info["limits"], "credits": credits.plan_grant(info)}),
             ),
         )
     return {"url": url, "payment_id": payment_id, "amount": price}

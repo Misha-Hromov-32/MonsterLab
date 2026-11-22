@@ -74,12 +74,17 @@ export function quotaLabel(f: keyof typeof FEATURE_TITLES, n: number) {
 
 /** Что даёт промокод, по строкам: «+10 проверок обложек», «−2 теста полки», «тариф «Старт» на 7 дней». */
 export function promoSummary(
-  p: { bonus: Partial<Record<keyof typeof FEATURE_TITLES, number>>; plan_id: string | null; plan_days: number },
+  p: {
+    bonus: Partial<Record<keyof typeof FEATURE_TITLES | 'credits', number>>
+    plan_id: string | null
+    plan_days: number
+  },
   planTitle: (id: string) => string = (id) => id,
 ): string[] {
   const out = (Object.keys(FEATURE_FORMS) as (keyof typeof FEATURE_TITLES)[])
     .filter((f) => p.bonus[f])
     .map((f) => `${p.bonus[f]! > 0 ? '+' : '−'}${quotaLabel(f, Math.abs(p.bonus[f]!))}`)
+  if (p.bonus.credits) out.unshift((p.bonus.credits > 0 ? '+' : '') + p.bonus.credits + ' имп.')
   if (p.plan_id && p.plan_days)
     out.push(`тариф «${planTitle(p.plan_id)}» на ${p.plan_days} ${plural(p.plan_days, ['день', 'дня', 'дней'])}`)
   return out

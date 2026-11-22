@@ -92,6 +92,7 @@ function remove(id: string) {
     </section>
 
     <!-- визуальный разбор — сразу под индексом: стиль и смысл важнее технических метрик -->
+    <ImprovePanel v-if="features.improve" :variant="variant" />
     <CritiquePanel :variant="variant" />
 
     <section>
@@ -172,7 +173,6 @@ function remove(id: string) {
     </section>
 
     <!-- сразу после выводов: «вот что не так» → «перерисовать с учётом этого» -->
-    <ImprovePanel v-if="features.improve" :variant="variant" />
 
     <section>
       <div class="sec-head"><span class="label">Палитра</span></div>

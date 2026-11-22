@@ -89,7 +89,7 @@ def test_bonus_is_spent_after_plan_quota(client: TestClient, admin: dict) -> Non
     accounts.check(user, "analyze")  # квота кончилась, но есть бонусные
     accounts.spend(user, "analyze")
     me = client.get("/api/auth/me", headers=auth).json()
-    assert me["bonus"]["analyze"] == 1 and me["usage"]["analyze"] == limit  # списан бонус, не квота
+    assert me["wallet"]["bonus"] == 3 and me["usage"]["analyze"] == limit + 1
 
 
 def test_promo_plan_for_demo_and_extension_for_paid(client: TestClient, admin: dict) -> None:

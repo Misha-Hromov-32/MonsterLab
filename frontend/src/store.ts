@@ -10,7 +10,7 @@ import {
 } from './lib/constants'
 import { dataUrlToFile, IMAGE_HINT, isImage } from './lib/files'
 import { baseName, plural } from './lib/format'
-import { paidError, refreshMe, requireLogin } from './lib/account'
+import { paidError, refreshMe, requireLogin, signedIn } from './lib/account'
 import { goal } from './lib/metrika'
 import { KEYS } from './lib/types'
 import type {
@@ -200,7 +200,8 @@ export function addFiles(files: FileList | File[], target?: Key, analyses?: (Ana
     return
   }
   // проверка обложек — только после входа; после входа файлы добавятся сами
-  if (!requireLogin(LOGIN_TO_CHECK, () => addFiles(list, target, analyses))) return
+  const prepared = !target && list.every((_, i) => analyses?.[i])
+  if (!prepared && !requireLogin(LOGIN_TO_CHECK, () => addFiles(list, target, analyses))) return
   if (target) {
     replaceVariant(target, list[0])
     return
@@ -380,16 +381,18 @@ export function critiqueIssues(v: Variant) {
   return [...new Set(all)].slice(0, IMPROVE_MAX_ISSUES)
 }
 
-export async function runImprove(v: Variant) {
+export async function runImprove(v: Variant, model = '', prompt = '') {
   if (!v.analysis || v.improveStatus === 'loading') return
-  const retry = () => runImprove(v)
+  const retry = () => runImprove(v, model, prompt)
   if (!requireLogin('Войдите, чтобы сгенерировать улучшенную обложку', retry)) return
   const file = v.file
   v.improveStatus = 'loading'
   v.improveError = undefined
   v.improveStartedAt = Date.now()
   try {
-    const { image } = await withIds([v], (ids) => api.improve(ids[v.key], state.context, critiqueIssues(v)))
+    const { image } = await withIds([v], (ids) =>
+      api.improve(ids[v.key], state.context, critiqueIssues(v), model, prompt),
+    )
     if (v.file !== file) return // пока рисовали, вариант заменили — картинка уже не про него
     v.improved = image
     v.improveStatus = 'ready'
@@ -598,7 +601,6 @@ let exampleBusy = false
 /** Открывает опубликованный пример: варианты в свободные слоты, конкуренты и данные о товаре. */
 export async function loadExample(ex: Example) {
   if (exampleBusy) return
-  if (!requireLogin(LOGIN_TO_CHECK, () => loadExample(ex))) return
   const slots = freeKeys.value.length
   if (!slots) {
     toast('Для открытия примера начните новый анализ.')
@@ -621,6 +623,10 @@ export async function loadExample(ex: Example) {
         .catch((): ExampleResults => ({ ready: false })),
     ])
     const analyses = results.ready ? ex.variants.slice(0, slots).map((v) => results.variants[v.id]) : undefined
+    if ((!analyses?.length || !analyses.every(Boolean)) && !signedIn.value) {
+      toast('Готовим результаты примера. Откройте его ещё раз через минуту.')
+      return
+    }
     addFiles(variants, undefined, analyses)
     if (comps.length) addCompetitors(comps)
     exampleShelf = fresh && results.ready ? { gen: shelfGen, results: results.shelf } : null

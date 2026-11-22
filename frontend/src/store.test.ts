@@ -265,6 +265,7 @@ describe('примеры', () => {
       variants: [image('v1'), image('v2')],
       competitors: [image('c1')],
     }
+    acc.logout()
     const shelfMobile = { mode: 'competitors' } as ShelfResult
     api.exampleResults.mockResolvedValue({
       ready: true,
@@ -384,9 +385,15 @@ describe('улучшенная обложка', () => {
     v.critique = { improvements: [issue, issue] } as Critique
     api.improve.mockResolvedValueOnce({ image: IMAGE })
 
-    await store.runImprove(v)
+    await store.runImprove(v, 'krea/k3-edit', 'Сохранить этикетку')
 
-    expect(api.improve).toHaveBeenCalledWith('a1', store.state.context, ['Мелкий текст — Увеличить шрифт'])
+    expect(api.improve).toHaveBeenCalledWith(
+      'a1',
+      store.state.context,
+      ['Мелкий текст — Увеличить шрифт'],
+      'krea/k3-edit',
+      'Сохранить этикетку',
+    )
     expect(v.improveStatus).toBe('ready')
     expect(v.improved).toBe(IMAGE)
   })

@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-vue-next'
 import BeforeAfter from './BeforeAfter.vue'
+import CoverGenerator from '../CoverGenerator.vue'
 import ExamplesGallery from './ExamplesGallery.vue'
 import BrandMark from '../BrandMark.vue'
 import { addFiles, site } from '../../store'
@@ -105,7 +106,8 @@ const FEATURES = [
         <p v-if="l.title_muted" class="title-2">{{ l.title_muted }}</p>
         <p class="lead">{{ l.lead }}</p>
         <div class="ctas">
-          <button type="button" class="b-cta" @click="pick()">
+          <a href="#generator" class="b-cta"><Sparkles :size="18" /> Сгенерировать обложку</a>
+          <button type="button" class="b-ghost" @click="pick()">
             <Upload :size="18" aria-hidden="true" /> {{ l.cta }}
           </button>
           <a class="b-ghost" href="#examples">Смотреть примеры <ArrowDown :size="16" aria-hidden="true" /></a>
@@ -159,6 +161,7 @@ const FEATURES = [
       </div>
     </div>
 
+    <CoverGenerator />
     <!-- ---------------------------------------------------------------- как работает -->
     <section id="how" class="block">
       <div class="head">

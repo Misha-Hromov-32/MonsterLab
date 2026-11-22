@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { loadPlans } from './lib/account'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import TopBar from './components/TopBar.vue'
 import VariantRail from './components/VariantRail.vue'
@@ -80,6 +81,7 @@ watch(
 )
 
 onMounted(() => {
+  void loadPlans()
   loadSite(preview)
   if (preview) return
   loadHealth()

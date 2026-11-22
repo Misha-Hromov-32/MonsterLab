@@ -176,6 +176,7 @@ export type FeatureLimits = Record<Feature, number>
 
 /** Платный тариф: /api/billing/plans и раздел «Тарифы» в админке. */
 export interface PlanInfo {
+  credits?: number
   offers?: { periods: number; days: number; discount: number; price: number }[]
   id: string
   title: string
@@ -188,6 +189,7 @@ export interface PlanInfo {
 }
 
 export interface User {
+  wallet?: { grant: number; remaining: number; period_remaining: number; bonus: number }
   /** пусто у аккаунта, созданного через VK ID без почты */
   email: string
   /** через какие сервисы входил: vk, yandex */
@@ -210,7 +212,7 @@ export interface PromoCode {
   id: number
   code: string
   note: string
-  bonus: Partial<Record<Feature, number>>
+  bonus: Partial<Record<Feature | 'credits', number>>
   plan_id: string | null
   plan_days: number
   /** всего активаций; 0 — без ограничения */
@@ -226,7 +228,7 @@ export type PromoInput = Omit<PromoCode, 'id' | 'created_at' | 'uses'>
 
 /** Что начислил промокод при активации. */
 export interface PromoApplied {
-  bonus: Partial<Record<Feature, number>>
+  bonus: Partial<Record<Feature | 'credits', number>>
   plan_id: string | null
   plan_days: number
 }
@@ -271,6 +273,10 @@ export interface Registered {
 
 /** Тарифы: /api/billing/plans. demo — разовые квоты после подтверждения почты. */
 export interface Billing {
+  demo_credits?: number
+  costs?: Record<string, number>
+  default_image_model?: string
+  image_models?: { id: string; title: string; cost: number }[]
   discount3?: number
   discount6?: number
   partner_percent?: number
@@ -484,7 +490,7 @@ export interface AdminUser {
   /** запуски в текущем периоде тарифа и квоты на период */
   usage: Record<Feature, number>
   limits: Record<Feature, number>
-  bonus: Partial<Record<Feature, number>>
+  bonus: Partial<Record<Feature | 'credits', number>>
   /** запуски за всё время */
   runs: Partial<Record<Feature, number>>
   runs_total: number

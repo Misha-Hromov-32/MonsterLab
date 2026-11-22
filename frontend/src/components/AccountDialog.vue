@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import { CreditCard, FolderOpen, Loader2, LogOut, Ticket } from 'lucide-vue-next'
 import ModalDialog from './ModalDialog.vue'
-import UsageList from './UsageList.vue'
 import {
   account,
   accountLabel,
@@ -57,14 +56,13 @@ function signOut() {
         Оплачен тариф «{{ term.title }}» с {{ formatDate(term.starts) }} по {{ formatDate(term.ends) }}.
       </p>
       <section>
-        <span class="label">{{ isPaid ? 'Использовано за период' : 'Демо-доступ' }}</span>
-        <UsageList :usage="user.usage" :limits="user.limits" :bonus="user.bonus" />
-        <p class="note">
-          {{
-            isPaid
-              ? 'Квоты действуют в пределах базового периода тарифа.'
-              : 'Демо-доступ разовый. Для продолжения выберите тариф.'
-          }}
+        <span class="label">Баланс импульсов</span>
+        <p class="balance">
+          <strong>{{ user.wallet?.remaining?.toLocaleString('ru-RU') ?? '…' }}</strong> доступно
+        </p>
+        <p v-if="user.wallet" class="note">
+          {{ user.wallet.grant.toLocaleString('ru-RU') }} {{ isPaid ? 'на базовый период' : 'на демо-доступ'
+          }}<template v-if="user.wallet.bonus"> · {{ user.wallet.bonus }} бонусных</template>
         </p>
       </section>
 

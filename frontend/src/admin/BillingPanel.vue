@@ -21,6 +21,7 @@ const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x))
 
 const demo = ref<FeatureLimits>(clone(saved.value.demo))
 const plans = ref<PlanInfo[]>(clone(saved.value.plans))
+const demoCredits = ref(saved.value.demo_credits ?? 30)
 const discount3 = ref(saved.value.discount3 ?? 10)
 const discount6 = ref(saved.value.discount6 ?? 20)
 const partnerPercent = ref(saved.value.partner_percent ?? 15)
@@ -29,6 +30,7 @@ const error = ref('')
 
 const body = computed(() => ({
   demo: demo.value,
+  demo_credits: demoCredits.value,
   plans: plans.value,
   discount3: discount3.value,
   discount6: discount6.value,
@@ -39,6 +41,7 @@ const dirty = computed(
     JSON.stringify(body.value) !==
     JSON.stringify({
       demo: saved.value.demo,
+      demo_credits: saved.value.demo_credits ?? 30,
       plans: saved.value.plans,
       discount3: saved.value.discount3 ?? 10,
       discount6: saved.value.discount6 ?? 20,
@@ -53,6 +56,7 @@ const valid = computed(
     inRange(discount3.value, 0, 90) &&
     inRange(discount6.value, 0, 90) &&
     inRange(partnerPercent.value, 0, 100) &&
+    inRange(demoCredits.value, 0, 100_000) &&
     quotasOk(demo.value) &&
     plans.value.length > 0 &&
     new Set(plans.value.map((p) => p.id)).size === plans.value.length &&
@@ -62,6 +66,7 @@ const valid = computed(
         p.title.trim().length > 0 &&
         inRange(p.price_rub, 1, MAX_PRICE) &&
         inRange(p.period_days, 1, MAX_DAYS) &&
+        inRange(p.credits ?? 0, 1, 10_000_000) &&
         quotasOk(p.limits),
     ),
 )
@@ -77,6 +82,7 @@ function addPlan() {
     period_days: 30,
     note: '',
     featured: false,
+    credits: last?.credits ? last.credits * 2 : 1000,
     limits: last ? { ...last.limits } : { ...demo.value },
   })
 }
@@ -108,7 +114,7 @@ async function save() {
     <header class="ph">
       <div>
         <h1>Тарифы</h1>
-        <p>Демо-доступ после подтверждения почты и платные тарифы: цена, срок и квоты на период оплаты.</p>
+        <p>Демо-доступ после подтверждения почты и платные тарифы: цена, срок и импульсы на период оплаты.</p>
       </div>
       <span class="status" :class="{ on: saved.enabled }">
         <i class="dot" :class="{ good: saved.enabled }" />
@@ -119,7 +125,7 @@ async function save() {
       Оплата принимается через Точку Банк (<code>TOCHKA_JWT</code>, <code>TOCHKA_CUSTOMER_CODE</code>,
       <code>TOCHKA_MERCHANT_ID</code>) или ЮKassa (<code>YOOKASSA_SHOP_ID</code>, <code>YOOKASSA_SECRET_KEY</code>) —
       ключи задаются в переменных окружения, выбор — <code>PAYMENT_PROVIDER</code>.
-      <template v-if="!saved.enabled">Пока их нет, кнопки оплаты на сайте скрыты, а демо-квоты уже действуют.</template>
+      <template v-if="!saved.enabled">Пока их нет, кнопки оплаты на сайте скрыты, а демо-баланс уже доступен.</template>
     </p>
     <section class="card block">
       <h2>Условия оплаты</h2>
@@ -188,49 +194,14 @@ async function save() {
     </section>
 
     <section class="card block">
-      <h2 class="label">Квоты</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th />
-              <th class="label">Демо</th>
-              <th v-for="(p, i) in plans" :key="i" class="label">{{ p.title }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="f in FEATURES" :key="f">
-              <th scope="row">{{ FEATURE_TITLES[f] }}</th>
-              <td>
-                <input
-                  v-model.number="demo[f]"
-                  class="input num"
-                  type="number"
-                  min="0"
-                  :max="MAX_LIMIT"
-                  step="1"
-                  :aria-label="`${FEATURE_TITLES[f]}, демо`"
-                />
-              </td>
-              <td v-for="(p, i) in plans" :key="i">
-                <input
-                  v-model.number="p.limits[f]"
-                  class="input num"
-                  type="number"
-                  min="0"
-                  :max="MAX_LIMIT"
-                  step="1"
-                  :aria-label="`${FEATURE_TITLES[f]}, тариф ${p.title}`"
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="note">
-        Демо — на всё время, тарифы — на период оплаты. 0 — функция недоступна. Анализ, полка и подбор конкурентов почти
-        ничего не стоят; разбор, выбор покупателя и улучшенная обложка — это запросы к нейросетям (≈8, ≈3–15 и ≈14 ₽).
-      </p>
+      <h2 class="label">Начисление импульсов</h2>
+      <label class="field"
+        >Разовый демо-баланс<input class="input" v-model.number="demoCredits" type="number" min="0" max="100000"
+      /></label>
+      <label v-for="p in plans" :key="p.id" class="field"
+        >Импульсов за период · {{ p.title
+        }}<input class="input" type="number" min="1" max="10000000" v-model.number="p.credits"
+      /></label>
     </section>
 
     <div class="actions">
