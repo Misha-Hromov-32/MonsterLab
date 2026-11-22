@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Check, Loader2, Sparkles, X } from 'lucide-vue-next'
+import { account } from '../lib/account'
 import { expertEnabled, runCritique, state } from '../store'
 import { VISUAL_MAX_RIVALS } from '../lib/constants'
 import type { CritiqueScore, Variant } from '../lib/types'
@@ -41,8 +42,7 @@ const details = computed(() =>
 <template>
   <section v-if="expertEnabled" class="visual">
     <div class="sec-head">
-      <span class="label">Визуальный разбор</span>
-      <span class="label tag">Композиция и текст</span>
+      <h3>Визуальный разбор</h3>
     </div>
 
     <div v-if="variant.critiqueStatus !== 'ready' || !c" class="ask">
@@ -56,7 +56,10 @@ const details = computed(() =>
       <button class="btn primary" :disabled="loading" @click="runCritique(variant)">
         <Loader2 v-if="loading" :size="15" class="spin" />
         <Sparkles v-else :size="15" />
-        {{ loading ? 'Разбираем…' : 'Разобрать обложку' }}
+        {{ loading ? 'Разбираем…' : 'Разобрать обложку'
+        }}<template v-if="!loading && account.billing?.costs?.expert">
+          · {{ account.billing.costs.expert }} имп.</template
+        >
       </button>
       <p v-if="variant.critiqueStatus === 'error'" class="err">{{ variant.critiqueError }}</p>
     </div>
@@ -131,13 +134,24 @@ const details = computed(() =>
 
       <button class="btn sm ghost again" :disabled="loading" @click="runCritique(variant)">
         <Loader2 v-if="loading" :size="14" class="spin" />
-        Разобрать ещё раз
+        Разобрать ещё раз<template v-if="account.billing?.costs?.expert">
+          · {{ account.billing.costs.expert }} имп.</template
+        >
       </button>
     </div>
   </section>
 </template>
 
 <style scoped>
+.sec-head h3 {
+  font-size: 18px;
+  line-height: 1.25;
+  letter-spacing: -0.035em;
+  margin: 0;
+}
+.visual .ask .rivals {
+  color: var(--ink-2);
+}
 .visual {
   padding-bottom: 22px;
   border-bottom: 1px solid var(--line);

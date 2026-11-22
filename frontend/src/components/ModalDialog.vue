@@ -4,7 +4,7 @@ import { X } from 'lucide-vue-next'
 
 // Общая оболочка модальных окон аккаунта: фокус внутри окна, Esc и клик по фону закрывают,
 // после закрытия фокус возвращается туда, откуда окно открыли.
-defineProps<{ title: string; wide?: boolean }>()
+defineProps<{ title: string; wide?: boolean; roomy?: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const titleId = useId()
@@ -60,7 +60,7 @@ onUnmounted(() => opener?.focus?.())
       <div
         ref="box"
         class="dialog rise"
-        :class="{ wide }"
+        :class="{ wide, roomy }"
         role="dialog"
         aria-modal="true"
         :aria-labelledby="titleId"
@@ -96,6 +96,10 @@ onUnmounted(() => opener?.focus?.())
   display: grid;
   gap: 18px;
   width: min(100%, 420px);
+  max-height: calc(100dvh - 32px);
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 20px 22px 22px;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -104,6 +108,14 @@ onUnmounted(() => opener?.focus?.())
   box-shadow: var(--shadow);
 }
 
+.dialog.roomy {
+  width: min(100%, 820px);
+  padding: clamp(16px, 3vw, 30px);
+}
+.dialog.roomy .dh h2 {
+  font: 750 clamp(21px, 3vw, 30px)/1.15 var(--display-font);
+  letter-spacing: -0.045em;
+}
 .dialog.wide {
   width: min(100%, 640px);
 }

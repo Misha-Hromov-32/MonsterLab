@@ -119,7 +119,10 @@ onUnmounted(() => {
           <span class="num">админ-панель</span>
         </div>
       </div>
-      <nav>
+      <select class="section-picker" v-model="tab" aria-label="Раздел админки">
+        <option v-for="t in tabs" :key="t.id" :value="t.id">{{ t.title }}</option>
+      </select>
+      <nav aria-label="Разделы админки">
         <button
           v-for="t in tabs"
           :key="t.id"
@@ -131,9 +134,13 @@ onUnmounted(() => {
         </button>
       </nav>
       <div class="foot">
-        <a class="btn ghost sm" href="/" target="_blank"><ExternalLink :size="14" /> Открыть сайт</a>
+        <a class="btn ghost sm" href="/" target="_blank" rel="noopener" aria-label="Открыть сайт"
+          ><ExternalLink :size="14" /> <span>Открыть сайт</span></a
+        >
         <div class="row">
-          <button class="btn ghost sm" @click="setToken('')"><LogOut :size="14" /> Выйти</button>
+          <button class="btn ghost sm" aria-label="Выйти из админки" @click="setToken('')">
+            <LogOut :size="14" /> <span>Выйти</span>
+          </button>
           <ThemeToggle class="sm" :size="15" />
         </div>
       </div>
@@ -258,14 +265,63 @@ nav button.on {
   margin: 20px;
 }
 
+.section-picker {
+  display: none;
+}
 @media (max-width: 800px) {
   .admin {
-    grid-template-columns: 1fr;
-    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100dvh;
   }
   .side {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 14px;
+    border: 0;
+    border-bottom: 1px solid var(--line-strong);
+    background: var(--panel);
+  }
+  .side nav {
+    display: none;
+  }
+  .section-picker {
+    display: block;
+    grid-column: 1/-1;
+    grid-row: 2;
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font: 600 14px/1.4 var(--font-sans);
+    min-height: 38px;
+  }
+  .foot {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .foot .row {
+    gap: 4px;
+  }
+  .foot a span,
+  .foot button span {
+    display: none;
+  }
+  .foot .btn {
+    min-width: 36px;
+    min-height: 36px;
+    justify-content: center;
+  }
+  .content {
+    overscroll-behavior: contain;
   }
 }
 </style>

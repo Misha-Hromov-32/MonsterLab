@@ -15,5 +15,4 @@ export function navigateCabinet(tab: CabinetTab | null = 'overview') {
   const url = tab ? '/account' + (tab === 'overview' ? '' : '#' + tab) : '/'
   if (location.pathname + location.search + location.hash !== url) history.pushState(null, '', url)
   syncCabinet()
-  window.scrollTo({ top: 0 })
 }

@@ -525,6 +525,7 @@ const isFirstPublished = computed(
 }
 
 .switch {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -536,6 +537,10 @@ const isFirstPublished = computed(
 
 .switch input {
   position: absolute;
+  width: 1px;
+  height: 1px;
+  left: 0;
+  top: 0;
   opacity: 0;
 }
 
@@ -753,10 +758,52 @@ const isFirstPublished = computed(
 
 @media (max-width: 1000px) {
   .layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .ctx {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .editor {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .editor .field,
+  .ctx .field,
+  .tile,
+  .cap,
+  .layout,
+  .imgs {
+    min-width: 0;
+  }
+  .cap {
+    width: 100%;
+  }
+  .ed-head,
+  .save-row,
+  .imgs-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ed-head .title-input {
+    flex: 1 1 100%;
+  }
+  .imgs-head .hint {
+    white-space: normal;
+  }
+  .editor textarea,
+  .editor input:not([type='checkbox']) {
+    max-width: 100%;
+  }
+  .switch:focus-within .track {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+}
+@media (hover: none) {
+  .thumb .tools {
+    opacity: 1;
   }
 }
 </style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { cabinetTab } from '../lib/cabinet'
 import { baseName } from '../lib/format'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Crop, Download, LayoutPanelTop, Smartphone, RefreshCw } from 'lucide-vue-next'
@@ -31,7 +32,7 @@ onUnmounted(() => {
 
 // Горячие клавиши работают только «голыми»: Ctrl+1 / Ctrl+Z принадлежат браузеру, а в полях ввода — тексту.
 function onKey(e: KeyboardEvent) {
-  if (e.ctrlKey || e.metaKey || e.altKey) return
+  if (cabinetTab.value || document.querySelector('[role="dialog"]') || e.ctrlKey || e.metaKey || e.altKey) return
   if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable]')) return
   const n = Number(e.key)
   const key = e.key.toLowerCase()

@@ -4,7 +4,8 @@ import { Sparkles, Download, Upload, ImagePlus, Replace, Loader2 } from 'lucide-
 import { site } from '../store'
 import ModelFields from './ModelFields.vue'
 import { api } from '../api'
-import { account, openTariffs, paidError, refreshMe, requireLogin } from '../lib/account'
+import { useModelPrice } from '../lib/modelPrice'
+import { openTariffs, paidError, refreshMe, requireLogin } from '../lib/account'
 const file = ref<File>(),
   source = ref(''),
   image = ref(''),
@@ -12,14 +13,7 @@ const file = ref<File>(),
   prompt = ref(''),
   busy = ref(false),
   error = ref('')
-const price = computed(() => account.billing?.image_models?.find((m) => m.id === model.value)?.cost)
-const balance = computed(() => account.user?.wallet?.remaining)
-const shortfall = computed(
-  () => balance.value !== undefined && price.value !== undefined && price.value > balance.value,
-)
-const affordable = computed(
-  () => account.billing?.image_models?.filter((m) => m.cost <= (balance.value ?? 0)).sort((a, b) => b.cost - a.cost)[0],
-)
+const { price, balance, shortfall, affordable } = useModelPrice(model)
 const input = ref<HTMLInputElement>()
 const over = ref(false)
 const sample = computed(

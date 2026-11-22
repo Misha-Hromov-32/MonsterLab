@@ -1,3 +1,15 @@
+.cab-shell {
+  --cabinet-canvas: #e9e5ed;
+  --line: #cfc6d5;
+  --ink-2: #625767;
+}
+:root[data-theme='dark'] .cab-shell {
+  --cabinet-canvas: #17131c;
+  --line: #56485b;
+  --panel: #2a2330;
+  --panel-2: #372d3d;
+  --ink-2: #d2c5d6;
+}
 .lab-section {
   width: 100%;
   max-width: 1360px;

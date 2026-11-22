@@ -15,9 +15,7 @@ import {
   Ticket,
   Menu,
 } from 'lucide-vue-next'
-import Logo from './Logo.vue'
 import BrandMark from './BrandMark.vue'
-import ThemeToggle from './ThemeToggle.vue'
 import CoverLibrary from './CoverLibrary.vue'
 import RewardPanel from './RewardPanel.vue'
 import RulesView from '../studio/RulesView.vue'
@@ -37,7 +35,7 @@ import {
 import { session } from '../lib/session'
 import { cabinetTab, navigateCabinet, type CabinetTab } from '../lib/cabinet'
 import { formatDate } from '../lib/format'
-import { toast } from '../store'
+import { state, toast } from '../store'
 const tabs = [
   { id: 'overview', label: 'Обзор', icon: LayoutDashboard },
   { id: 'covers', label: 'Мои обложки', icon: Images },
@@ -61,6 +59,9 @@ async function reload() {
     fetching.value = false
   }
 }
+const returnLabel = computed(() =>
+  state.variants.length ? { analyze: 'К разбору', compare: 'К сравнению', shelf: 'К полке' }[state.view] : 'На главную',
+)
 const previousTitle = document.title
 onUnmounted(() => {
   document.title = previousTitle
@@ -104,12 +105,6 @@ function leave() {
 </script>
 <template>
   <div class="cab-shell">
-    <header class="cab-top">
-      <a href="/" aria-label="MonStoreLab, главная" @click.prevent="navigateCabinet(null)"><Logo :size="32" /></a>
-      <div>
-        <a href="/" @click.prevent="navigateCabinet(null)"><ArrowLeft :size="16" /> На главную</a><ThemeToggle />
-      </div>
-    </header>
     <div class="cab-scroll">
       <div class="cab-layout">
         <aside class="cab-side">
@@ -125,6 +120,9 @@ function leave() {
               ><component :is="t.icon" :size="18" />{{ t.label }}</a
             >
           </nav>
+          <a href="/" class="cab-back" @click.prevent="navigateCabinet(null)"
+            ><ArrowLeft :size="16" /> {{ returnLabel }}</a
+          >
           <button v-if="signedIn" class="cab-exit" @click="leave"><LogOut :size="16" /> Выйти</button>
         </aside>
         <main class="cab-page" :key="session.token">
@@ -226,42 +224,26 @@ function leave() {
   font-size: 14px;
 }
 .cab-shell {
-  height: 100dvh;
+  min-height: 0;
+  min-width: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  background: color-mix(in srgb, var(--panel-2) 55%, var(--bg));
+  grid-template-rows: minmax(0, 1fr);
+  background: var(--cabinet-canvas);
 }
-.cab-top {
-  min-height: 68px;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
-  padding: 10px clamp(18px, 4vw, 64px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.cab-top div,
-.cab-top a,
+
 .cab-exit,
-.cab-switch {
+.cab-switch,
+.cab-back {
   display: flex;
   align-items: center;
   gap: 9px;
-}
-.cab-top a {
-  text-decoration: none;
-  color: var(--ink);
-  font-weight: 550;
-}
-.cab-top div {
-  gap: 20px;
 }
 .cab-scroll {
   overflow: auto;
 }
 .cab-layout {
   display: grid;
-  grid-template-columns: 218px minmax(0, 1fr);
+  grid-template-columns: 242px minmax(0, 1fr);
   gap: clamp(28px, 4vw, 64px);
   max-width: 1390px;
   margin: auto;
@@ -271,6 +253,11 @@ function leave() {
 .cab-side {
   position: sticky;
   top: 24px;
+  padding: 22px 12px 12px;
+  border: 1px solid #432d45;
+  background: #2b1e30;
+  border-radius: 18px;
+  color: #fff;
 }
 .cab-side > strong {
   display: block;
@@ -298,16 +285,44 @@ function leave() {
   align-items: center;
   gap: 10px;
 }
-.cab-side nav a[aria-current],
-.cab-side nav a:hover {
-  background: color-mix(in srgb, var(--brand) 10%, var(--panel));
-  color: var(--ink);
+.cab-side nav a,
+.cab-exit,
+.cab-back {
+  color: #e7dfe8;
+}
+.cab-side nav a:hover,
+.cab-exit:hover,
+.cab-back:hover {
+  background: #453348;
+  color: white;
+}
+.cab-side nav a[aria-current] {
+  background: #f7def3;
+  color: #3a1435;
+  font-weight: 700;
 }
 .cab-side nav a[aria-current] svg {
-  color: var(--brand);
+  color: #8d247d;
+}
+.cab-back {
+  margin-top: 16px;
+  border-top: 1px solid #59445a;
+  padding: 15px 12px 8px;
+  font-size: 14px;
+  text-decoration: none;
 }
 .cab-exit {
-  margin-top: 24px;
+  margin-top: 4px;
+}
+.cab-page {
+  color: var(--ink);
+}
+.cab-side nav a:focus-visible,
+.cab-back:focus-visible,
+.cab-switch:focus-visible,
+.cab-exit:focus-visible {
+  outline: 2px solid #f1a8e8;
+  outline-offset: 1px;
 }
 .cab-switch {
   display: none;
@@ -457,20 +472,30 @@ function leave() {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 6px;
-    border-bottom: 1px solid var(--line);
-    padding-bottom: 12px;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: 12px;
   }
   .cab-side > strong {
-    margin: 0 auto 0 0;
+    display: none;
   }
   .cab-switch {
     display: flex;
-    background: var(--panel);
-    border: 1px solid var(--line);
+    color: #fff;
+    background: #49364d;
+    border: 1px solid #6a516b;
+    padding: 8px 10px;
+    min-height: 38px;
+  }
+  .cab-back {
+    margin: 0 0 0 auto;
+    border: 0;
+    font-size: 13px;
+    padding: 10px 6px;
   }
   .cab-exit {
     margin: 0;
+    padding: 10px;
     font-size: 0;
     gap: 0;
   }
@@ -482,12 +507,6 @@ function leave() {
   .cab-side nav.expanded {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .cab-top {
-    min-height: 56px;
-  }
-  .cab-top div {
-    gap: 10px;
   }
 }
 @media (max-width: 560px) {
@@ -524,12 +543,6 @@ function leave() {
   .cab-subhead {
     font-size: 21px;
     margin-top: 24px;
-  }
-  .cab-top .logo {
-    max-width: 44vw;
-  }
-  .cab-top a {
-    font-size: 13px;
   }
 }
 </style>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, type Component } from 'vue'
+import { cabinetTab, navigateCabinet } from '../lib/cabinet'
+import { computed, nextTick, type Component } from 'vue'
 import { Columns3, Eye, LayoutGrid, Plus, Sparkles, Upload } from 'lucide-vue-next'
 import Logo from './Logo.vue'
 import ThemeToggle from './ThemeToggle.vue'
@@ -49,11 +50,23 @@ const tabs = computed<Tab[]>(() => [
 ])
 
 // навигация главной — прокрутка к разделам
-function go(id: string) {
+async function go(id: string) {
+  if (cabinetTab.value) {
+    navigateCabinet(null)
+    history.replaceState(history.state, '', '/#' + id)
+    await nextTick()
+  }
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-const pick = useFilePicker((files) => addFiles(files))
+const pick = useFilePicker((files) => {
+  if (cabinetTab.value) navigateCabinet(null)
+  addFiles(files)
+})
+function showView(view: View) {
+  state.view = view
+  if (cabinetTab.value) navigateCabinet(null)
+}
 
 // на широком экране главная прокручивается внутри себя (корень варианта главной — прямой потомок .main),
 // на телефоне — вся страница; наверх возвращаем оба
@@ -63,15 +76,30 @@ function toTop() {
 }
 
 function home() {
+  if (cabinetTab.value) {
+    navigateCabinet(null)
+    return
+  }
   if (!working.value) return toTop()
+  newAnalysis()
+}
+function newAnalysis() {
   // спрашиваем, только когда есть что терять
-  if (confirm('Начать новый анализ? Загруженные обложки и все результаты будут удалены.')) resetAll()
+  if (confirm('Начать новый анализ? Загруженные обложки и все результаты будут удалены.')) {
+    resetAll()
+    navigateCabinet(null)
+  }
 }
 </script>
 
 <template>
-  <header class="top" :class="{ working }">
-    <button type="button" class="brand" :title="working ? 'Новый анализ' : 'MonStoreLab'" @click="home">
+  <header class="top" :class="{ working, cabinet: cabinetTab }">
+    <button
+      type="button"
+      class="brand"
+      :title="cabinetTab ? (working ? 'Вернуться к работе' : 'На главную') : working ? 'Новый анализ' : 'MonStoreLab'"
+      @click="home"
+    >
       <Logo :size="32" sub="тест обложек для маркетплейсов" />
     </button>
 
@@ -89,19 +117,28 @@ function home() {
         :key="t.id"
         type="button"
         class="tab"
-        :class="{ on: state.view === t.id }"
-        :aria-current="state.view === t.id ? 'page' : undefined"
+        :class="{ on: !cabinetTab && state.view === t.id }"
+        :aria-current="!cabinetTab && state.view === t.id ? 'page' : undefined"
         :aria-describedby="`tab-hint-${t.id}`"
         :disabled="t.disabled"
         :title="t.hint"
-        @click="state.view = t.id"
+        @click="showView(t.id)"
       >
         <component :is="t.icon" :size="16" aria-hidden="true" />
         {{ t.title }}
         <span v-if="t.count" class="count">{{ t.count }}</span>
       </button>
       <span v-for="t in tabs" :id="`tab-hint-${t.id}`" :key="`hint-${t.id}`" hidden>{{ t.hint }}</span>
-      <button v-if="signedIn" type="button" class="tab" @click="openLibrary">Мои обложки</button>
+      <button
+        v-if="signedIn"
+        type="button"
+        class="tab"
+        :class="{ on: cabinetTab === 'covers' }"
+        :aria-current="cabinetTab === 'covers' ? 'page' : undefined"
+        @click="openLibrary"
+      >
+        Мои обложки
+      </button>
     </nav>
 
     <div class="actions">
@@ -124,7 +161,7 @@ function home() {
           <Upload :size="15" aria-hidden="true" /> <span class="hide-xs">Загрузить обложки</span>
         </button>
       </template>
-      <button v-else type="button" class="btn pill" title="Сбросить и начать заново" @click="home">
+      <button v-else type="button" class="btn pill" title="Сбросить и начать заново" @click="newAnalysis">
         <Plus :size="15" aria-hidden="true" /> <span class="hide-xs">Новый анализ</span>
       </button>
     </div>
@@ -365,6 +402,42 @@ function home() {
   }
   .actions {
     gap: 4px;
+  }
+}
+@media (max-width: 900px) {
+  .top.working,
+  .top.cabinet {
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+  }
+}
+@media (min-width: 901px) and (max-width: 1250px) {
+  .top,
+  .top.working {
+    gap: 12px;
+    grid-template-columns: auto 1fr auto;
+  }
+  .tab,
+  .links button {
+    padding-inline: 8px;
+  }
+  .actions .btn:not(.icon) {
+    padding-inline: 10px;
+  }
+  .top .lead-btn .hide-xs {
+    display: none;
+  }
+  .actions {
+    gap: 5px;
+  }
+}
+@media (max-width: 550px) {
+  .working .tab {
+    white-space: nowrap;
+  }
+  .working .count {
+    display: none;
   }
 }
 </style>

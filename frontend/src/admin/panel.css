@@ -2,6 +2,7 @@
 
 .panel {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 32px;
   padding: 28px clamp(20px, 3vw, 40px) 64px;
   max-width: 1320px;

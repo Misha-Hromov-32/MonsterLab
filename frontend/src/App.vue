@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { loadPlans } from './lib/account'
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import TopBar from './components/TopBar.vue'
 import VariantRail from './components/VariantRail.vue'
 import Landing from './components/landing/Landing.vue'
@@ -29,10 +29,29 @@ const preview = new URLSearchParams(location.search).get('preview') === '1'
 // Рабочий экран тоже принадлежит аккаунту: смена пользователя очищает чужие работы.
 watch(
   () => session.token,
-  () => resetAll(),
+  (_token, previous) => {
+    if (previous) resetAll()
+  },
   { flush: 'sync' },
 )
 
+const workspaceVisited = ref(!cabinetTab.value)
+let workspaceScroll = 0
+let lastView = state.view
+watch(
+  cabinetTab,
+  (next, prev) => {
+    if (next && !prev) {
+      workspaceScroll = window.scrollY
+      lastView = state.view
+      void nextTick(() => window.scrollTo(0, 0))
+    } else if (!next) {
+      workspaceVisited.value = true
+      void nextTick(() => window.scrollTo(0, state.view === lastView ? workspaceScroll : 0))
+    }
+  },
+  { flush: 'sync' },
+)
 const dragging = ref(false)
 // dragenter/dragleave срабатывают на каждом вложенном элементе — считаем глубину
 let depth = 0
@@ -124,10 +143,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app">
+  <div class="app" :class="{ 'in-cabinet': cabinetTab }">
+    <TopBar />
     <AccountDashboard v-if="cabinetTab" />
-    <TopBar v-if="!cabinetTab" />
-    <div v-if="!cabinetTab" class="body" :class="{ bare: !state.variants.length }">
+    <div
+      v-if="workspaceVisited"
+      v-show="!cabinetTab"
+      :inert="!!cabinetTab"
+      class="body"
+      :class="{ bare: !state.variants.length }"
+    >
       <VariantRail v-if="state.variants.length" />
       <main class="main">
         <Landing v-if="!state.variants.length" />
@@ -225,5 +250,11 @@ onUnmounted(() => {
   .body {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+.app.in-cabinet {
+  height: 100dvh;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
 }
 </style>
